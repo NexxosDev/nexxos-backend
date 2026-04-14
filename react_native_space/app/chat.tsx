@@ -83,6 +83,7 @@ export default function ChatScreen() {
               senderName={item?.senderName ?? ''}
               createdAt={item?.createdAt ?? ''}
               isOwn={item?.senderId === user?.id}
+              isVendorMessage={item?.senderId === chatInfo?.vendorUserId}
             />
           )}
           inverted

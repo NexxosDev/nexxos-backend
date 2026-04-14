@@ -154,6 +154,7 @@ export interface ChatInfo {
   id: string;
   requestId: string;
   vendorId: string;
+  vendorUserId: string;
   clientId: string;
   requestSummary: string;
   otherUserName: string;

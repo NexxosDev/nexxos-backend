@@ -37,6 +37,7 @@ export class ChatService {
       id: chat.id,
       requestId: chat.requestId,
       vendorId: chat.vendorId,
+      vendorUserId: chat.vendor.userId,
       clientId: chat.clientId,
       requestSummary,
       otherUserName,
