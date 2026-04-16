@@ -38,6 +38,7 @@ export default function RegisterVendorScreen() {
     parish: '',
     street: '',
     postalCode: '',
+    referencePoint: '',
     fullAddress: '',
   });
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
@@ -162,6 +163,7 @@ export default function RegisterVendorScreen() {
           postalCode: location?.postalCode ?? '',
           latitude: location?.latitude,
           longitude: location?.longitude,
+          referencePoint: location?.referencePoint ?? '',
           fullAddress: location?.fullAddress ?? '',
           vehicleModelIds: selectedModels ?? [],
           partSubcategoryIds: subcatIds ?? [],
