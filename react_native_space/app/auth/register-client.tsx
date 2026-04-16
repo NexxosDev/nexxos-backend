@@ -7,6 +7,7 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { getErrorMessage } from '../../src/services/api';
 import { Colors, Spacing } from '../../src/theme/colors';
 import Input from '../../src/components/Input';
+import PhoneInput from '../../src/components/PhoneInput';
 import Button from '../../src/components/Button';
 
 export default function RegisterClientScreen() {
@@ -77,7 +78,7 @@ export default function RegisterClientScreen() {
           <Input label="Nombre" value={form.firstName} onChangeText={(v) => update('firstName', v)} error={fieldErrors?.firstName} />
           <Input label="Apellido" value={form.lastName} onChangeText={(v) => update('lastName', v)} error={fieldErrors?.lastName} />
           <Input label="Cédula" value={form.documentId} onChangeText={(v) => update('documentId', v)} keyboardType="numeric" error={fieldErrors?.documentId} />
-          <Input label="Teléfono" value={form.phone} onChangeText={(v) => update('phone', v)} keyboardType="phone-pad" error={fieldErrors?.phone} />
+          <PhoneInput label="Teléfono" value={form.phone} onChangeText={(v) => update('phone', v)} error={fieldErrors?.phone} />
           <Input label="Email" value={form.email} onChangeText={(v) => update('email', v)} keyboardType="email-address" autoCapitalize="none" error={fieldErrors?.email} />
           <Input label="Contraseña" value={form.password} onChangeText={(v) => update('password', v)} secureTextEntry error={fieldErrors?.password} />
           <Input label="Confirmar Contraseña" value={form.confirmPassword} onChangeText={(v) => update('confirmPassword', v)} secureTextEntry error={fieldErrors?.confirmPassword} />

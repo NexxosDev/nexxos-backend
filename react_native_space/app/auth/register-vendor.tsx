@@ -10,6 +10,7 @@ import { getErrorMessage } from '../../src/services/api';
 import { uploadFile } from '../../src/services/upload';
 import { Colors, Spacing, BorderRadius } from '../../src/theme/colors';
 import Input from '../../src/components/Input';
+import PhoneInput from '../../src/components/PhoneInput';
 import Button from '../../src/components/Button';
 import StepIndicator from '../../src/components/StepIndicator';
 import SelectInput from '../../src/components/SelectInput';
@@ -118,7 +119,10 @@ export default function RegisterVendorScreen() {
   };
 
     const canNext = (): boolean => {
-    if (step === 1) return !!(personal?.firstName?.trim?.() && personal?.lastName?.trim?.() && personal?.phone?.trim?.() && personal?.documentId?.trim?.() && personal?.email?.trim?.() && personal?.password && personal?.password === personal?.confirmPassword && (personal?.password?.length ?? 0) >= 6);
+    if (step === 1) {
+      const emailValid = personal?.email?.trim?.() && /\S+@\S+\.\S+/.test(personal.email);
+      return !!(personal?.firstName?.trim?.() && personal?.lastName?.trim?.() && personal?.phone?.trim?.() && personal?.documentId?.trim?.() && emailValid && personal?.password && personal?.password === personal?.confirmPassword && (personal?.password?.length ?? 0) >= 6);
+    }
     if (step === 2) return !!(business?.businessName?.trim?.() && business?.rif?.trim?.());
     if (step === 3) return !!(location?.latitude && location?.longitude && location?.fullAddress?.trim?.());
     if (step === 4) return (selectedModels?.length ?? 0) > 0;
@@ -187,7 +191,7 @@ export default function RegisterVendorScreen() {
             <Input label="Nombre" value={personal.firstName} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), firstName: v }))} />
             <Input label="Apellido" value={personal.lastName} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), lastName: v }))} />
             <Input label="Cédula" value={personal.documentId} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), documentId: v }))} keyboardType="numeric" />
-            <Input label="Teléfono" value={personal.phone} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), phone: v }))} keyboardType="phone-pad" />
+            <PhoneInput label="Teléfono" value={personal.phone} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), phone: v }))} />
             <Input label="Email" value={personal.email} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), email: v }))} keyboardType="email-address" autoCapitalize="none" />
             <Input label="Contraseña" value={personal.password} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), password: v }))} secureTextEntry />
             <Input label="Confirmar Contraseña" value={personal.confirmPassword} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), confirmPassword: v }))} secureTextEntry />
