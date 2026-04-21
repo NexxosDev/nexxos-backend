@@ -35,6 +35,15 @@ export class AuthService {
     const skipEmailVerification = this.configService.get<string>('SKIP_EMAIL_VERIFICATION') === 'true';
     const emailVerified = skipEmailVerification;
 
+    // Vendedores también obtienen rol CLIENTE para poder crear solicitudes
+    const rolesToAssign: { roleId: string }[] = [{ roleId: role.id }];
+    if (dto.role === 'VENDEDOR') {
+      const clienteRole = await this.prisma.role.findUnique({ where: { name: 'CLIENTE' } });
+      if (clienteRole) {
+        rolesToAssign.push({ roleId: clienteRole.id });
+      }
+    }
+
     const user = await this.prisma.user.create({
       data: {
         email: dto.email,
@@ -44,8 +53,8 @@ export class AuthService {
         name: `${dto.firstName} ${dto.lastName}`,
         phone: dto.phone,
         documentId: dto.documentId,
-        emailVerified, // Auto-verificar en modo desarrollo
-        userRoles: { create: { roleId: role.id } },
+        emailVerified,
+        userRoles: { create: rolesToAssign },
       },
       include: { userRoles: { include: { role: true } } },
     });
