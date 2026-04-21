@@ -120,7 +120,9 @@ export default function VendorRequestDetailScreen() {
           <InfoRow icon="calendar-outline" label="Fecha" value={formatDate(req?.createdAt ?? '')} />
         </View>
 
-        {detail?.status === 'PENDING' ? (
+        {detail?.status === 'CERRADA' ? (
+          <Text style={styles.declinedText}>Esta solicitud ha sido cerrada por el cliente</Text>
+        ) : detail?.status === 'PENDING' ? (
           <View style={styles.actions}>
             <Button title="Responder" onPress={handleRespondClick} />
             <Button title="Declinar" variant="ghost" onPress={handleDecline} loading={declining} />

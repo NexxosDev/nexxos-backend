@@ -206,7 +206,7 @@ export class VendorService {
           state: m.request.state?.name ?? null,
           createdAt: m.request.createdAt.toISOString(),
         },
-        status: m.declined ? 'DECLINED' : m.responded ? 'RESPONDED' : 'PENDING',
+        status: m.request.status === 'CERRADA' ? 'CERRADA' : m.declined ? 'DECLINED' : m.responded ? 'RESPONDED' : 'PENDING',
       })),
     };
   }

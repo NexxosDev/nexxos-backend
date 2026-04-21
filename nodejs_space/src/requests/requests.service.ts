@@ -343,7 +343,7 @@ export class RequestsService {
           createdAt: m.request.createdAt.toISOString(),
           clientFirstName: m.request.client.firstName,
         },
-        status: m.declined ? 'DECLINED' : m.responded ? 'RESPONDED' : 'PENDING',
+        status: m.request.status === 'CERRADA' ? 'CERRADA' : m.declined ? 'DECLINED' : m.responded ? 'RESPONDED' : 'PENDING',
         respondedAt: m.respondedAt?.toISOString() ?? null,
         declinedAt: m.declinedAt?.toISOString() ?? null,
       })),
@@ -391,7 +391,7 @@ export class RequestsService {
         clientFirstName: match.request.client.firstName,
         status: match.request.status,
       },
-      status: match.declined ? 'DECLINED' : match.responded ? 'RESPONDED' : 'PENDING',
+      status: match.request.status === 'CERRADA' ? 'CERRADA' : match.declined ? 'DECLINED' : match.responded ? 'RESPONDED' : 'PENDING',
       chatId: chat?.id ?? null,
     };
   }
