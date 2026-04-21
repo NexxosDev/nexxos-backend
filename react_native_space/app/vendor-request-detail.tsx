@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, RefreshControl, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, RefreshControl, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -132,23 +132,34 @@ export default function VendorRequestDetailScreen() {
         ) : null}
       </ScrollView>
 
-      <Modal visible={respondModal} transparent animationType="slide">
-        <Pressable style={styles.overlay} onPress={() => setRespondModal(false)} />
-        <View style={styles.bottomSheet}>
-          <Text style={styles.sheetTitle}>Tu respuesta</Text>
-          {error ? <Text style={styles.errorBox}>{error}</Text> : null}
-          <TextInput
-            style={styles.messageInput}
-            value={message}
-            onChangeText={setMessage}
-            placeholder="Escribe un mensaje para el cliente..."
-            placeholderTextColor={Colors.textSecondary}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-          />
-          <Button title="Enviar Respuesta" onPress={handleRespond} loading={responding} />
-        </View>
+      <Modal visible={respondModal} transparent animationType="fade">
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.topSheet}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Tu respuesta</Text>
+              <Pressable onPress={() => setRespondModal(false)} hitSlop={12}>
+                <Ionicons name="close-circle" size={28} color={Colors.textSecondary} />
+              </Pressable>
+            </View>
+            {error ? <Text style={styles.errorBox}>{error}</Text> : null}
+            <TextInput
+              style={styles.messageInput}
+              value={message}
+              onChangeText={setMessage}
+              placeholder="Escribe un mensaje para el cliente..."
+              placeholderTextColor={Colors.textSecondary}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              autoFocus
+            />
+            <Button title="Enviar Respuesta" onPress={handleRespond} loading={responding} />
+          </View>
+          <Pressable style={styles.overlayBottom} onPress={() => setRespondModal(false)} />
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -185,9 +196,11 @@ const styles = StyleSheet.create({
   actions: { gap: Spacing.sm },
   declinedText: { fontSize: 15, color: Colors.textSecondary, textAlign: 'center', paddingVertical: Spacing.lg },
   errorMsg: { padding: Spacing.lg, textAlign: 'center', color: Colors.textSecondary, fontSize: 16 },
-  overlay: { flex: 1, backgroundColor: Colors.overlay },
-  bottomSheet: { backgroundColor: Colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: Spacing.lg, paddingBottom: 40 },
-  sheetTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.md },
+  modalContainer: { flex: 1, backgroundColor: Colors.overlay },
+  topSheet: { backgroundColor: Colors.white, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, padding: Spacing.lg, paddingTop: Platform.OS === 'ios' ? 60 : 40 },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  sheetTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  overlayBottom: { flex: 1 },
   errorBox: { backgroundColor: '#FEE2E2', color: Colors.error, padding: Spacing.md, borderRadius: 8, fontSize: 14, marginBottom: Spacing.md },
   messageInput: {
     borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.md,
