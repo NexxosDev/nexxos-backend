@@ -67,7 +67,7 @@ export class ChatService {
     });
 
     const hasMore = messages.length > limit;
-    const items = messages.slice(0, limit).reverse();
+    const items = messages.slice(0, limit);
 
     return {
       items: items.map((m: any) => ({
