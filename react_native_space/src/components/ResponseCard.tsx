@@ -29,7 +29,7 @@ export default function ResponseCard({ businessName, avgRating, initialMessage, 
         </View>
       </View>
       <Text style={styles.message} numberOfLines={2}>{initialMessage ?? ''}</Text>
-      <Button title="Abrir Chat" variant="secondary" onPress={onOpenChat} style={styles.chatBtn} />
+      {onOpenChat ? <Button title="Abrir Chat" variant="secondary" onPress={onOpenChat} style={styles.chatBtn} /> : null}
     </View>
   );
 }
