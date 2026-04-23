@@ -25,6 +25,8 @@ export class RequestsService {
         stateId: dto.stateId,
         municipalityId: dto.municipalityId,
         searchRadiusKm: dto.searchRadiusKm,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
         vehicleBrandId: dto.vehicleBrandId,
         vehicleModelId: dto.vehicleModelId,
         partCategoryId: dto.partCategoryId,
@@ -39,15 +41,22 @@ export class RequestsService {
       vendorVehicleModels: { some: { vehicleModelId: dto.vehicleModelId } },
     };
 
-    // Filtros geográficos opcionales
-    if (dto.municipalityId) {
-      // Si hay municipio, filtrar por municipio específico
-      matchingConditions.municipalityId = dto.municipalityId;
-    } else if (dto.stateId) {
-      // Si solo hay estado, filtrar por estado
-      matchingConditions.stateId = dto.stateId;
+    // Detectar si estamos en modo "radio" (lat/lng + radiusKm, sin municipio/estado)
+    const radiusMode =
+      typeof dto.latitude === 'number' &&
+      typeof dto.longitude === 'number' &&
+      typeof dto.searchRadiusKm === 'number' &&
+      !dto.municipalityId &&
+      !dto.stateId;
+
+    // Filtros geográficos (solo cuando NO estamos en modo radio)
+    if (!radiusMode) {
+      if (dto.municipalityId) {
+        matchingConditions.municipalityId = dto.municipalityId;
+      } else if (dto.stateId) {
+        matchingConditions.stateId = dto.stateId;
+      }
     }
-    // Si no hay ninguno (modo radio), buscar en cualquier ubicación
 
     if (dto.partSubcategoryId) {
       matchingConditions.vendorPartSubcategories = {
@@ -69,10 +78,41 @@ export class RequestsService {
     // Exclude the client themselves from matches (if they are also a vendor)
     matchingConditions.userId = { not: clientId };
 
-    const matchedVendors = await this.prisma.vendor.findMany({
-      where: matchingConditions,
-      select: { id: true },
-    });
+    let matchedVendors: { id: string }[];
+
+    if (radiusMode) {
+      // Filtrar por distancia Haversine en memoria
+      const candidates = await this.prisma.vendor.findMany({
+        where: matchingConditions,
+        select: { id: true, latitude: true, longitude: true },
+      });
+      const clientLat = dto.latitude as number;
+      const clientLng = dto.longitude as number;
+      const radiusKm = dto.searchRadiusKm as number;
+      const toRad = (d: number) => (d * Math.PI) / 180;
+      const haversine = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+        const R = 6371;
+        const dLat = toRad(lat2 - lat1);
+        const dLng = toRad(lng2 - lng1);
+        const a =
+          Math.sin(dLat / 2) ** 2 +
+          Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      };
+      matchedVendors = candidates
+        .filter(
+          (v: any) =>
+            typeof v.latitude === 'number' &&
+            typeof v.longitude === 'number' &&
+            haversine(clientLat, clientLng, v.latitude, v.longitude) <= radiusKm,
+        )
+        .map((v: any) => ({ id: v.id }));
+    } else {
+      matchedVendors = await this.prisma.vendor.findMany({
+        where: matchingConditions,
+        select: { id: true },
+      });
+    }
 
     if (matchedVendors.length > 0) {
       await this.prisma.requestVendorMatch.createMany({

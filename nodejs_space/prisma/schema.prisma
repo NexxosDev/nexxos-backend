@@ -208,6 +208,8 @@ model Request {
   stateId           String?   @map("state_id") @db.Uuid
   municipalityId    String?   @map("municipality_id") @db.Uuid
   searchRadiusKm    Int?      @map("search_radius_km")
+  latitude          Float?
+  longitude         Float?
   freeDescription   String    @map("free_description")
   status            String    @default("ABIERTA")
   createdAt         DateTime  @default(now()) @map("created_at")

@@ -5,6 +5,8 @@ export async function createRequest(data: {
   stateId?: string;
   municipalityId?: string;
   searchRadiusKm?: number;
+  latitude?: number;
+  longitude?: number;
   vehicleBrandId: string;
   vehicleModelId: string;
   partCategoryId: string;

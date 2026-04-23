@@ -107,9 +107,11 @@ export default function CreateRequestScreen() {
     setLoading(true);
     try {
       const result = await createRequest({
-        stateId: locationData.stateId ?? undefined,
-        municipalityId: locationData.municipalityId ?? undefined,
-        searchRadiusKm: locationData.radiusKm ?? undefined,
+        stateId: locationData.filterType === 'radius' ? undefined : (locationData.stateId ?? undefined),
+        municipalityId: locationData.filterType === 'radius' ? undefined : (locationData.municipalityId ?? undefined),
+        searchRadiusKm: locationData.filterType === 'radius' ? (locationData.radiusKm ?? undefined) : undefined,
+        latitude: locationData.filterType === 'radius' ? (locationData.latitude ?? undefined) : undefined,
+        longitude: locationData.filterType === 'radius' ? (locationData.longitude ?? undefined) : undefined,
         vehicleBrandId: brandId,
         vehicleModelId: modelId,
         partCategoryId: categoryId,
