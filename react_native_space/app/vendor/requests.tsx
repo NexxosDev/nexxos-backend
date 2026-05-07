@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Pressable, RefreshControl, ScrollView } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getVendorRequests } from '../../src/services/vendor';
@@ -55,12 +55,14 @@ export default function VendorRequests() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <Text style={styles.title}>Solicitudes</Text>
-      <View style={styles.filterRow}>
-        {filters.map((f) => (
-          <Pressable key={f.key} style={[styles.filterChip, filter === f.key && styles.filterChipActive]} onPress={() => setFilter(f.key)}>
-            <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>{f.label}</Text>
-          </Pressable>
-        ))}
+      <View style={styles.filterContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          {filters.map((f) => (
+            <Pressable key={f.key} style={[styles.filterChip, filter === f.key && styles.filterChipActive]} onPress={() => setFilter(f.key)}>
+              <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>{f.label}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
       </View>
       {loading ? <LoadingSpinner /> : (
         <FlatList
@@ -90,8 +92,9 @@ export default function VendorRequests() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, paddingHorizontal: Spacing.md, paddingTop: Spacing.md },
-  filterRow: { flexDirection: 'row', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, gap: 8 },
-  filterChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: BorderRadius.full, backgroundColor: Colors.chipBg },
+  filterContainer: { flexShrink: 0 },
+  filterRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
+  filterChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: BorderRadius.full, backgroundColor: Colors.chipBg, marginRight: 8 },
   filterChipActive: { backgroundColor: Colors.primary },
   filterText: { fontSize: 13, color: Colors.textSubtitle },
   filterTextActive: { color: Colors.accent, fontWeight: '600' },
