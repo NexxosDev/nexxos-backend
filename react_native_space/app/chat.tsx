@@ -1,13 +1,16 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, Pressable, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import {
+  View, Text, StyleSheet, FlatList, TextInput, Pressable,
+  KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Animated,
+} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { Swipeable } from 'react-native-gesture-handler';
 import { useAuth } from '../src/contexts/AuthContext';
 import { getChatInfo, getChatMessages, sendChatMessage } from '../src/services/chat';
-// upload helpers are dynamically imported in uploadFileWithUrl
-import { Colors, Spacing } from '../src/theme/colors';
+import { Colors, Spacing, BorderRadius } from '../src/theme/colors';
 import ChatMessageComp from '../src/components/ChatMessage';
 import LoadingSpinner from '../src/components/LoadingSpinner';
 import type { ChatInfo, ChatMessageItem } from '../src/types';
@@ -23,7 +26,18 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<ChatMessageItem | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const flatListRef = useRef<FlatList>(null);
+  const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
+  const inputRef = useRef<TextInput>(null);
+
+  // Build index map for scroll-to-message
+  const messageIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    (messages ?? []).forEach((m, i) => { if (m?.id) map.set(m.id, i); });
+    return map;
+  }, [messages]);
 
   const fetchMessages = useCallback(async () => {
     if (!chatId) return;
@@ -49,16 +63,37 @@ export default function ChatScreen() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [fetchMessages]);
 
+  /* ---- Reply helpers ---- */
+  const activateReply = useCallback((msg: ChatMessageItem) => {
+    setReplyingTo(msg);
+    // Close the swipeable that triggered this
+    const ref = swipeableRefs.current.get(msg?.id ?? '');
+    ref?.close?.();
+    // Focus the input
+    setTimeout(() => inputRef.current?.focus?.(), 100);
+  }, []);
+
+  const cancelReply = useCallback(() => setReplyingTo(null), []);
+
+  const scrollToMessage = useCallback((targetId: string) => {
+    const idx = messageIndexMap.get(targetId);
+    if (idx != null && flatListRef.current) {
+      flatListRef.current.scrollToIndex({ index: idx, animated: true, viewPosition: 0.5 });
+    }
+  }, [messageIndexMap]);
+
+  /* ---- Send ---- */
   const handleSend = async () => {
     const trimmed = text?.trim?.() ?? '';
     if (!trimmed || sending) return;
     setSending(true);
     try {
-      const newMsg = await sendChatMessage(chatId, trimmed, 'text');
+      const newMsg = await sendChatMessage(chatId, trimmed, 'text', undefined, replyingTo?.id);
       if (newMsg) {
         setMessages((prev) => [newMsg, ...(prev ?? [])]);
       }
       setText('');
+      setReplyingTo(null);
     } catch { }
     setSending(false);
   };
@@ -102,15 +137,15 @@ export default function ChatScreen() {
       const contentType = asset?.mimeType ?? 'image/jpeg';
 
       setUploading(true);
-      // Upload to S3 and get the public URL
       const uploadRes = await uploadFileWithUrl(uri, fileName, contentType);
       const imageUrl = uploadRes?.url ?? '';
 
       if (imageUrl) {
-        const newMsg = await sendChatMessage(chatId, '📷 Imagen', 'image', imageUrl);
+        const newMsg = await sendChatMessage(chatId, '📷 Imagen', 'image', imageUrl, replyingTo?.id);
         if (newMsg) {
           setMessages((prev) => [newMsg, ...(prev ?? [])]);
         }
+        setReplyingTo(null);
       }
     } catch (err) {
       Alert.alert('Error', 'No se pudo enviar la imagen. Intenta de nuevo.');
@@ -118,7 +153,50 @@ export default function ChatScreen() {
     setUploading(false);
   };
 
+  /* ---- Swipe right action (reply arrow) ---- */
+  const renderLeftActions = useCallback((_progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
+    const scale = dragX.interpolate({ inputRange: [0, 60], outputRange: [0.4, 1], extrapolate: 'clamp' });
+    return (
+      <View style={styles.swipeReplyAction}>
+        <Animated.View style={{ transform: [{ scale }] }}>
+          <Ionicons name="arrow-undo" size={22} color={Colors.primary} />
+        </Animated.View>
+      </View>
+    );
+  }, []);
+
+  /* ---- Render message ---- */
+  const renderMessage = useCallback(({ item }: { item: ChatMessageItem }) => {
+    return (
+      <Swipeable
+        ref={(ref) => { if (ref && item?.id) swipeableRefs.current.set(item.id, ref); }}
+        renderLeftActions={renderLeftActions}
+        onSwipeableOpen={(direction) => { if (direction === 'left') activateReply(item); }}
+        leftThreshold={60}
+        overshootLeft={false}
+        friction={2}
+      >
+        <ChatMessageComp
+          messageText={item?.messageText ?? ''}
+          senderName={item?.senderName ?? ''}
+          createdAt={item?.createdAt ?? ''}
+          isOwn={item?.senderId === user?.id}
+          isVendorMessage={item?.senderId === chatInfo?.vendorUserId}
+          messageType={item?.messageType}
+          imageUrl={item?.imageUrl}
+          replyTo={item?.replyTo}
+          onReplyPress={scrollToMessage}
+        />
+      </Swipeable>
+    );
+  }, [user?.id, chatInfo?.vendorUserId, renderLeftActions, activateReply, scrollToMessage]);
+
   if (loading) return <LoadingSpinner />;
+
+  const replyPreviewText = replyingTo
+    ? ((replyingTo?.messageType ?? 'text') === 'image' ? '📷 Imagen' : (replyingTo?.messageText ?? ''))
+    : '';
+  const replyPreviewSnippet = replyPreviewText.length > 50 ? replyPreviewText.substring(0, 47) + '...' : replyPreviewText;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -134,22 +212,17 @@ export default function ChatScreen() {
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
         <FlatList
+          ref={flatListRef}
           data={messages ?? []}
           keyExtractor={(item) => item?.id ?? Math.random().toString()}
-          renderItem={({ item }) => (
-            <ChatMessageComp
-              messageText={item?.messageText ?? ''}
-              senderName={item?.senderName ?? ''}
-              createdAt={item?.createdAt ?? ''}
-              isOwn={item?.senderId === user?.id}
-              isVendorMessage={item?.senderId === chatInfo?.vendorUserId}
-              messageType={item?.messageType}
-              imageUrl={item?.imageUrl}
-            />
-          )}
+          renderItem={renderMessage}
           inverted
           contentContainerStyle={styles.messageList}
           ListEmptyComponent={<Text style={styles.emptyChat}>No hay mensajes aún. ¡Inicia la conversación!</Text>}
+          onScrollToIndexFailed={(info) => {
+            // Scroll to approximate position then retry
+            flatListRef.current?.scrollToOffset?.({ offset: info.averageItemLength * info.index, animated: true });
+          }}
         />
 
         {/* Uploading indicator */}
@@ -174,6 +247,22 @@ export default function ChatScreen() {
           </View>
         ) : null}
 
+        {/* Reply preview bar */}
+        {replyingTo ? (
+          <View style={styles.replyBar}>
+            <View style={styles.replyBarLeft}>
+              <View style={styles.replyBarAccent} />
+              <View style={styles.replyBarContent}>
+                <Text style={styles.replyBarName} numberOfLines={1}>{replyingTo?.senderName ?? ''}</Text>
+                <Text style={styles.replyBarText} numberOfLines={1}>{replyPreviewSnippet}</Text>
+              </View>
+            </View>
+            <Pressable onPress={cancelReply} style={styles.replyBarClose} hitSlop={8}>
+              <Ionicons name="close" size={20} color={Colors.textSecondary} />
+            </Pressable>
+          </View>
+        ) : null}
+
         <View style={styles.inputBar}>
           <Pressable
             style={styles.attachBtn}
@@ -183,6 +272,7 @@ export default function ChatScreen() {
             <Ionicons name={showAttachMenu ? 'close' : 'attach'} size={24} color={uploading ? Colors.textSecondary : Colors.primary} />
           </Pressable>
           <TextInput
+            ref={inputRef}
             style={styles.input}
             value={text}
             onChangeText={setText}
@@ -254,6 +344,22 @@ const styles = StyleSheet.create({
     alignItems: 'center', paddingVertical: 8, paddingHorizontal: 24,
   },
   attachOptionText: { fontSize: 12, color: Colors.textPrimary, marginTop: 4 },
+  /* Swipe reply action */
+  swipeReplyAction: {
+    width: 60, justifyContent: 'center', alignItems: 'center',
+  },
+  /* Reply preview bar */
+  replyBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md, paddingVertical: 8,
+    backgroundColor: Colors.white, borderTopWidth: 1, borderTopColor: Colors.border,
+  },
+  replyBarLeft: { flexDirection: 'row', alignItems: 'stretch', flex: 1, marginRight: 8 },
+  replyBarAccent: { width: 3, backgroundColor: Colors.primary, borderRadius: 2, marginRight: 8 },
+  replyBarContent: { flex: 1, justifyContent: 'center' },
+  replyBarName: { fontSize: 12, fontWeight: '700', color: Colors.primary },
+  replyBarText: { fontSize: 13, color: Colors.textSecondary, marginTop: 1 },
+  replyBarClose: { padding: 4 },
   inputBar: {
     flexDirection: 'row', alignItems: 'flex-end', padding: Spacing.sm,
     borderTopWidth: 1, borderTopColor: Colors.border, backgroundColor: Colors.white,

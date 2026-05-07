@@ -67,7 +67,17 @@ export class ChatService {
       where,
       take: limit + 1,
       orderBy: { createdAt: 'desc' },
-      include: { sender: { select: { id: true, firstName: true, lastName: true } } },
+      include: {
+        sender: { select: { id: true, firstName: true, lastName: true } },
+        replyTo: {
+          select: {
+            id: true,
+            messageText: true,
+            messageType: true,
+            sender: { select: { firstName: true, lastName: true } },
+          },
+        },
+      },
     });
 
     const hasMore = messages.length > limit;
@@ -81,13 +91,18 @@ export class ChatService {
         messageText: m.messageText,
         messageType: m.messageType ?? 'text',
         imageUrl: m.imageUrl ?? null,
+        replyTo: m.replyTo ? {
+          id: m.replyTo.id,
+          messageText: m.replyTo.messageType === 'image' ? '📷 Imagen' : m.replyTo.messageText,
+          senderName: `${m.replyTo.sender?.firstName ?? ''} ${m.replyTo.sender?.lastName ?? ''}`.trim(),
+        } : null,
         createdAt: m.createdAt.toISOString(),
       })),
       hasMore,
     };
   }
 
-  async sendMessage(chatId: string, userId: string, messageText: string, messageType = 'text', imageUrl?: string) {
+  async sendMessage(chatId: string, userId: string, messageText: string, messageType = 'text', imageUrl?: string, replyToId?: string) {
     const chat = await this.prisma.chat.findUnique({
       where: { id: chatId },
       include: { vendor: { select: { userId: true } } },
@@ -100,8 +115,22 @@ export class ChatService {
     if (!isClient && !isVendor) throw new ForbiddenException();
 
     const message = await this.prisma.chatMessage.create({
-      data: { chatId, senderId: userId, messageText, messageType, imageUrl: imageUrl ?? null },
-      include: { sender: { select: { id: true, firstName: true, lastName: true } } },
+      data: {
+        chatId, senderId: userId, messageText, messageType,
+        imageUrl: imageUrl ?? null,
+        replyToId: replyToId ?? null,
+      },
+      include: {
+        sender: { select: { id: true, firstName: true, lastName: true } },
+        replyTo: {
+          select: {
+            id: true,
+            messageText: true,
+            messageType: true,
+            sender: { select: { firstName: true, lastName: true } },
+          },
+        },
+      },
     });
 
     // 🔔 Push: Notificar al otro participante del chat
@@ -119,6 +148,7 @@ export class ChatService {
       ).catch((err) => this.logger.error('Push error (new message)', err));
     }
 
+    const rt = (message as any).replyTo;
     return {
       id: message.id,
       senderId: message.sender.id,
@@ -126,6 +156,11 @@ export class ChatService {
       messageText: message.messageText,
       messageType: message.messageType,
       imageUrl: message.imageUrl,
+      replyTo: rt ? {
+        id: rt.id,
+        messageText: rt.messageType === 'image' ? '📷 Imagen' : rt.messageText,
+        senderName: `${rt.sender?.firstName ?? ''} ${rt.sender?.lastName ?? ''}`.trim(),
+      } : null,
       createdAt: message.createdAt.toISOString(),
     };
   }

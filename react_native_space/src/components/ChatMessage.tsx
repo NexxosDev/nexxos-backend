@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, Modal, Dimensions, Platform } from '
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../theme/colors';
+import type { ChatMessageReplyTo } from '../types';
 
 interface ChatMessageProps {
   messageText: string;
@@ -12,13 +13,15 @@ interface ChatMessageProps {
   isVendorMessage?: boolean;
   messageType?: string;
   imageUrl?: string | null;
+  replyTo?: ChatMessageReplyTo | null;
+  onReplyPress?: (replyToId: string) => void;
 }
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
 export default function ChatMessage({
   messageText, senderName, createdAt, isOwn, isVendorMessage = false,
-  messageType, imageUrl,
+  messageType, imageUrl, replyTo, onReplyPress,
 }: ChatMessageProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -33,10 +36,25 @@ export default function ChatMessage({
   const shouldBeOnRight = isVendorMessage;
   const isImage = (messageType ?? 'text') === 'image' && !!imageUrl;
 
+  const replySnippet = (replyTo?.messageText ?? '').length > 60
+    ? (replyTo?.messageText ?? '').substring(0, 57) + '...'
+    : (replyTo?.messageText ?? '');
+
   return (
     <View style={[styles.row, shouldBeOnRight ? styles.rowOwn : styles.rowOther]}>
       <View style={[styles.bubble, shouldBeYellow ? styles.bubbleVendor : styles.bubbleClient, isImage && styles.bubbleImage]}>
         {!isOwn ? <Text style={styles.sender}>{senderName ?? ''}</Text> : null}
+
+        {/* Quoted reply bubble */}
+        {replyTo?.id ? (
+          <Pressable
+            style={[styles.quotedBox, shouldBeYellow ? styles.quotedBoxVendor : styles.quotedBoxClient]}
+            onPress={() => onReplyPress?.(replyTo.id)}
+          >
+            <Text style={styles.quotedName} numberOfLines={1}>{replyTo?.senderName ?? ''}</Text>
+            <Text style={styles.quotedText} numberOfLines={2}>{replySnippet}</Text>
+          </Pressable>
+        ) : null}
 
         {isImage ? (
           <Pressable onPress={() => setPreviewOpen(true)}>
@@ -90,6 +108,24 @@ const styles = StyleSheet.create({
   bubbleClient: { backgroundColor: Colors.white, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: Colors.border },
   bubbleImage: { padding: 4, paddingHorizontal: 4 },
   sender: { fontSize: 11, fontWeight: '600', color: Colors.textSecondary, marginBottom: 2, paddingHorizontal: 4 },
+  /* Quoted reply */
+  quotedBox: {
+    borderLeftWidth: 3,
+    borderRadius: 6,
+    padding: 6,
+    paddingLeft: 8,
+    marginBottom: 4,
+  },
+  quotedBoxVendor: {
+    borderLeftColor: Colors.accent,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+  },
+  quotedBoxClient: {
+    borderLeftColor: Colors.primary,
+    backgroundColor: 'rgba(255,193,7,0.12)',
+  },
+  quotedName: { fontSize: 11, fontWeight: '700', color: Colors.primary, marginBottom: 1 },
+  quotedText: { fontSize: 12, color: Colors.textSecondary, lineHeight: 16 },
   text: { fontSize: 15, lineHeight: 20 },
   textVendor: { color: Colors.accent },
   textClient: { color: Colors.textPrimary },

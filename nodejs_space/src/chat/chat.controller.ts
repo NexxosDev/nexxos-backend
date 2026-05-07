@@ -38,6 +38,6 @@ export class ChatController {
     @Param('chatId') chatId: string,
     @Body() dto: SendMessageDto,
   ) {
-    return this.chatService.sendMessage(chatId, userId, dto.messageText, dto.messageType ?? 'text', dto.imageUrl);
+    return this.chatService.sendMessage(chatId, userId, dto.messageText, dto.messageType ?? 'text', dto.imageUrl, dto.replyToId);
   }
 }

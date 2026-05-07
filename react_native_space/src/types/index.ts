@@ -189,6 +189,12 @@ export interface VendorResponseMetrics {
   slowestResponseTimeMs: number | null;
 }
 
+export interface ChatMessageReplyTo {
+  id: string;
+  messageText: string;
+  senderName: string;
+}
+
 export interface ChatMessageItem {
   id: string;
   senderId: string;
@@ -196,5 +202,6 @@ export interface ChatMessageItem {
   messageText: string;
   messageType?: string;
   imageUrl?: string | null;
+  replyTo?: ChatMessageReplyTo | null;
   createdAt: string;
 }
