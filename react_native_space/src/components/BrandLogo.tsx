@@ -4,10 +4,6 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../theme/colors';
 
-/**
- * Maps brand name (lowercased) to its CDN key.
- * Pattern: https://i.pinimg.com/736x/56/f5/35/56f53504d570af72648657e8a92f76e2.jpg
- */
 const BRAND_KEY_MAP: Record<string, string> = {
   hyundai: 'hyundai',
   chevrolet: 'chevrolet',
@@ -44,10 +40,12 @@ const BRAND_KEY_MAP: Record<string, string> = {
   mg: 'mg',
 };
 
+const CDN_BASE = 'https://vl.imgix.net/img/';
+
 function getBrandLogoUrl(brandName: string): string | null {
   const key = BRAND_KEY_MAP[brandName?.toLowerCase?.()?.trim?.() ?? ''];
   if (!key) return null;
-  return `https://upload.wikimedia.org/wikipedia/commons/7/77/Wikimedia_Brand_Guidelines_Update_2022_-_Wikimedia_Logo_Clear-space.png?utm_source=meta.wikimedia.org&utm_campaign=parser&utm_content=thumbnail_unscaled`;
+  return CDN_BASE + key + '-logo.png?w=120&h=90&fit=fill&fill=solid&fill-color=00000000';
 }
 
 interface BrandLogoProps {
@@ -61,7 +59,7 @@ export default function BrandLogo({ brandName, size = 28 }: BrandLogoProps) {
 
   if (!logoUrl || failed) {
     return (
-      <View style={[styles.fallback, { width: size + 8, height: size + 8, borderRadius: (size + 8) / 2 }]}> 
+      <View style={[styles.fallback, { width: size + 8, height: size + 8, borderRadius: (size + 8) / 2 }]}>
         <Ionicons name="car-sport-outline" size={size * 0.7} color={Colors.primary} />
       </View>
     );
