@@ -17,8 +17,8 @@ export function formatCedula(raw: string): string {
   // Strip a leading "V" or "v" (with or without dash)
   cleaned = cleaned.replace(/^[Vv]-?/, '');
 
-  // Keep only digits
-  const digits = cleaned.replace(/[^0-9]/g, '');
+  // Keep only digits, max 8
+  const digits = cleaned.replace(/[^0-9]/g, '').slice(0, 8);
 
   if (!digits) return '';
 
@@ -33,6 +33,6 @@ export function validateCedula(formatted: string): string {
   if (!/^V-\d+$/.test(formatted)) return 'Formato inválido. Debe ser V-12345678';
   const digits = formatted.replace('V-', '');
   if (digits.length < 6) return 'Mínimo 6 dígitos';
-  if (digits.length > 10) return 'Máximo 10 dígitos';
+  if (digits.length > 8) return 'Máximo 8 dígitos';
   return '';
 }
