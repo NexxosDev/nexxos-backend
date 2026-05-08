@@ -11,6 +11,7 @@ import ResponseCard from '../src/components/ResponseCard';
 import Button from '../src/components/Button';
 import StarRating from '../src/components/StarRating';
 import LoadingSpinner from '../src/components/LoadingSpinner';
+import BrandLogo from '../src/components/BrandLogo';
 import type { RequestDetail, RequestResponseItem } from '../src/types';
 
 export default function RequestDetailScreen() {
@@ -91,7 +92,13 @@ export default function RequestDetailScreen() {
         <View style={styles.infoCard}>
           <InfoRow icon="location-outline" label="Ubicación" value={[detail?.municipality?.name, detail?.state?.name].filter(Boolean).join(', ') || 'No especificada'} />
           <InfoRow icon="navigate-outline" label="Distancia de Búsqueda" value={`${detail?.searchRadiusKm ?? 0} km`} />
-          <InfoRow icon="car-outline" label="Vehículo" value={`${detail?.vehicleBrand?.name ?? ''} ${detail?.vehicleModel?.name ?? ''}`} />
+          <View style={infoStyles.row}>
+            <BrandLogo brandName={detail?.vehicleBrand?.name ?? ''} size={20} />
+            <View style={infoStyles.col}>
+              <Text style={infoStyles.label}>Vehículo</Text>
+              <Text style={infoStyles.value}>{`${detail?.vehicleBrand?.name ?? ''} ${detail?.vehicleModel?.name ?? ''}`}</Text>
+            </View>
+          </View>
           <InfoRow icon="construct-outline" label="Repuesto" value={`${detail?.partCategory?.name ?? ''}${detail?.partSubcategory?.name ? ` - ${detail.partSubcategory.name}` : ''}`} />
           <InfoRow icon="document-text-outline" label="Descripción" value={detail?.freeDescription ?? ''} />
           <InfoRow icon="calendar-outline" label="Fecha" value={formatDate(detail?.createdAt ?? '')} />

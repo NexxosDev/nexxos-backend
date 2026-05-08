@@ -10,6 +10,7 @@ import { Colors, Spacing, BorderRadius } from '../src/theme/colors';
 import Badge from '../src/components/Badge';
 import Button from '../src/components/Button';
 import LoadingSpinner from '../src/components/LoadingSpinner';
+import BrandLogo from '../src/components/BrandLogo';
 import type { VendorRequestDetailType } from '../src/types';
 
 export default function VendorRequestDetailScreen() {
@@ -113,7 +114,13 @@ export default function VendorRequestDetailScreen() {
         </View>
 
         <View style={styles.infoCard}>
-          <InfoRow icon="car-outline" label="Vehículo" value={`${req?.vehicleBrand ?? ''} ${req?.vehicleModel ?? ''}`} />
+          <View style={infoStyles.row}>
+            <BrandLogo brandName={req?.vehicleBrand ?? ''} size={20} />
+            <View style={infoStyles.col}>
+              <Text style={infoStyles.label}>Vehículo</Text>
+              <Text style={infoStyles.value}>{`${req?.vehicleBrand ?? ''} ${req?.vehicleModel ?? ''}`}</Text>
+            </View>
+          </View>
           <InfoRow icon="construct-outline" label="Repuesto" value={`${req?.partCategory ?? ''}${req?.partSubcategory ? ` - ${req.partSubcategory}` : ''}`} />
           <InfoRow icon="document-text-outline" label="Descripción" value={req?.freeDescription ?? ''} />
           <InfoRow icon="location-outline" label="Radio" value={`${req?.searchRadiusKm ?? 0} km`} />

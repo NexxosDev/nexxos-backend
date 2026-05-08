@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, Animated, Platform } from 'react-nat
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../theme/colors';
 import Badge from './Badge';
+import BrandLogo from './BrandLogo';
 
 interface RequestCardProps {
   vehicleBrand: string;
@@ -44,7 +45,7 @@ export default function RequestCard({
       >
         <View style={styles.row}>
           <View style={styles.iconContainer}>
-            <Ionicons name="car-outline" size={24} color={Colors.primary} />
+            <BrandLogo brandName={vehicleBrand ?? ''} size={28} />
           </View>
           <View style={styles.content}>
             <Text style={styles.title} numberOfLines={1}>{vehicleBrand ?? ''} {vehicleModel ?? ''}</Text>
@@ -93,10 +94,9 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', alignItems: 'center' },
   iconContainer: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: Colors.backgroundSection,
+    width: 40, height: 40,
     justifyContent: 'center', alignItems: 'center',
-    marginRight: Spacing.md,
+    marginRight: Spacing.sm,
   },
   content: { flex: 1 },
   title: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
