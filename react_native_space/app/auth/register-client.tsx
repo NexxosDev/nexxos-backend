@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import type { ThemeColors } from '../../src/theme/colors';
 import Input from '../../src/components/Input';
 import PhoneInput from '../../src/components/PhoneInput';
 import Button from '../../src/components/Button';
+import EmailVerification from '../../src/components/EmailVerification';
 
 export default function RegisterClientScreen() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function RegisterClientScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [emailVerified, setEmailVerified] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -32,6 +34,7 @@ export default function RegisterClientScreen() {
   const update = (key: string, val: string) => {
     setForm((prev) => ({ ...(prev ?? {}), [key]: val }));
     setFieldErrors((prev) => ({ ...(prev ?? {}), [key]: '' }));
+    if (key === 'email') setEmailVerified(false);
   };
 
   const validate = (): boolean => {
@@ -43,6 +46,7 @@ export default function RegisterClientScreen() {
     if (!form?.phone?.trim?.()) errs.phone = 'Requerido';
     if (!form?.email?.trim?.()) errs.email = 'Requerido';
     else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = 'Email inválido';
+    if (!emailVerified) errs.email = errs.email || 'Debes verificar tu correo';
     if (!form?.password) errs.password = 'Requerido';
     else if ((form?.password?.length ?? 0) < 6) errs.password = 'Mínimo 6 caracteres';
     if (form?.password !== form?.confirmPassword) errs.confirmPassword = 'Las contraseñas no coinciden';
@@ -88,10 +92,11 @@ export default function RegisterClientScreen() {
           <Input label="Cédula" value={form.documentId} onChangeText={(v) => update('documentId', formatCedula(v))} placeholder="V-12345678" error={fieldErrors?.documentId} />
           <PhoneInput label="Teléfono" value={form.phone} onChangeText={(v) => update('phone', v)} error={fieldErrors?.phone} />
           <Input label="Email" value={form.email} onChangeText={(v) => update('email', v)} keyboardType="email-address" autoCapitalize="none" error={fieldErrors?.email} />
+          <EmailVerification email={form.email} verified={emailVerified} onVerified={setEmailVerified} />
           <Input label="Contraseña" value={form.password} onChangeText={(v) => update('password', v)} secureTextEntry error={fieldErrors?.password} />
           <Input label="Confirmar Contraseña" value={form.confirmPassword} onChangeText={(v) => update('confirmPassword', v)} secureTextEntry error={fieldErrors?.confirmPassword} />
 
-          <Button title="Registrarme como Cliente" onPress={handleRegister} loading={loading} />
+          <Button title="Registrarme como Cliente" onPress={handleRegister} loading={loading} disabled={!emailVerified} />
 
           <Pressable onPress={() => router.push('/auth/login')} style={styles.loginLink}>
             <Text style={styles.loginText}>¿Ya tienes cuenta? <Text style={styles.loginBold}>Inicia Sesión</Text></Text>

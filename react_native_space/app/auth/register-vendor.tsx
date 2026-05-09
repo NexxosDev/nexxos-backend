@@ -22,6 +22,7 @@ import SelectInput from '../../src/components/SelectInput';
 import MapLocationPicker from '../../src/components/MapLocationPicker';
 import LivenessSelfieCapture from '../../src/components/LivenessSelfieCapture';
 import BrandsByOrigin from '../../src/components/BrandsByOrigin';
+import EmailVerification from '../../src/components/EmailVerification';
 import type { CatalogItem } from '../../src/types';
 
 const TOTAL_STEPS = 6;
@@ -70,6 +71,7 @@ export default function RegisterVendorScreen() {
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState('');
   const [showLiveness, setShowLiveness] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -232,7 +234,7 @@ export default function RegisterVendorScreen() {
       const emailValid = personal?.email?.trim?.() && /\S+@\S+\.\S+/.test(personal.email);
       const cedulaOk = !validateCedula(personal?.documentId ?? '');
       const personalValid = !!(personal?.firstName?.trim?.() && personal?.lastName?.trim?.() && personal?.phone?.trim?.() && cedulaOk && emailValid && personal?.password && personal?.password === personal?.confirmPassword && (personal?.password?.length ?? 0) >= 6);
-      return personalValid && identityVerified;
+      return personalValid && identityVerified && emailVerified;
     }
     if (step === 2) {
       return !!(business?.businessName?.trim?.() && business?.rif?.trim?.() && business?.docImageUri && business?.logoUri);
@@ -315,7 +317,8 @@ export default function RegisterVendorScreen() {
             <Input label="Apellido" value={personal.lastName} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), lastName: v }))} />
             <Input label="Cédula" value={personal.documentId} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), documentId: formatCedula(v) }))} placeholder="V-12345678" />
             <PhoneInput label="Teléfono" value={personal.phone} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), phone: v }))} />
-            <Input label="Email" value={personal.email} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), email: v }))} keyboardType="email-address" autoCapitalize="none" />
+            <Input label="Email" value={personal.email} onChangeText={(v) => { setPersonal((p) => ({ ...(p ?? {}), email: v })); setEmailVerified(false); }} keyboardType="email-address" autoCapitalize="none" />
+            <EmailVerification email={personal.email} verified={emailVerified} onVerified={setEmailVerified} />
             <Input label="Contraseña" value={personal.password} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), password: v }))} secureTextEntry />
             <Input label="Confirmar Contraseña" value={personal.confirmPassword} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), confirmPassword: v }))} secureTextEntry />
 

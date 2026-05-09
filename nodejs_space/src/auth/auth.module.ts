@@ -6,6 +6,8 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { EmailVerificationController } from './email-verification.controller';
 import { EmailVerificationService } from './email-verification.service';
+import { RegistrationCodeController } from './registration-code.controller';
+import { RegistrationCodeService } from './registration-code.service';
 import { PasswordResetService } from './password-reset.service';
 import { JwtStrategy } from './jwt.strategy';
 import { EmailModule } from '../email/email.module';
@@ -23,8 +25,8 @@ import { EmailModule } from '../email/email.module';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AuthController, EmailVerificationController],
-  providers: [AuthService, EmailVerificationService, PasswordResetService, JwtStrategy],
+  controllers: [AuthController, EmailVerificationController, RegistrationCodeController],
+  providers: [AuthService, EmailVerificationService, RegistrationCodeService, PasswordResetService, JwtStrategy],
   exports: [AuthService],
 })
 export class AuthModule {}

@@ -20,7 +20,7 @@ const api = axios.create({
 api.interceptors.request.use(async (config) => {
   try {
     // No enviar token en rutas públicas (signup, login, forgot-password, reset-password, verify-email)
-    const publicRoutes = ['/signup', '/auth/login', '/auth/forgot-password', '/auth/reset-password', '/auth/verify-email'];
+    const publicRoutes = ['/signup', '/auth/login', '/auth/forgot-password', '/auth/reset-password', '/auth/verify-email', '/auth/send-code', '/auth/verify-code'];
     const isPublicRoute = publicRoutes.some((route) => config?.url?.includes?.(route));
     
     if (!isPublicRoute) {

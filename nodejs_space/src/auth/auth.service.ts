@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailVerificationService } from './email-verification.service';
+import { RegistrationCodeService } from './registration-code.service';
 import { formatCedula } from '../lib/cedula';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
@@ -16,6 +17,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly emailVerificationService: EmailVerificationService,
+    private readonly registrationCodeService: RegistrationCodeService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -43,14 +45,18 @@ export class AuthService {
       throw new BadRequestException('Vendor data is required for VENDEDOR role');
     }
 
+    // Check pre-registration email verification
+    const skipEmailVerification = this.configService.get<string>('SKIP_EMAIL_VERIFICATION') === 'true';
+    const preVerified = await this.registrationCodeService.isEmailVerified(dto.email);
+    if (!preVerified && !skipEmailVerification) {
+      throw new BadRequestException('Debes verificar tu correo electrónico antes de registrarte.');
+    }
+    const emailVerified = preVerified || skipEmailVerification;
+
     const role = await this.prisma.role.findUnique({ where: { name: dto.role } });
     if (!role) throw new BadRequestException('Invalid role');
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
-
-    // Modo de desarrollo: auto-verificar email si SKIP_EMAIL_VERIFICATION=true
-    const skipEmailVerification = this.configService.get<string>('SKIP_EMAIL_VERIFICATION') === 'true';
-    const emailVerified = skipEmailVerification;
 
     // Vendedores también obtienen rol CLIENTE para poder crear solicitudes
     const rolesToAssign: { roleId: string }[] = [{ roleId: role.id }];
@@ -111,18 +117,8 @@ export class AuthService {
       await this.prisma.vendorMetrics.create({ data: { vendorId: vendor.id } });
     }
 
-    // Enviar email de verificación solo si NO estamos en modo desarrollo
-    if (!skipEmailVerification) {
-      try {
-        await this.emailVerificationService.sendVerificationEmail(user.id);
-        this.logger.log(`Verification email sent to ${user.email}`);
-      } catch (error) {
-        this.logger.error(`Failed to send verification email: ${error.message}`);
-        // Don't fail registration if email fails
-      }
-    } else {
-      this.logger.log(`[DEV MODE] Email verification skipped for ${user.email}`);
-    }
+    // Email was already pre-verified via registration code, no need to send post-signup verification
+    this.logger.log(`Email pre-verified for ${user.email}, skipping post-signup verification`);
 
     const token = this.generateToken(user.id, user.email);
     this.logger.log(`User registered: ${user.email}`);
