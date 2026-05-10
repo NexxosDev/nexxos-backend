@@ -10,6 +10,7 @@ import type { ThemeColors } from '../../src/theme/colors';
 import RequestCard from '../../src/components/RequestCard';
 import EmptyState from '../../src/components/EmptyState';
 import LoadingSpinner from '../../src/components/LoadingSpinner';
+import { useUnread } from '../../src/contexts/UnreadContext';
 import type { VendorRequestListItem } from '../../src/types';
 
 type VFilter = 'all' | 'PENDING' | 'RESPONDED' | 'DECLINED';
@@ -17,6 +18,7 @@ type VFilter = 'all' | 'PENDING' | 'RESPONDED' | 'DECLINED';
 export default function VendorRequests() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { byRequestId } = useUnread();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [items, setItems] = useState<VendorRequestListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +82,7 @@ export default function VendorRequests() {
               municipality={item?.request?.municipality}
               state={item?.request?.state}
               createdAt={item?.request?.createdAt ?? ''}
+              unreadCount={byRequestId?.[item?.request?.id ?? ''] ?? 0}
               onPress={() => router.push(`/vendor-request-detail?matchId=${item?.matchId ?? ''}`)}
             />
           )}

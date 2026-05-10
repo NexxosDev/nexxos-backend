@@ -13,6 +13,8 @@ import RequestCard from '../../src/components/RequestCard';
 import StarRating from '../../src/components/StarRating';
 import EmptyState from '../../src/components/EmptyState';
 import LoadingSpinner from '../../src/components/LoadingSpinner';
+import UnreadBell from '../../src/components/UnreadBell';
+import { useUnread } from '../../src/contexts/UnreadContext';
 import type { VendorDashboard, VendorResponseMetrics } from '../../src/types';
 
 function formatDuration(ms: number): string {
@@ -33,6 +35,7 @@ export default function VendorHome() {
   const router = useRouter();
   const { user } = useAuth();
   const { colors } = useTheme();
+  const { byRequestId } = useUnread();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [dashboard, setDashboard] = useState<VendorDashboard | null>(null);
   const [responseMetrics, setResponseMetrics] = useState<VendorResponseMetrics | null>(null);
@@ -110,9 +113,12 @@ export default function VendorHome() {
     <View>
       <View style={styles.topBar}>
         <Text style={styles.logo}>NEXXOS</Text>
-        <Pressable onPress={() => router.replace('/role-selection')} hitSlop={8}>
-          <Ionicons name="swap-horizontal-outline" size={24} color={colors.textPrimary} />
-        </Pressable>
+        <View style={styles.topBarRight}>
+          <UnreadBell />
+          <Pressable onPress={() => router.replace('/role-selection')} hitSlop={8}>
+            <Ionicons name="swap-horizontal-outline" size={24} color={colors.textPrimary} />
+          </Pressable>
+        </View>
       </View>
 
       {!user?.emailVerified && (
@@ -208,6 +214,7 @@ export default function VendorHome() {
               municipality={item?.request?.municipality}
               state={item?.request?.state}
               createdAt={item?.request?.createdAt ?? ''}
+              unreadCount={byRequestId?.[item?.request?.id ?? ''] ?? 0}
               timeLabel={timeInfo?.label}
               timeLabelColor={timeInfo?.color}
               onPress={() => router.push(`/vendor-request-detail?matchId=${item?.matchId ?? ''}`)}
@@ -227,6 +234,7 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.background },
   list: { padding: Spacing.md, paddingBottom: 100 },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   logo: { fontSize: 22, fontWeight: '800', color: c.primary, letterSpacing: 2 },
   verifyBanner: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: c.warningBg,

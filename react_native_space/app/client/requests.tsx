@@ -9,6 +9,7 @@ import type { ThemeColors } from '../../src/theme/colors';
 import RequestCard from '../../src/components/RequestCard';
 import EmptyState from '../../src/components/EmptyState';
 import LoadingSpinner from '../../src/components/LoadingSpinner';
+import { useUnread } from '../../src/contexts/UnreadContext';
 import type { RequestListItem } from '../../src/types';
 
 type FilterType = 'all' | 'no_response' | 'has_response' | 'closed';
@@ -16,6 +17,7 @@ type FilterType = 'all' | 'no_response' | 'has_response' | 'closed';
 export default function ClientRequests() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { byRequestId } = useUnread();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [requests, setRequests] = useState<RequestListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,6 +70,7 @@ export default function ClientRequests() {
               status={item?.status ?? ''}
               responseCount={item?.responseCount ?? 0}
               createdAt={item?.createdAt ?? ''}
+              unreadCount={byRequestId?.[item?.id ?? ''] ?? 0}
               onPress={() => router.push(`/request-detail?id=${item?.id ?? ''}`)}
             />
           )}

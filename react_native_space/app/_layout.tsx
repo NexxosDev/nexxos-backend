@@ -9,6 +9,7 @@ import * as Notifications from 'expo-notifications';
 import { AuthProvider } from '../src/contexts/AuthContext';
 import { CatalogProvider } from '../src/contexts/CatalogContext';
 import { ThemeProvider, useTheme } from '../src/contexts/ThemeContext';
+import { UnreadProvider } from '../src/contexts/UnreadContext';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -108,7 +109,9 @@ export default function RootLayout() {
           <ThemeProvider>
             <AuthProvider>
               <CatalogProvider>
-                <InnerLayout />
+                <UnreadProvider>
+                  <InnerLayout />
+                </UnreadProvider>
               </CatalogProvider>
             </AuthProvider>
           </ThemeProvider>

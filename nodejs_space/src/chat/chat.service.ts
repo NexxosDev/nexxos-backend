@@ -252,4 +252,53 @@ export class ChatService {
 
     return { updated: result.count };
   }
+
+  async getUnreadSummary(userId: string) {
+    // Find all chats this user participates in
+    const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
+
+    const chats = await this.prisma.chat.findMany({
+      where: {
+        OR: [
+          { clientId: userId },
+          ...(vendor ? [{ vendorId: vendor.id }] : []),
+        ],
+      },
+      select: { id: true, requestId: true },
+    });
+
+    if (!chats?.length) {
+      return { totalUnread: 0, byRequestId: {} };
+    }
+
+    const chatIds = chats.map((c) => c.id);
+
+    // Count unread messages per chat (messages NOT sent by this user, not read, not deleted)
+    const unreadCounts = await this.prisma.chatMessage.groupBy({
+      by: ['chatId'],
+      where: {
+        chatId: { in: chatIds },
+        senderId: { not: userId },
+        status: { not: 'read' },
+        deletedForAll: false,
+      },
+      _count: { id: true },
+    });
+
+    // Build requestId -> unreadCount map
+    const chatToRequest = new Map(chats.map((c) => [c.id, c.requestId]));
+    const byRequestId: Record<string, number> = {};
+    let totalUnread = 0;
+
+    for (const entry of unreadCounts ?? []) {
+      const count = entry?._count?.id ?? 0;
+      const requestId = chatToRequest.get(entry.chatId) ?? '';
+      if (requestId && count > 0) {
+        byRequestId[requestId] = (byRequestId[requestId] ?? 0) + count;
+        totalUnread += count;
+      }
+    }
+
+    return { totalUnread, byRequestId };
+  }
 }

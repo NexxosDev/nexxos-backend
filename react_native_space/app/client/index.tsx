@@ -11,12 +11,15 @@ import type { ThemeColors } from '../../src/theme/colors';
 import RequestCard from '../../src/components/RequestCard';
 import EmptyState from '../../src/components/EmptyState';
 import LoadingSpinner from '../../src/components/LoadingSpinner';
+import UnreadBell from '../../src/components/UnreadBell';
+import { useUnread } from '../../src/contexts/UnreadContext';
 import type { RequestListItem } from '../../src/types';
 
 export default function ClientHome() {
   const router = useRouter();
   const { user } = useAuth();
   const { colors } = useTheme();
+  const { byRequestId } = useUnread();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [requests, setRequests] = useState<RequestListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,9 +40,12 @@ export default function ClientHome() {
     <View>
       <View style={styles.topBar}>
         <Text style={styles.logo}>NEXXOS</Text>
-        <Pressable onPress={() => router.replace('/role-selection')} hitSlop={8}>
-          <Ionicons name="swap-horizontal-outline" size={24} color={colors.textPrimary} />
-        </Pressable>
+        <View style={styles.topBarRight}>
+          <UnreadBell />
+          <Pressable onPress={() => router.replace('/role-selection')} hitSlop={8}>
+            <Ionicons name="swap-horizontal-outline" size={24} color={colors.textPrimary} />
+          </Pressable>
+        </View>
       </View>
       <Text style={styles.greeting}>¡Hola, {user?.firstName ?? 'Usuario'}!</Text>
       <Text style={styles.subtitle}>¿Qué necesitas hoy?</Text>
@@ -76,6 +82,7 @@ export default function ClientHome() {
             status={item?.status ?? ''}
             responseCount={item?.responseCount ?? 0}
             createdAt={item?.createdAt ?? ''}
+            unreadCount={byRequestId?.[item?.id ?? ''] ?? 0}
             onPress={() => router.push(`/request-detail?id=${item?.id ?? ''}`)}
           />
         )}
@@ -103,6 +110,7 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.background },
   list: { padding: Spacing.md, paddingBottom: 100 },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   logo: { fontSize: 22, fontWeight: '800', color: c.primary, letterSpacing: 2 },
   greeting: { fontSize: 22, fontWeight: '700', color: c.textPrimary },
   subtitle: { fontSize: 15, color: c.textSecondary, marginTop: 2, marginBottom: Spacing.md },

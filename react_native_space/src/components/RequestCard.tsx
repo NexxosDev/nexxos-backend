@@ -18,12 +18,13 @@ interface RequestCardProps {
   createdAt: string;
   timeLabel?: string;
   timeLabelColor?: string;
+  unreadCount?: number;
   onPress?: () => void;
 }
 
 export default function RequestCard({
   vehicleBrand, vehicleModel, partCategory, status,
-  responseCount, municipality, state, createdAt, timeLabel, timeLabelColor, onPress,
+  responseCount, municipality, state, createdAt, timeLabel, timeLabelColor, unreadCount, onPress,
 }: RequestCardProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -65,6 +66,12 @@ export default function RequestCard({
               <Text style={styles.responses}>{responseCount} resp.</Text>
             ) : null}
             <Text style={styles.date}>{formatDate(createdAt ?? '')}</Text>
+            {(unreadCount ?? 0) > 0 ? (
+              <View style={styles.unreadBadge}>
+                <Ionicons name="chatbubble" size={12} color="#fff" />
+                <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
         {timeLabel ? (
@@ -103,6 +110,12 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   right: { alignItems: 'flex-end', gap: 4 },
   responses: { fontSize: 11, color: c.textSecondary },
   date: { fontSize: 11, color: c.textSecondary },
+  unreadBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: '#E53935', borderRadius: 10,
+    paddingHorizontal: 6, paddingVertical: 2, marginTop: 2,
+  },
+  unreadBadgeText: { fontSize: 11, fontWeight: '700', color: '#fff' },
   timeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: c.border },
   timeText: { fontSize: 12, marginLeft: 4, flex: 1 },
 });

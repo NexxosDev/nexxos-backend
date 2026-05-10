@@ -14,6 +14,12 @@ import { MarkMessagesDto } from './dto/mark-messages.dto';
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
+  @Get('unread-summary')
+  @ApiOperation({ summary: 'Get total unread message count and breakdown by requestId' })
+  getUnreadSummary(@CurrentUser('id') userId: string) {
+    return this.chatService.getUnreadSummary(userId);
+  }
+
   @Get(':chatId')
   @ApiOperation({ summary: 'Get chat detail' })
   getChat(@CurrentUser('id') userId: string, @Param('chatId') chatId: string) {

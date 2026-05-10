@@ -10,6 +10,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useAuth } from '../src/contexts/AuthContext';
 import { useTheme } from '../src/contexts/ThemeContext';
+import { useUnread } from '../src/contexts/UnreadContext';
 import {
   getChatInfo, getChatMessages, sendChatMessage,
   editChatMessage, deleteChatMessage,
@@ -26,6 +27,7 @@ export default function ChatScreen() {
   const { chatId = '' } = useLocalSearchParams<{ chatId: string }>();
   const { user } = useAuth();
   const { colors } = useTheme();
+  const { refresh: refreshUnread } = useUnread();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [chatInfo, setChatInfo] = useState<ChatInfo | null>(null);
@@ -69,9 +71,10 @@ export default function ChatScreen() {
     if (!chatId) return;
     try {
       await markMessagesDelivered(chatId);
-      await markMessagesRead(chatId);
+      const result = await markMessagesRead(chatId);
+      if ((result?.updated ?? 0) > 0) refreshUnread();
     } catch { }
-  }, [chatId]);
+  }, [chatId, refreshUnread]);
 
   useEffect(() => {
     if (!chatId) return;
