@@ -112,7 +112,10 @@ export default function RequestDetailScreen() {
               distanceKm={resp?.distanceKm}
               vendorLatitude={resp?.vendor?.latitude}
               vendorLongitude={resp?.vendor?.longitude}
-              onOpenChat={detail?.status !== 'CERRADA' ? () => router.push(`/chat?chatId=${resp?.chatId ?? ''}`) : undefined}
+              onOpenChat={() => {
+                const base = `/chat?chatId=${resp?.chatId ?? ''}`;
+                router.push(detail?.status === 'CERRADA' ? `${base}&readOnly=1` : base);
+              }}
               unreadCount={byChatId?.[resp?.chatId ?? ''] ?? 0}
             />
           ))

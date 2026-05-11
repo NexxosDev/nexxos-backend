@@ -24,7 +24,8 @@ import type { ChatInfo, ChatMessageItem } from '../src/types';
 
 export default function ChatScreen() {
   const router = useRouter();
-  const { chatId = '' } = useLocalSearchParams<{ chatId: string }>();
+  const { chatId = '', readOnly: readOnlyParam = '' } = useLocalSearchParams<{ chatId: string; readOnly?: string }>();
+  const isReadOnly = readOnlyParam === '1';
   const { user } = useAuth();
   const { colors } = useTheme();
   const { refresh: refreshUnread } = useUnread();
@@ -257,11 +258,12 @@ export default function ChatScreen() {
     return (
       <Swipeable
         ref={(ref) => { if (ref && item?.id) swipeableRefs.current.set(item.id, ref); }}
-        renderLeftActions={renderLeftActions}
-        onSwipeableOpen={(direction) => { if (direction === 'left') activateReply(item); }}
+        renderLeftActions={isReadOnly ? undefined : renderLeftActions}
+        onSwipeableOpen={(direction) => { if (direction === 'left' && !isReadOnly) activateReply(item); }}
         leftThreshold={60}
         overshootLeft={false}
         friction={2}
+        enabled={!isReadOnly}
       >
         <ChatMessageComp
           messageText={item?.messageText ?? ''}
@@ -276,11 +278,11 @@ export default function ChatScreen() {
           deletedForAll={item?.deletedForAll}
           replyTo={item?.replyTo}
           onReplyPress={scrollToMessage}
-          onLongPress={isOwn && !item?.deletedForAll ? () => openContextMenu(item) : undefined}
+          onLongPress={!isReadOnly && isOwn && !item?.deletedForAll ? () => openContextMenu(item) : undefined}
         />
       </Swipeable>
     );
-  }, [user?.id, chatInfo?.vendorUserId, renderLeftActions, activateReply, scrollToMessage, openContextMenu]);
+  }, [user?.id, chatInfo?.vendorUserId, renderLeftActions, activateReply, scrollToMessage, openContextMenu, isReadOnly]);
 
   if (loading) return <LoadingSpinner />;
 
@@ -325,71 +327,80 @@ export default function ChatScreen() {
           </View>
         ) : null}
 
-        {showAttachMenu ? (
-          <View style={styles.attachMenu}>
-            <Pressable style={styles.attachOption} onPress={() => pickAndSendImage('gallery')}>
-              <Ionicons name="images" size={24} color={colors.primary} />
-              <Text style={styles.attachOptionText}>Galería</Text>
-            </Pressable>
-            <Pressable style={styles.attachOption} onPress={() => pickAndSendImage('camera')}>
-              <Ionicons name="camera" size={24} color={colors.primary} />
-              <Text style={styles.attachOptionText}>Cámara</Text>
-            </Pressable>
+        {isReadOnly ? (
+          <View style={styles.readOnlyBar}>
+            <Ionicons name="lock-closed-outline" size={16} color={colors.textSecondary} />
+            <Text style={styles.readOnlyText}>Esta solicitud fue cerrada. Solo lectura.</Text>
           </View>
-        ) : null}
-
-        {isEditMode ? (
-          <View style={styles.editBar}>
-            <View style={styles.editBarLeft}>
-              <Ionicons name="pencil" size={16} color={colors.primary} />
-              <Text style={styles.editBarLabel}>Editando mensaje</Text>
-            </View>
-            <Pressable onPress={cancelEdit} hitSlop={8}>
-              <Ionicons name="close" size={20} color={colors.textSecondary} />
-            </Pressable>
-          </View>
-        ) : null}
-
-        {replyingTo && !isEditMode ? (
-          <View style={styles.replyBar}>
-            <View style={styles.replyBarLeft}>
-              <View style={styles.replyBarAccent} />
-              <View style={styles.replyBarContent}>
-                <Text style={styles.replyBarName} numberOfLines={1}>{replyingTo?.senderName ?? ''}</Text>
-                <Text style={styles.replyBarText} numberOfLines={1}>{replyPreviewSnippet}</Text>
+        ) : (
+          <>
+            {showAttachMenu ? (
+              <View style={styles.attachMenu}>
+                <Pressable style={styles.attachOption} onPress={() => pickAndSendImage('gallery')}>
+                  <Ionicons name="images" size={24} color={colors.primary} />
+                  <Text style={styles.attachOptionText}>Galería</Text>
+                </Pressable>
+                <Pressable style={styles.attachOption} onPress={() => pickAndSendImage('camera')}>
+                  <Ionicons name="camera" size={24} color={colors.primary} />
+                  <Text style={styles.attachOptionText}>Cámara</Text>
+                </Pressable>
               </View>
-            </View>
-            <Pressable onPress={cancelReply} style={styles.replyBarClose} hitSlop={8}>
-              <Ionicons name="close" size={20} color={colors.textSecondary} />
-            </Pressable>
-          </View>
-        ) : null}
+            ) : null}
 
-        <View style={styles.inputBar}>
-          {!isEditMode ? (
-            <Pressable style={styles.attachBtn} onPress={() => setShowAttachMenu((v) => !v)} disabled={uploading}>
-              <Ionicons name={showAttachMenu ? 'close' : 'attach'} size={24} color={uploading ? colors.textSecondary : colors.primary} />
-            </Pressable>
-          ) : null}
-          <TextInput
-            ref={inputRef}
-            style={[styles.input, isEditMode && { marginLeft: Spacing.sm }]}
-            value={text}
-            onChangeText={setText}
-            placeholder={isEditMode ? 'Editar mensaje...' : 'Escribe un mensaje...'}
-            placeholderTextColor={colors.textSecondary}
-            multiline
-            maxLength={1000}
-            onFocus={() => setShowAttachMenu(false)}
-          />
-          <Pressable
-            style={[styles.sendBtn, (!canSend || sending) && styles.sendBtnDisabled]}
-            onPress={handleSend}
-            disabled={!canSend || sending}
-          >
-            <Ionicons name={isEditMode ? 'checkmark' : 'send'} size={20} color={canSend ? colors.accent : colors.textSecondary} />
-          </Pressable>
-        </View>
+            {isEditMode ? (
+              <View style={styles.editBar}>
+                <View style={styles.editBarLeft}>
+                  <Ionicons name="pencil" size={16} color={colors.primary} />
+                  <Text style={styles.editBarLabel}>Editando mensaje</Text>
+                </View>
+                <Pressable onPress={cancelEdit} hitSlop={8}>
+                  <Ionicons name="close" size={20} color={colors.textSecondary} />
+                </Pressable>
+              </View>
+            ) : null}
+
+            {replyingTo && !isEditMode ? (
+              <View style={styles.replyBar}>
+                <View style={styles.replyBarLeft}>
+                  <View style={styles.replyBarAccent} />
+                  <View style={styles.replyBarContent}>
+                    <Text style={styles.replyBarName} numberOfLines={1}>{replyingTo?.senderName ?? ''}</Text>
+                    <Text style={styles.replyBarText} numberOfLines={1}>{replyPreviewSnippet}</Text>
+                  </View>
+                </View>
+                <Pressable onPress={cancelReply} style={styles.replyBarClose} hitSlop={8}>
+                  <Ionicons name="close" size={20} color={colors.textSecondary} />
+                </Pressable>
+              </View>
+            ) : null}
+
+            <View style={styles.inputBar}>
+              {!isEditMode ? (
+                <Pressable style={styles.attachBtn} onPress={() => setShowAttachMenu((v) => !v)} disabled={uploading}>
+                  <Ionicons name={showAttachMenu ? 'close' : 'attach'} size={24} color={uploading ? colors.textSecondary : colors.primary} />
+                </Pressable>
+              ) : null}
+              <TextInput
+                ref={inputRef}
+                style={[styles.input, isEditMode && { marginLeft: Spacing.sm }]}
+                value={text}
+                onChangeText={setText}
+                placeholder={isEditMode ? 'Editar mensaje...' : 'Escribe un mensaje...'}
+                placeholderTextColor={colors.textSecondary}
+                multiline
+                maxLength={1000}
+                onFocus={() => setShowAttachMenu(false)}
+              />
+              <Pressable
+                style={[styles.sendBtn, (!canSend || sending) && styles.sendBtnDisabled]}
+                onPress={handleSend}
+                disabled={!canSend || sending}
+              >
+                <Ionicons name={isEditMode ? 'checkmark' : 'send'} size={20} color={canSend ? colors.accent : colors.textSecondary} />
+              </Pressable>
+            </View>
+          </>
+        )}
       </KeyboardAvoidingView>
 
       {/* Context menu */}
@@ -464,6 +475,12 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   headerSummary: { fontSize: 12, color: c.textSecondary },
   messageList: { padding: Spacing.sm, paddingBottom: Spacing.md },
   emptyChat: { textAlign: 'center', color: c.textSecondary, padding: Spacing.xl },
+  readOnlyBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 12, paddingHorizontal: Spacing.md,
+    backgroundColor: c.backgroundSection, borderTopWidth: 1, borderTopColor: c.border,
+  },
+  readOnlyText: { fontSize: 13, color: c.textSecondary, fontWeight: '500' },
   uploadingBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingVertical: 8, backgroundColor: c.backgroundSection,
