@@ -4,6 +4,7 @@ import type { RequestListItem, RequestDetail, RequestResponseItem } from '../typ
 export async function createRequest(data: {
   stateId?: string;
   municipalityId?: string;
+  parishId?: string;
   searchRadiusKm?: number;
   latitude?: number;
   longitude?: number;

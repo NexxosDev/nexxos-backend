@@ -203,6 +203,7 @@ model Parish {
   name           String
 
   municipality Municipality @relation(fields: [municipalityId], references: [id])
+  requests     Request[]
 
   @@unique([municipalityId, name])
   @@index([municipalityId])
@@ -242,6 +243,7 @@ model Request {
   partSubcategoryId String?   @map("part_subcategory_id") @db.Uuid
   stateId           String?   @map("state_id") @db.Uuid
   municipalityId    String?   @map("municipality_id") @db.Uuid
+  parishId          String?   @map("parish_id") @db.Uuid
   searchRadiusKm    Int?      @map("search_radius_km")
   latitude          Float?
   longitude         Float?
@@ -258,6 +260,7 @@ model Request {
   partSubcategory     PartSubcategory?     @relation(fields: [partSubcategoryId], references: [id])
   state               State?               @relation(fields: [stateId], references: [id])
   municipality        Municipality?        @relation(fields: [municipalityId], references: [id])
+  parish              Parish?              @relation(fields: [parishId], references: [id])
   requestVendorMatches RequestVendorMatch[]
   requestResponses    RequestResponse[]
   chats               Chat[]

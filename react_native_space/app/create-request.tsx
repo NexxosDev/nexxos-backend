@@ -29,8 +29,8 @@ export default function CreateRequestScreen() {
   const [successModal, setSuccessModal] = useState<{ count: number } | null>(null);
 
   const [locationData, setLocationData] = useState<{
-    filterType: 'radius' | 'state' | 'municipality';
-    stateId?: string; municipalityId?: string; radiusKm?: number;
+    filterType: 'radius' | 'state' | 'municipality' | 'parish';
+    stateId?: string; municipalityId?: string; parishId?: string; radiusKm?: number;
     latitude?: number; longitude?: number;
   } | null>(null);
   const [brandId, setBrandId] = useState('');
@@ -39,6 +39,7 @@ export default function CreateRequestScreen() {
   const [subcategoryId, setSubcategoryId] = useState('');
   const [description, setDescription] = useState('');
   const [municipalities, setMunicipalities] = useState<CatalogItem[]>([]);
+  const [parishes, setParishes] = useState<CatalogItem[]>([]);
   const [models, setModels] = useState<CatalogItem[]>([]);
   const [subcategories, setSubcategories] = useState<CatalogItem[]>([]);
 
@@ -58,6 +59,7 @@ export default function CreateRequestScreen() {
       if (locationData.filterType === 'radius') return !!(locationData.latitude && locationData.longitude);
       if (locationData.filterType === 'state') return !!locationData.stateId;
       if (locationData.filterType === 'municipality') return !!(locationData.stateId && locationData.municipalityId);
+      if (locationData.filterType === 'parish') return !!(locationData.stateId && locationData.municipalityId && locationData.parishId);
       return false;
     }
     if (step === 2) return !!(brandId && modelId);
@@ -77,6 +79,12 @@ export default function CreateRequestScreen() {
       const muniName = (municipalities ?? []).find((m) => m?.id === locationData.municipalityId)?.name ?? '';
       return `${muniName}, ${stateName}`;
     }
+    if (locationData.filterType === 'parish') {
+      const stateName = (catalog?.states ?? []).find((s) => s?.id === locationData.stateId)?.name ?? '';
+      const muniName = (municipalities ?? []).find((m) => m?.id === locationData.municipalityId)?.name ?? '';
+      const parishName = (parishes ?? []).find((p) => p?.id === locationData.parishId)?.name ?? '';
+      return `${parishName}, ${muniName}, ${stateName}`;
+    }
     return '';
   };
   const getBrandName = () => (catalog?.brands ?? []).find((b) => b?.id === brandId)?.name ?? '';
@@ -91,6 +99,7 @@ export default function CreateRequestScreen() {
       const result = await createRequest({
         stateId: locationData.filterType === 'radius' ? undefined : (locationData.stateId ?? undefined),
         municipalityId: locationData.filterType === 'radius' ? undefined : (locationData.municipalityId ?? undefined),
+        parishId: locationData.filterType === 'parish' ? (locationData.parishId ?? undefined) : undefined,
         searchRadiusKm: locationData.filterType === 'radius' ? (locationData.radiusKm ?? undefined) : undefined,
         latitude: locationData.latitude ?? undefined,
         longitude: locationData.longitude ?? undefined,
@@ -107,11 +116,14 @@ export default function CreateRequestScreen() {
   const handleMunicipalitiesNeeded = (stateId: string) => {
     catalog?.loadMunicipalities?.(stateId)?.then?.((items) => setMunicipalities(items ?? []));
   };
+  const handleParishesNeeded = (municipalityId: string) => {
+    catalog?.loadParishes?.(municipalityId)?.then?.((items) => setParishes(items ?? []));
+  };
 
   const renderStep = () => {
     switch (step) {
       case 1:
-        return <RequestLocationMap states={catalog?.states ?? []} municipalities={municipalities} onLocationChange={setLocationData} onMunicipalitiesNeeded={handleMunicipalitiesNeeded} />;
+        return <RequestLocationMap states={catalog?.states ?? []} municipalities={municipalities} parishes={parishes} onLocationChange={setLocationData} onMunicipalitiesNeeded={handleMunicipalitiesNeeded} onParishesNeeded={handleParishesNeeded} />;
       case 2:
         return (
           <View>

@@ -25,19 +25,26 @@ if (Platform.OS !== 'web') {
 interface RequestLocationMapProps {
   states: CatalogItem[];
   municipalities: CatalogItem[];
-  onLocationChange: (data: { filterType: 'radius' | 'state' | 'municipality'; stateId?: string; municipalityId?: string; radiusKm?: number; latitude?: number; longitude?: number }) => void;
+  parishes: CatalogItem[];
+  onLocationChange: (data: {
+    filterType: 'radius' | 'state' | 'municipality' | 'parish';
+    stateId?: string; municipalityId?: string; parishId?: string;
+    radiusKm?: number; latitude?: number; longitude?: number;
+  }) => void;
   onMunicipalitiesNeeded?: (stateId: string) => void;
+  onParishesNeeded?: (municipalityId: string) => void;
 }
 
 const DEFAULT_RADIUS_KM = 5;
-type FilterType = 'radius' | 'state' | 'municipality';
+type FilterType = 'radius' | 'state' | 'municipality' | 'parish';
 const FILTER_OPTIONS: { id: FilterType; name: string }[] = [
   { id: 'radius', name: 'Radio (5 km)' },
   { id: 'state', name: 'Estado' },
   { id: 'municipality', name: 'Municipio' },
+  { id: 'parish', name: 'Parroquia' },
 ];
 
-export default function RequestLocationMap({ states, municipalities, onLocationChange, onMunicipalitiesNeeded }: RequestLocationMapProps) {
+export default function RequestLocationMap({ states, municipalities, parishes, onLocationChange, onMunicipalitiesNeeded, onParishesNeeded }: RequestLocationMapProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -45,32 +52,64 @@ export default function RequestLocationMap({ states, municipalities, onLocationC
   const [filterType, setFilterType] = useState<FilterType>('radius');
   const [selectedStateId, setSelectedStateId] = useState('');
   const [selectedMunicipalityId, setSelectedMunicipalityId] = useState('');
+  const [selectedParishId, setSelectedParishId] = useState('');
 
   useEffect(() => {
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') { Alert.alert('Permiso Denegado', 'Necesitamos acceso a tu ubicaci\u00f3n para mostrar vendedores cercanos.'); setLoading(false); return; }
+        if (status !== 'granted') { Alert.alert('Permiso Denegado', 'Necesitamos acceso a tu ubicación para mostrar vendedores cercanos.'); setLoading(false); return; }
         const currentLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         setLocation(currentLocation); setLoading(false);
         onLocationChange?.({ filterType: 'radius', radiusKm: DEFAULT_RADIUS_KM, latitude: currentLocation.coords.latitude, longitude: currentLocation.coords.longitude });
-      } catch (error) { console.error('Error obteniendo ubicaci\u00f3n:', error); Alert.alert('Error', 'No pudimos obtener tu ubicaci\u00f3n actual.'); setLoading(false); }
+      } catch (error) { console.error('Error obteniendo ubicación:', error); Alert.alert('Error', 'No pudimos obtener tu ubicación actual.'); setLoading(false); }
     })();
   }, []);
 
   useEffect(() => {
-    if (filterType === 'radius') { if (location) onLocationChange?.({ filterType: 'radius', radiusKm: DEFAULT_RADIUS_KM, latitude: location.coords.latitude, longitude: location.coords.longitude }); }
-    else if (filterType === 'state') { onLocationChange?.({ filterType: 'state', stateId: selectedStateId || undefined, latitude: location?.coords?.latitude, longitude: location?.coords?.longitude }); }
-    else if (filterType === 'municipality') { onLocationChange?.({ filterType: 'municipality', stateId: selectedStateId || undefined, municipalityId: selectedMunicipalityId || undefined, latitude: location?.coords?.latitude, longitude: location?.coords?.longitude }); }
-  }, [filterType, selectedStateId, selectedMunicipalityId, location]);
+    const coords = location?.coords;
+    if (filterType === 'radius') {
+      if (coords) onLocationChange?.({ filterType: 'radius', radiusKm: DEFAULT_RADIUS_KM, latitude: coords.latitude, longitude: coords.longitude });
+    } else if (filterType === 'state') {
+      onLocationChange?.({ filterType: 'state', stateId: selectedStateId || undefined, latitude: coords?.latitude, longitude: coords?.longitude });
+    } else if (filterType === 'municipality') {
+      onLocationChange?.({ filterType: 'municipality', stateId: selectedStateId || undefined, municipalityId: selectedMunicipalityId || undefined, latitude: coords?.latitude, longitude: coords?.longitude });
+    } else if (filterType === 'parish') {
+      onLocationChange?.({ filterType: 'parish', stateId: selectedStateId || undefined, municipalityId: selectedMunicipalityId || undefined, parishId: selectedParishId || undefined, latitude: coords?.latitude, longitude: coords?.longitude });
+    }
+  }, [filterType, selectedStateId, selectedMunicipalityId, selectedParishId, location]);
 
-  const handleFilterChange = (item: any) => { if (!item) return; setFilterType(item.id); setSelectedStateId(''); setSelectedMunicipalityId(''); };
-  const handleStateChange = (item: CatalogItem | null) => { const sid = item?.id ?? ''; setSelectedStateId(sid); setSelectedMunicipalityId(''); if (sid) onMunicipalitiesNeeded?.(sid); };
+  const handleFilterChange = (item: any) => {
+    if (!item) return;
+    setFilterType(item.id);
+    setSelectedStateId('');
+    setSelectedMunicipalityId('');
+    setSelectedParishId('');
+  };
 
-  if (loading) return <View style={styles.loadingContainer}><ActivityIndicator size="large" color={colors.primary} /><Text style={styles.loadingText}>Obteniendo tu ubicaci\u00f3n...</Text></View>;
-  if (!location) return <View style={styles.errorContainer}><Text style={styles.errorText}>No pudimos obtener tu ubicaci\u00f3n</Text></View>;
+  const handleStateChange = (item: CatalogItem | null) => {
+    const sid = item?.id ?? '';
+    setSelectedStateId(sid);
+    setSelectedMunicipalityId('');
+    setSelectedParishId('');
+    if (sid) onMunicipalitiesNeeded?.(sid);
+  };
+
+  const handleMunicipalityChange = (item: CatalogItem | null) => {
+    const mid = item?.id ?? '';
+    setSelectedMunicipalityId(mid);
+    setSelectedParishId('');
+    if (mid) onParishesNeeded?.(mid);
+  };
+
+  if (loading) return <View style={styles.loadingContainer}><ActivityIndicator size="large" color={colors.primary} /><Text style={styles.loadingText}>Obteniendo tu ubicación...</Text></View>;
+  if (!location) return <View style={styles.errorContainer}><Text style={styles.errorText}>No pudimos obtener tu ubicación</Text></View>;
 
   const region = { latitude: location.coords.latitude, longitude: location.coords.longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 };
+
+  const showState = filterType === 'state' || filterType === 'municipality' || filterType === 'parish';
+  const showMunicipality = filterType === 'municipality' || filterType === 'parish';
+  const showParish = filterType === 'parish';
 
   return (
     <View style={styles.container}>
@@ -78,7 +117,7 @@ export default function RequestLocationMap({ states, municipalities, onLocationC
       {Platform.OS !== 'web' && MapView && (
         <View style={styles.mapContainer}>
           <MapView style={styles.map} provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined} initialRegion={region} showsUserLocation showsMyLocationButton>
-            <Marker coordinate={{ latitude: location.coords.latitude, longitude: location.coords.longitude }} title="Tu ubicaci\u00f3n" />
+            <Marker coordinate={{ latitude: location.coords.latitude, longitude: location.coords.longitude }} title="Tu ubicación" />
             {filterType === 'radius' && Circle && <Circle center={{ latitude: location.coords.latitude, longitude: location.coords.longitude }} radius={DEFAULT_RADIUS_KM * 1000} fillColor="rgba(255, 193, 7, 0.2)" strokeColor="rgba(255, 193, 7, 0.6)" strokeWidth={2} />}
           </MapView>
         </View>
@@ -91,13 +130,15 @@ export default function RequestLocationMap({ states, municipalities, onLocationC
       )}
       <View style={styles.filtersContainer}>
         <SelectInput label="Tipo de Búsqueda" items={FILTER_OPTIONS as any} selectedId={filterType} onSelect={handleFilterChange as any} />
-        {filterType === 'state' && <SelectInput label="Selecciona un Estado" items={states} selectedId={selectedStateId} onSelect={handleStateChange} searchable />}
-        {filterType === 'municipality' && (
-          <>
-            <SelectInput label="Selecciona un Estado" items={states} selectedId={selectedStateId} onSelect={handleStateChange} searchable />
-            {selectedStateId && <SelectInput label="Selecciona un Municipio" items={municipalities} selectedId={selectedMunicipalityId} onSelect={(item) => setSelectedMunicipalityId(item?.id ?? '')} searchable />}
-          </>
+        {showState && (
+          <SelectInput label="Selecciona un Estado" items={states} selectedId={selectedStateId} onSelect={handleStateChange} searchable />
         )}
+        {showMunicipality && selectedStateId ? (
+          <SelectInput label="Selecciona un Municipio" items={municipalities} selectedId={selectedMunicipalityId} onSelect={handleMunicipalityChange} searchable />
+        ) : null}
+        {showParish && selectedMunicipalityId ? (
+          <SelectInput label="Selecciona una Parroquia" items={parishes} selectedId={selectedParishId} onSelect={(item) => setSelectedParishId(item?.id ?? '')} searchable />
+        ) : null}
         {filterType === 'radius' && (
           <View style={styles.radiusInfo}>
             <Text style={styles.radiusText}>🔍 Buscando en un radio de <Text style={styles.radiusBold}>{DEFAULT_RADIUS_KM} km</Text> desde tu ubicación</Text>

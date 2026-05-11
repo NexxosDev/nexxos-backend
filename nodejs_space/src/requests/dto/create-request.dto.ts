@@ -4,6 +4,7 @@ import { IsNotEmpty, IsUUID, IsString, IsInt, IsNumber, Min, Max, IsOptional } f
 export class CreateRequestDto {
   @ApiPropertyOptional() @IsOptional() @IsUUID() stateId?: string;
   @ApiPropertyOptional() @IsOptional() @IsUUID() municipalityId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsUUID() parishId?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(5) @Max(30) searchRadiusKm?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() latitude?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() longitude?: number;

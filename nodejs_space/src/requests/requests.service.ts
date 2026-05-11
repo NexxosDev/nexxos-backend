@@ -44,6 +44,7 @@ export class RequestsService {
         clientId,
         stateId: dto.stateId,
         municipalityId: dto.municipalityId,
+        parishId: dto.parishId || null,
         searchRadiusKm: dto.searchRadiusKm,
         latitude: dto.latitude,
         longitude: dto.longitude,
@@ -71,9 +72,22 @@ export class RequestsService {
       !dto.stateId;
 
     // Filtros geográficos (solo cuando NO estamos en modo radio)
-    // Vendor guarda state/municipality como strings (nombres), no como FKs
+    // Vendor guarda state/municipality/parish como strings (nombres), no como FKs
     if (!radiusMode) {
-      if (dto.municipalityId) {
+      if (dto.parishId) {
+        // Parish filter: match vendors in that specific parish (includes municipality + state)
+        const parish = await this.prisma.parish.findUnique({
+          where: { id: dto.parishId },
+          include: { municipality: { include: { state: true } } },
+        });
+        if (parish) {
+          matchingConditions.parish = { contains: parish.name, mode: 'insensitive' };
+          matchingConditions.municipality = { contains: parish.municipality?.name, mode: 'insensitive' };
+          if (parish.municipality?.state?.name) {
+            matchingConditions.state = { contains: parish.municipality.state.name, mode: 'insensitive' };
+          }
+        }
+      } else if (dto.municipalityId) {
         const muni = await this.prisma.municipality.findUnique({
           where: { id: dto.municipalityId },
           include: { state: true },

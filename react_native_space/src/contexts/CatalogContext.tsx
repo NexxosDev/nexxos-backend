@@ -6,6 +6,7 @@ interface CatalogContextType {
   states: CatalogItem[];
   loadStates: () => Promise<CatalogItem[]>;
   loadMunicipalities: (stateId: string) => Promise<CatalogItem[]>;
+  loadParishes: (municipalityId: string) => Promise<CatalogItem[]>;
   brands: CatalogItem[];
   loadBrands: () => Promise<CatalogItem[]>;
   loadModels: (brandId: string) => Promise<CatalogItem[]>;
@@ -18,6 +19,7 @@ const CatalogContext = createContext<CatalogContextType>({
   states: [],
   loadStates: async () => [],
   loadMunicipalities: async () => [],
+  loadParishes: async () => [],
   brands: [],
   loadBrands: async () => [],
   loadModels: async () => [],
@@ -35,6 +37,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const [brands, setBrands] = useState<CatalogItem[]>([]);
   const [categories, setCategories] = useState<CatalogItem[]>([]);
   const [municipalityCache, setMunicipalityCache] = useState<Record<string, CatalogItem[]>>({});
+  const [parishCache, setParishCache] = useState<Record<string, CatalogItem[]>>({});
   const [modelCache, setModelCache] = useState<Record<string, CatalogItem[]>>({});
   const [subcategoryCache, setSubcategoryCache] = useState<Record<string, CatalogItem[]>>({});
 
@@ -55,6 +58,15 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       return items ?? [];
     } catch { return []; }
   }, [municipalityCache]);
+
+  const loadParishes = useCallback(async (municipalityId: string) => {
+    if (parishCache?.[municipalityId]) return parishCache[municipalityId] ?? [];
+    try {
+      const items = await catalogApi.getParishes(municipalityId);
+      setParishCache((prev) => ({ ...(prev ?? {}), [municipalityId]: items ?? [] }));
+      return items ?? [];
+    } catch { return []; }
+  }, [parishCache]);
 
   const loadBrands = useCallback(async () => {
     if ((brands?.length ?? 0) > 0) return brands;
@@ -94,7 +106,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CatalogContext.Provider value={{
-      states, loadStates, loadMunicipalities,
+      states, loadStates, loadMunicipalities, loadParishes,
       brands, loadBrands, loadModels,
       categories, loadCategories, loadSubcategories,
     }}>
