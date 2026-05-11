@@ -6,7 +6,10 @@ export class CatalogService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getStates() {
-    const items = await this.prisma.state.findMany({ orderBy: { name: 'asc' } });
+    const items = await this.prisma.state.findMany({
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, capital: true, isoCode: true },
+    });
     return { items };
   }
 
@@ -16,6 +19,16 @@ export class CatalogService {
       where,
       orderBy: { name: 'asc' },
       select: { id: true, name: true, stateId: true },
+    });
+    return { items };
+  }
+
+  async getParishes(municipalityId?: string) {
+    const where = municipalityId ? { municipalityId } : {};
+    const items = await this.prisma.parish.findMany({
+      where,
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, municipalityId: true },
     });
     return { items };
   }

@@ -20,6 +20,13 @@ export class CatalogController {
     return this.catalogService.getMunicipalities(stateId);
   }
 
+  @Get('parishes')
+  @ApiOperation({ summary: 'List parishes (optionally by municipality)' })
+  @ApiQuery({ name: 'municipalityId', required: false })
+  getParishes(@Query('municipalityId') municipalityId?: string) {
+    return this.catalogService.getParishes(municipalityId);
+  }
+
   @Get('vehicle-brands')
   @ApiOperation({ summary: 'List vehicle brands' })
   getVehicleBrands() {

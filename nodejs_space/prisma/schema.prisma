@@ -173,8 +173,10 @@ model PartSubcategory {
 }
 
 model State {
-  id   String @id @default(uuid()) @db.Uuid
-  name String @unique
+  id      String  @id @default(uuid()) @db.Uuid
+  name    String  @unique
+  capital String?
+  isoCode String? @map("iso_code")
 
   municipalities Municipality[]
   requests       Request[]
@@ -187,11 +189,24 @@ model Municipality {
   stateId String @map("state_id") @db.Uuid
   name    String
 
-  state    State    @relation(fields: [stateId], references: [id])
+  state    State     @relation(fields: [stateId], references: [id])
   requests Request[]
+  parishes Parish[]
 
   @@unique([stateId, name])
   @@map("municipalities")
+}
+
+model Parish {
+  id             String @id @default(uuid()) @db.Uuid
+  municipalityId String @map("municipality_id") @db.Uuid
+  name           String
+
+  municipality Municipality @relation(fields: [municipalityId], references: [id])
+
+  @@unique([municipalityId, name])
+  @@index([municipalityId])
+  @@map("parishes")
 }
 
 model VendorVehicleModel {

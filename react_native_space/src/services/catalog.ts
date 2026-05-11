@@ -11,6 +11,11 @@ export async function getMunicipalities(stateId: string): Promise<CatalogItem[]>
   return res?.data?.items ?? [];
 }
 
+export async function getParishes(municipalityId: string): Promise<CatalogItem[]> {
+  const res = await api.get(`/catalog/parishes?municipalityId=${encodeURIComponent(municipalityId)}`);
+  return res?.data?.items ?? [];
+}
+
 export async function getVehicleBrands(): Promise<CatalogItem[]> {
   const res = await api.get('/catalog/vehicle-brands');
   return res?.data?.items ?? [];
