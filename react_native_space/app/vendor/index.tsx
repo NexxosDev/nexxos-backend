@@ -4,6 +4,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getVendorDashboard, updateVendorAvailability, getVendorResponseMetrics } from '../../src/services/vendor';
+import { useReactiveList } from '../../src/hooks/useReactiveList';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { Spacing, BorderRadius } from '../../src/theme/colors';
@@ -42,6 +43,7 @@ export default function VendorHome() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [toggling, setToggling] = useState(false);
+  const [focused, setFocused] = useState(false);
 
   const getTimeInfo = useCallback((item: VendorDashboard['recentRequests'][number]): { label: string; color: string } => {
     const delivered = item?.deliveredAt ? new Date(item.deliveredAt).getTime() : 0;
@@ -93,7 +95,18 @@ export default function VendorHome() {
     if (isRefresh) setRefreshing(false); else setLoading(false);
   }, []);
 
-  useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));
+  useFocusEffect(useCallback(() => {
+    setFocused(true);
+    fetchData();
+    return () => setFocused(false);
+  }, [fetchData]));
+
+  useReactiveList({
+    onRefresh: () => fetchData(true),
+    pollingInterval: 30000,
+    notificationTypes: ['NEW_REQUEST', 'REQUEST_CLOSED'],
+    enabled: focused,
+  });
 
   // Re-fetch when unread counts change (new message → order may shift)
   const prevUnreadRef = useRef<string>('');

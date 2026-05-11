@@ -38,6 +38,7 @@ export class RequestsService {
 
   // ── Client: Create request with auto-matching ──
   async createRequest(clientId: string, dto: CreateRequestDto) {
+    const now = new Date();
     const request = await this.prisma.request.create({
       data: {
         clientId,
@@ -51,6 +52,7 @@ export class RequestsService {
         partCategoryId: dto.partCategoryId,
         partSubcategoryId: dto.partSubcategoryId || null,
         freeDescription: dto.freeDescription,
+        lastMessageAt: now,
       },
     });
 
