@@ -16,7 +16,7 @@ import {
   editChatMessage, deleteChatMessage,
   markMessagesDelivered, markMessagesRead,
 } from '../src/services/chat';
-import { dismissNotificationsForContext } from '../src/services/pushNotifications';
+import { dismissNotificationsForContext, setActiveChatId, clearActiveChatId } from '../src/services/pushNotifications';
 import { Spacing, BorderRadius } from '../src/theme/colors';
 import type { ThemeColors } from '../src/theme/colors';
 import ChatMessageComp from '../src/components/ChatMessage';
@@ -96,6 +96,12 @@ export default function ChatScreen() {
       dismissNotificationsForContext({ chatId });
     }
   }, [loading, chatId, markAsDeliveredAndRead]);
+
+  // Suppress push notifications while this chat is open (WhatsApp-style)
+  useEffect(() => {
+    if (chatId) setActiveChatId(chatId);
+    return () => { clearActiveChatId(); };
+  }, [chatId]);
 
   useEffect(() => {
     intervalRef.current = setInterval(async () => {

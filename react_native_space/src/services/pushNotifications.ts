@@ -4,15 +4,47 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import api from './api';
 
+// ── Active chat suppression (WhatsApp-style) ──
+let _activeChatId: string | null = null;
+
+/** Call when the user opens a specific chat screen */
+export function setActiveChatId(chatId: string) { _activeChatId = chatId; }
+
+/** Call when the user leaves the chat screen */
+export function clearActiveChatId() { _activeChatId = null; }
+
 // Configurar handler para notificaciones en foreground
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    const data = notification?.request?.content?.data as Record<string, any> | undefined;
+    const incomingChatId = data?.chatId;
+    const notifType = data?.type;
+
+    // Suppress banner/tray if user is viewing this exact chat
+    if (
+      _activeChatId &&
+      incomingChatId &&
+      incomingChatId === _activeChatId &&
+      notifType === 'NEW_MESSAGE'
+    ) {
+      return {
+        shouldShowAlert: false,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+        shouldShowBanner: false,
+        shouldShowList: false,
+      };
+    }
+
+    // Default: show everything
+    return {
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    };
+  },
 });
 
 export async function registerForPushNotifications(): Promise<string | null> {
