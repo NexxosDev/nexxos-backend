@@ -22,7 +22,8 @@ import StepIndicator from '../../src/components/StepIndicator';
 import SelectInput from '../../src/components/SelectInput';
 import MapLocationPicker from '../../src/components/MapLocationPicker';
 import LivenessSelfieCapture from '../../src/components/LivenessSelfieCapture';
-import BrandsByOrigin from '../../src/components/BrandsByOrigin';
+import VehicleAccordion from '../../src/components/VehicleAccordion';
+import PartsAccordion from '../../src/components/PartsAccordion';
 import EmailVerification from '../../src/components/EmailVerification';
 import type { CatalogItem } from '../../src/types';
 
@@ -55,9 +56,7 @@ export default function RegisterVendorScreen() {
     referencePoint: '',
     fullAddress: '',
   });
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
 
   const [modelsMap, setModelsMap] = useState<Record<string, CatalogItem[]>>({});
@@ -211,43 +210,43 @@ export default function RegisterVendorScreen() {
     }
   };
 
-  const toggleBrand = (brandId: string) => {
-    setSelectedBrands((prev) => {
-      const arr = prev ?? [];
-      if (arr.includes(brandId)) {
-        setSelectedModels((m) => (m ?? []).filter((mid) => !(modelsMap?.[brandId] ?? []).some((model) => model?.id === mid)));
-        return arr.filter((id) => id !== brandId);
-      }
-      loadModelsForBrand(brandId);
-      return [...arr, brandId];
-    });
-  };
-
-  const toggleModel = (modelId: string) => {
+  const toggleModel = useCallback((modelId: string) => {
     setSelectedModels((prev) => {
       const arr = prev ?? [];
       return arr.includes(modelId) ? arr.filter((id) => id !== modelId) : [...arr, modelId];
     });
-  };
+  }, []);
 
-  const toggleCategory = (catId: string) => {
-    setSelectedCategories((prev) => {
-      const arr = prev ?? [];
-      if (arr.includes(catId)) {
-        setSelectedSubcategories((s) => (s ?? []).filter((sid) => !(subcategoriesMap?.[catId] ?? []).some((sub) => sub?.id === sid)));
-        return arr.filter((id) => id !== catId);
-      }
-      loadSubsForCategory(catId);
-      return [...arr, catId];
-    });
-  };
+  const selectAllModels = useCallback((brandId: string) => {
+    const models = modelsMap?.[brandId] ?? [];
+    const ids = models.map((m) => m?.id).filter(Boolean) as string[];
+    setSelectedModels((prev) => Array.from(new Set([...(prev ?? []), ...ids])));
+  }, [modelsMap]);
 
-  const toggleSubcategory = (subId: string) => {
+  const deselectAllModels = useCallback((brandId: string) => {
+    const models = modelsMap?.[brandId] ?? [];
+    const ids = new Set(models.map((m) => m?.id));
+    setSelectedModels((prev) => (prev ?? []).filter((id) => !ids.has(id)));
+  }, [modelsMap]);
+
+  const toggleSubcategory = useCallback((subId: string) => {
     setSelectedSubcategories((prev) => {
       const arr = prev ?? [];
       return arr.includes(subId) ? arr.filter((id) => id !== subId) : [...arr, subId];
     });
-  };
+  }, []);
+
+  const selectAllSubs = useCallback((catId: string) => {
+    const subs = subcategoriesMap?.[catId] ?? [];
+    const ids = subs.map((s) => s?.id).filter(Boolean) as string[];
+    setSelectedSubcategories((prev) => Array.from(new Set([...(prev ?? []), ...ids])));
+  }, [subcategoriesMap]);
+
+  const deselectAllSubs = useCallback((catId: string) => {
+    const subs = subcategoriesMap?.[catId] ?? [];
+    const ids = new Set(subs.map((s) => s?.id));
+    setSelectedSubcategories((prev) => (prev ?? []).filter((id) => !ids.has(id)));
+  }, [subcategoriesMap]);
 
   const canNext = (): boolean => {
     if (step === 1) {
@@ -265,7 +264,7 @@ export default function RegisterVendorScreen() {
     }
     if (step === 3) return !!(location?.latitude && location?.longitude && location?.fullAddress?.trim?.());
     if (step === 4) return (selectedModels?.length ?? 0) > 0;
-    if (step === 5) return (selectedSubcategories?.length ?? 0) > 0 || (selectedCategories?.length ?? 0) > 0;
+    if (step === 5) return (selectedSubcategories?.length ?? 0) > 0;
     return true;
   };
 
@@ -532,27 +531,15 @@ export default function RegisterVendorScreen() {
           <View>
             <Text style={styles.stepTitle}>¿Qué vehículos manejas?</Text>
             <Text style={styles.stepDesc}>Selecciona marcas y luego modelos</Text>
-            <BrandsByOrigin
+            <VehicleAccordion
               brands={catalog?.brands ?? []}
-              selectedBrands={selectedBrands ?? []}
-              onToggleBrand={toggleBrand}
+              modelsMap={modelsMap ?? {}}
+              selectedModels={selectedModels ?? []}
+              onToggleModel={toggleModel}
+              onSelectAllModels={selectAllModels}
+              onDeselectAllModels={deselectAllModels}
+              onExpandBrand={loadModelsForBrand}
             />
-            {(selectedBrands ?? []).map((brandId) => {
-              const brand = (catalog?.brands ?? []).find((b) => b?.id === brandId);
-              const models = modelsMap?.[brandId] ?? [];
-              return (
-                <View key={brandId} style={styles.modelSection}>
-                  <Text style={styles.modelBrand}>{brand?.name ?? ''}</Text>
-                  <View style={styles.chipContainer}>
-                    {(models ?? []).map((m) => (
-                      <Pressable key={m?.id} style={[styles.chip, styles.chipSmall, (selectedModels ?? []).includes(m?.id ?? '') && styles.chipSelected]} onPress={() => toggleModel(m?.id ?? '')}>
-                        <Text style={[styles.chipTextSmall, (selectedModels ?? []).includes(m?.id ?? '') && styles.chipTextSelected]}>{m?.name ?? ''}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-              );
-            })}
           </View>
         );
       case 5:
@@ -560,27 +547,15 @@ export default function RegisterVendorScreen() {
           <View>
             <Text style={styles.stepTitle}>¿Qué repuestos ofreces?</Text>
             <Text style={styles.stepDesc}>Selecciona categorías y subcategorías</Text>
-            {(catalog?.categories ?? []).map((cat) => {
-              const isSelected = (selectedCategories ?? []).includes(cat?.id ?? '');
-              const subs = subcategoriesMap?.[cat?.id ?? ''] ?? [];
-              return (
-                <View key={cat?.id}>
-                  <Pressable style={[styles.categoryRow, isSelected && styles.categoryRowSelected]} onPress={() => toggleCategory(cat?.id ?? '')}>
-                    <Text style={[styles.categoryText, isSelected && styles.categoryTextSelected]}>{cat?.name ?? ''}</Text>
-                    <Ionicons name={isSelected ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={isSelected ? colors.primary : colors.border} />
-                  </Pressable>
-                  {isSelected && (subs?.length ?? 0) > 0 ? (
-                    <View style={styles.chipContainer}>
-                      {(subs ?? []).map((sub) => (
-                        <Pressable key={sub?.id} style={[styles.chip, styles.chipSmall, (selectedSubcategories ?? []).includes(sub?.id ?? '') && styles.chipSelected]} onPress={() => toggleSubcategory(sub?.id ?? '')}>
-                          <Text style={[styles.chipTextSmall, (selectedSubcategories ?? []).includes(sub?.id ?? '') && styles.chipTextSelected]}>{sub?.name ?? ''}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  ) : null}
-                </View>
-              );
-            })}
+            <PartsAccordion
+              categories={catalog?.categories ?? []}
+              subcategoriesMap={subcategoriesMap ?? {}}
+              selectedSubcategories={selectedSubcategories ?? []}
+              onToggleSubcategory={toggleSubcategory}
+              onSelectAllSubs={selectAllSubs}
+              onDeselectAllSubs={deselectAllSubs}
+              onExpandCategory={loadSubsForCategory}
+            />
           </View>
         );
       case 6:
@@ -600,8 +575,8 @@ export default function RegisterVendorScreen() {
               </Text>
               <Text style={styles.summaryLabel}>Modelos seleccionados</Text>
               <Text style={styles.summaryValue}>{selectedModels?.length ?? 0} modelos</Text>
-              <Text style={styles.summaryLabel}>Categorías seleccionadas</Text>
-              <Text style={styles.summaryValue}>{selectedCategories?.length ?? 0} categorías</Text>
+              <Text style={styles.summaryLabel}>Subcategorías seleccionadas</Text>
+              <Text style={styles.summaryValue}>{selectedSubcategories?.length ?? 0} subcategorías</Text>
             </View>
           </View>
         );
@@ -656,23 +631,7 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   },
   imagePreview: { width: 100, height: 100, borderRadius: 8, marginBottom: Spacing.sm },
   imagePickerText: { fontSize: 13, color: c.textSecondary, marginTop: 4 },
-  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: Spacing.md },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: BorderRadius.full, backgroundColor: c.chipBg },
-  chipSmall: { paddingHorizontal: 10, paddingVertical: 6 },
-  chipSelected: { backgroundColor: c.chipSelectedBg },
-  chipText: { fontSize: 14, color: c.textSubtitle },
-  chipTextSmall: { fontSize: 12, color: c.textSubtitle },
-  chipTextSelected: { color: c.accent, fontWeight: '600' },
-  modelSection: { marginBottom: Spacing.md },
-  modelBrand: { fontSize: 15, fontWeight: '600', color: c.textPrimary, marginBottom: 8 },
-  categoryRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 12, paddingHorizontal: Spacing.md, borderRadius: BorderRadius.sm,
-    marginBottom: 4, backgroundColor: c.backgroundSection,
-  },
-  categoryRowSelected: { backgroundColor: `${c.primary}15` },
-  categoryText: { fontSize: 15, color: c.textPrimary },
-  categoryTextSelected: { fontWeight: '600', color: c.primary },
+
   summaryCard: { backgroundColor: c.backgroundSection, borderRadius: BorderRadius.md, padding: Spacing.md },
   summaryLabel: { fontSize: 12, color: c.textSecondary, marginTop: Spacing.sm },
   summaryValue: { fontSize: 15, fontWeight: '500', color: c.textPrimary },
