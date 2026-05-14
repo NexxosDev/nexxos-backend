@@ -21,6 +21,7 @@ import { Spacing, BorderRadius } from '../src/theme/colors';
 import type { ThemeColors } from '../src/theme/colors';
 import ChatMessageComp from '../src/components/ChatMessage';
 import LoadingSpinner from '../src/components/LoadingSpinner';
+import { getDateKey, getDateLabel } from '../src/utils/dateSeparator';
 import type { ChatInfo, ChatMessageItem } from '../src/types';
 
 export default function ChatScreen() {
@@ -261,36 +262,52 @@ export default function ChatScreen() {
     );
   }, [colors.primary, styles.swipeReplyAction]);
 
-  const renderMessage = useCallback(({ item }: { item: ChatMessageItem }) => {
+  const renderMessage = useCallback(({ item, index }: { item: ChatMessageItem; index: number }) => {
     const isOwn = item?.senderId === user?.id;
+    const currentKey = getDateKey(item?.createdAt ?? '');
+    const nextItem = (messages ?? [])[index + 1];
+    const nextKey = nextItem ? getDateKey(nextItem?.createdAt ?? '') : '';
+    // In inverted list: show separator AFTER this item when date differs from next (older) item,
+    // or when this is the last (oldest) item — this renders the label visually ABOVE the day group.
+    const showSeparator = currentKey && (currentKey !== nextKey);
+
     return (
-      <Swipeable
-        ref={(ref) => { if (ref && item?.id) swipeableRefs.current.set(item.id, ref); }}
-        renderLeftActions={isReadOnly ? undefined : renderLeftActions}
-        onSwipeableOpen={(direction) => { if (direction === 'left' && !isReadOnly) activateReply(item); }}
-        leftThreshold={60}
-        overshootLeft={false}
-        friction={2}
-        enabled={!isReadOnly}
-      >
-        <ChatMessageComp
-          messageText={item?.messageText ?? ''}
-          senderName={item?.senderName ?? ''}
-          createdAt={item?.createdAt ?? ''}
-          isOwn={isOwn}
-          isVendorMessage={item?.senderId === chatInfo?.vendorUserId}
-          messageType={item?.messageType}
-          imageUrl={item?.imageUrl}
-          status={item?.status}
-          isEdited={item?.isEdited}
-          deletedForAll={item?.deletedForAll}
-          replyTo={item?.replyTo}
-          onReplyPress={scrollToMessage}
-          onLongPress={!isReadOnly && isOwn && !item?.deletedForAll ? () => openContextMenu(item) : undefined}
-        />
-      </Swipeable>
+      <>
+        <Swipeable
+          ref={(ref) => { if (ref && item?.id) swipeableRefs.current.set(item.id, ref); }}
+          renderLeftActions={isReadOnly ? undefined : renderLeftActions}
+          onSwipeableOpen={(direction) => { if (direction === 'left' && !isReadOnly) activateReply(item); }}
+          leftThreshold={60}
+          overshootLeft={false}
+          friction={2}
+          enabled={!isReadOnly}
+        >
+          <ChatMessageComp
+            messageText={item?.messageText ?? ''}
+            senderName={item?.senderName ?? ''}
+            createdAt={item?.createdAt ?? ''}
+            isOwn={isOwn}
+            isVendorMessage={item?.senderId === chatInfo?.vendorUserId}
+            messageType={item?.messageType}
+            imageUrl={item?.imageUrl}
+            status={item?.status}
+            isEdited={item?.isEdited}
+            deletedForAll={item?.deletedForAll}
+            replyTo={item?.replyTo}
+            onReplyPress={scrollToMessage}
+            onLongPress={!isReadOnly && isOwn && !item?.deletedForAll ? () => openContextMenu(item) : undefined}
+          />
+        </Swipeable>
+        {showSeparator ? (
+          <View style={styles.dateSeparator}>
+            <View style={styles.dateSeparatorPill}>
+              <Text style={styles.dateSeparatorText}>{getDateLabel(item?.createdAt ?? '')}</Text>
+            </View>
+          </View>
+        ) : null}
+      </>
     );
-  }, [user?.id, chatInfo?.vendorUserId, renderLeftActions, activateReply, scrollToMessage, openContextMenu, isReadOnly]);
+  }, [user?.id, chatInfo?.vendorUserId, messages, renderLeftActions, activateReply, scrollToMessage, openContextMenu, isReadOnly, styles]);
 
   if (loading) return <LoadingSpinner />;
 
@@ -482,6 +499,9 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   headerName: { fontSize: 16, fontWeight: '600', color: c.textPrimary },
   headerSummary: { fontSize: 12, color: c.textSecondary },
   messageList: { padding: Spacing.sm, paddingBottom: Spacing.md },
+  dateSeparator: { alignItems: 'center', marginVertical: 10 },
+  dateSeparatorPill: { backgroundColor: c.chipBg, paddingHorizontal: 14, paddingVertical: 5, borderRadius: BorderRadius.full },
+  dateSeparatorText: { fontSize: 12, fontWeight: '600', color: c.textSecondary },
   emptyChat: { textAlign: 'center', color: c.textSecondary, padding: Spacing.xl },
   readOnlyBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
