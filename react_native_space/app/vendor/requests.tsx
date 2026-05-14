@@ -100,7 +100,7 @@ export default function VendorRequests() {
     }
     return (
       <Pressable style={styles.loadMoreBtn} onPress={loadMore}>
-        <Ionicons name="chevron-down-circle-outline" size={20} color={colors.primary} />
+        <Ionicons name="chevron-down-circle-outline" size={20} color={colors.textPrimary} />
         <Text style={styles.loadMoreText}>Ver más solicitudes</Text>
       </Pressable>
     );
@@ -158,5 +158,5 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   footerContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.md, gap: 8 },
   footerText: { fontSize: 13, color: c.textSubtitle },
   loadMoreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 8, marginTop: 4, borderRadius: BorderRadius.md, backgroundColor: c.surface },
-  loadMoreText: { fontSize: 14, fontWeight: '600', color: c.primary },
+  loadMoreText: { fontSize: 14, fontWeight: '600', color: c.textPrimary },
 });

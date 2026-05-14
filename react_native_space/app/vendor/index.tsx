@@ -221,6 +221,16 @@ export default function VendorHome() {
     </View>
   );
 
+  const renderFooter = useCallback(() => {
+    if ((reqs?.length ?? 0) === 0) return null;
+    return (
+      <Pressable style={styles.loadMoreBtn} onPress={() => router.push('/vendor/requests')}>
+        <Ionicons name="chevron-down-circle-outline" size={20} color={colors.textPrimary} />
+        <Text style={styles.loadMoreText}>Ver más solicitudes</Text>
+      </Pressable>
+    );
+  }, [reqs?.length, styles, colors, router]);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <FlatList
@@ -245,6 +255,7 @@ export default function VendorHome() {
           );
         }}
         ListHeaderComponent={renderHeader}
+        ListFooterComponent={renderFooter}
         ListEmptyComponent={<EmptyState icon="mail-outline" title="Sin solicitudes" message="Aún no has recibido solicitudes" />}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={colors.primary} />}
@@ -301,4 +312,6 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   rmFooterItem: { flexDirection: 'row', alignItems: 'center' },
   rmFooterText: { fontSize: 13, color: c.textPrimary, marginLeft: 4 },
   rmFooterSub: { fontSize: 11, color: c.textSecondary },
+  loadMoreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 8, marginTop: 4, borderRadius: BorderRadius.md, backgroundColor: c.surface },
+  loadMoreText: { fontSize: 14, fontWeight: '600', color: c.textPrimary },
 });
