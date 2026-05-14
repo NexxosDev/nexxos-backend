@@ -15,6 +15,7 @@ import SelectInput from '../src/components/SelectInput';
 import RequestLocationMap from '../src/components/RequestLocationMap';
 import PartSearchInput from '../src/components/PartSearchInput';
 import BrandLogo from '../src/components/BrandLogo';
+import { getCategoryIcon } from '../src/utils/categoryIcons';
 import type { PartSearchResult } from '../src/services/catalog';
 import type { CatalogItem } from '../src/types';
 
@@ -59,6 +60,10 @@ export default function CreateRequestScreen() {
   const renderBrandIcon = useCallback((item: CatalogItem) => (
     <BrandLogo brandName={item?.name ?? ''} size={24} />
   ), []);
+
+  const renderCategoryIcon = useCallback((item: CatalogItem) => (
+    <Ionicons name={getCategoryIcon(item?.name ?? '') as any} size={20} color={colors.primary} />
+  ), [colors.primary]);
 
   const handlePartSearchSelect = useCallback(async (result: PartSearchResult) => {
     setCategoryId(result?.categoryId ?? '');
@@ -159,9 +164,9 @@ export default function CreateRequestScreen() {
               <Text style={styles.dividerText}>o selecciona manualmente</Text>
               <View style={styles.dividerLine} />
             </View>
-            <SelectInput label="Categoría" items={catalog?.categories ?? []} selectedId={categoryId} onSelect={(i) => { setCategoryId(i?.id ?? ''); setSubcategoryId(''); }} searchable />
+            <SelectInput label="Categoría" items={catalog?.categories ?? []} selectedId={categoryId} onSelect={(i) => { setCategoryId(i?.id ?? ''); setSubcategoryId(''); }} searchable renderItemIcon={renderCategoryIcon} />
             {(subcategories?.length ?? 0) > 0 ? (
-              <SelectInput label="Subcategoría (opcional)" items={subcategories} selectedId={subcategoryId} onSelect={(i) => setSubcategoryId(i?.id ?? '')} searchable />
+              <SelectInput label="Subcategoría (opcional)" items={subcategories} selectedId={subcategoryId} onSelect={(i) => setSubcategoryId(i?.id ?? '')} searchable renderItemIcon={renderCategoryIcon} />
             ) : null}
             <Text style={styles.fieldLabel}>Descripción</Text>
             <TextInput

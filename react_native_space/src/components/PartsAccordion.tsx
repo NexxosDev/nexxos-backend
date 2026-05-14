@@ -5,30 +5,10 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Spacing, BorderRadius } from '../theme/colors';
 import type { ThemeColors } from '../theme/colors';
 import type { CatalogItem } from '../types';
+import { getCategoryIcon } from '../utils/categoryIcons';
 
 if (Platform.OS === 'android' && UIManager?.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-const CATEGORY_ICONS: Record<string, string> = {
-  'Motor': 'cog',
-  'Frenos': 'disc',
-  'Suspensión': 'git-commit',
-  'Eléctrico': 'flash',
-  'Transmisión': 'settings',
-  'Carrocería': 'car-sport',
-  'Refrigeración': 'thermometer',
-  'Dirección': 'navigate',
-  'Escape': 'trail-sign',
-  'Encendido': 'power',
-  'Accesorios': 'grid',
-};
-
-function getCategoryIcon(name: string): string {
-  for (const [key, icon] of Object.entries(CATEGORY_ICONS)) {
-    if (name?.toLowerCase?.()?.includes?.(key?.toLowerCase?.())) return icon;
-  }
-  return 'build';
 }
 
 interface PartsAccordionProps {
