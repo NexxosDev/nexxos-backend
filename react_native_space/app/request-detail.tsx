@@ -176,6 +176,7 @@ export default function RequestDetailScreen() {
             <ResponseCard
               key={resp?.id}
               businessName={resp?.vendor?.businessName ?? ''}
+              logoUrl={resp?.vendor?.logoUrl}
               avgRating={resp?.vendor?.avgRating}
               initialMessage={resp?.initialMessage ?? ''}
               distanceKm={resp?.distanceKm}

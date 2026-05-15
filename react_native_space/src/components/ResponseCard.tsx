@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Platform, Pressable, Linking, Alert } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { Spacing, BorderRadius } from '../theme/colors';
@@ -12,6 +13,7 @@ const LINK_COLOR = '#07a0ff';
 
 interface ResponseCardProps {
   businessName: string;
+  logoUrl?: string | null;
   avgRating?: number | null;
   initialMessage: string;
   distanceKm?: number | null;
@@ -38,7 +40,7 @@ function openGoogleMaps(lat: number, lng: number) {
   }
 }
 
-export default function ResponseCard({ businessName, avgRating, initialMessage, distanceKm, vendorLatitude, vendorLongitude, onOpenChat, unreadCount, tags, onTagPress }: ResponseCardProps) {
+export default function ResponseCard({ businessName, logoUrl, avgRating, initialMessage, distanceKm, vendorLatitude, vendorLongitude, onOpenChat, unreadCount, tags, onTagPress }: ResponseCardProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const hasDistance = typeof distanceKm === 'number' && isFinite(distanceKm);
@@ -46,13 +48,19 @@ export default function ResponseCard({ businessName, avgRating, initialMessage, 
   const canNavigate = hasDistance && hasCoords;
   const unread = unreadCount ?? 0;
   const activeTags = (tags ?? []).filter(Boolean);
+  const [logoError, setLogoError] = useState(false);
+  const hasLogo = !!logoUrl && !logoError;
 
   return (
     <View style={[styles.card, unread > 0 && { borderColor: colors.primary, borderWidth: 1.5 }]}>
       <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Ionicons name="storefront-outline" size={20} color={colors.primary} />
-        </View>
+        {hasLogo ? (
+          <Image source={{ uri: logoUrl }} style={styles.avatarImg} contentFit="cover" onError={() => setLogoError(true)} />
+        ) : (
+          <View style={styles.avatar}>
+            <Ionicons name="storefront-outline" size={20} color={colors.primary} />
+          </View>
+        )}
         <View style={styles.info}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={styles.name} numberOfLines={1}>{businessName ?? ''}</Text>
@@ -120,6 +128,7 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.backgroundSection, justifyContent: 'center', alignItems: 'center', marginRight: Spacing.sm },
+  avatarImg: { width: 36, height: 36, borderRadius: 18, marginRight: Spacing.sm, backgroundColor: c.backgroundSection },
   info: { flex: 1 },
   name: { fontSize: 14, fontWeight: '600', color: c.textPrimary },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 2, flexWrap: 'wrap' },
