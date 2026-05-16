@@ -47,8 +47,13 @@ export async function getMeApi(): Promise<{ user: User }> {
   return res?.data;
 }
 
-export async function forgotPasswordApi(email: string): Promise<{ success: boolean; message: string }> {
+export async function forgotPasswordApi(email: string): Promise<{ success: boolean; expiresIn: number; message: string }> {
   const res = await api.post('/auth/forgot-password', { email });
+  return res?.data;
+}
+
+export async function verifyResetCodeApi(email: string, code: string): Promise<{ success: boolean; verified: boolean }> {
+  const res = await api.post('/auth/verify-reset-code', { email, code });
   return res?.data;
 }
 
@@ -102,15 +107,7 @@ export async function upgradeToVendorApi(data: {
   return res?.data;
 }
 
-export async function resetPasswordApi(token: string, newPassword: string): Promise<{ success: boolean; message: string }> {
-  const response = await fetch(new URL('auth/reset-password', process.env.EXPO_PUBLIC_API_URL).toString(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, newPassword }),
-  });
-  if (!response?.ok) {
-    const error = await response.json().catch(() => ({ message: 'Error al restablecer contraseña' }));
-    throw new Error(error?.message || 'Error al restablecer contraseña');
-  }
-  return response.json();
+export async function resetPasswordApi(email: string, code: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+  const res = await api.post('/auth/reset-password', { email, code, newPassword });
+  return res?.data;
 }

@@ -5,6 +5,7 @@ import { PasswordResetService } from './password-reset.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { VerifyResetCodeDto } from './dto/verify-reset-code.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpgradeToVendorDto } from './dto/upgrade-to-vendor.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -39,22 +40,30 @@ export class AuthController {
   }
 
   @Post('auth/forgot-password')
-  @ApiOperation({ summary: 'Request password reset email' })
+  @ApiOperation({ summary: 'Send 6-digit password reset code to email' })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
-    await this.passwordResetService.sendPasswordResetEmail(dto.email);
-    return { 
-      success: true, 
-      message: 'Si el email existe, recibirás instrucciones para restablecer tu contraseña.' 
+    const result = await this.passwordResetService.sendResetCode(dto.email);
+    return {
+      success: true,
+      expiresIn: result.expiresIn,
+      message: 'Si el email existe, recibirás un código de 6 dígitos para restablecer tu contraseña.',
     };
   }
 
+  @Post('auth/verify-reset-code')
+  @ApiOperation({ summary: 'Verify the 6-digit password reset code' })
+  async verifyResetCode(@Body() dto: VerifyResetCodeDto) {
+    const result = await this.passwordResetService.verifyResetCode(dto.email, dto.code);
+    return { success: true, verified: result.verified };
+  }
+
   @Post('auth/reset-password')
-  @ApiOperation({ summary: 'Reset password using token' })
+  @ApiOperation({ summary: 'Reset password using verified code' })
   async resetPassword(@Body() dto: ResetPasswordDto) {
-    await this.passwordResetService.resetPassword(dto.token, dto.newPassword);
-    return { 
-      success: true, 
-      message: 'Contraseña restablecida exitosamente.' 
+    await this.passwordResetService.resetPasswordWithCode(dto.email, dto.code, dto.newPassword);
+    return {
+      success: true,
+      message: 'Contraseña restablecida exitosamente.',
     };
   }
 
