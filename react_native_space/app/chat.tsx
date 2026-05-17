@@ -361,7 +361,7 @@ export default function ChatScreen() {
         <ImageBackground
           source={isDark ? textureDark : textureLight}
           resizeMode="repeat"
-          imageStyle={{ opacity: 0.08 }}
+          imageStyle={{ opacity: 0.20 }}
           style={{ flex: 1 }}
         >
           <FlatList
