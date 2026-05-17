@@ -135,9 +135,9 @@ export default function AnimatedSplash({ onFinish, fontLoaded }: AnimatedSplashP
             {
               color: textColor,
               fontFamily: Platform.select({
-                ios: 'Montserrat-ExtraBold',
-                android: 'Montserrat-ExtraBold',
-                web: 'Montserrat-ExtraBold',
+                ios: 'Montserrat-Black',
+                android: 'Montserrat-Black',
+                web: 'Montserrat-Black',
                 default: 'System',
               }),
             },
@@ -173,8 +173,8 @@ const styles = StyleSheet.create({
     height: LOGO_SIZE,
   },
   brandText: {
-    fontSize: 40,
-    fontWeight: '800',
-    letterSpacing: 8,
+    fontSize: 42,
+    fontWeight: '900',
+    letterSpacing: 3,
   },
 });

@@ -76,6 +76,7 @@ function InnerLayout() {
       try {
         await Font.loadAsync({
           'Montserrat-ExtraBold': require('../assets/fonts/Montserrat-ExtraBold.ttf'),
+          'Montserrat-Black': require('../assets/fonts/Montserrat-Black.ttf'),
         });
         if (!cancelled) setFontLoaded(true);
       } catch (err) {
