@@ -1,16 +1,18 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Platform } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Font from 'expo-font';
 import * as Notifications from 'expo-notifications';
 import { AuthProvider } from '../src/contexts/AuthContext';
 import { CatalogProvider } from '../src/contexts/CatalogContext';
 import { ThemeProvider, useTheme } from '../src/contexts/ThemeContext';
 import { UnreadProvider } from '../src/contexts/UnreadContext';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
+import AnimatedSplash from '../src/components/AnimatedSplash';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -65,12 +67,35 @@ function ThemedStatusBar() {
 
 function InnerLayout() {
   const { colors } = useTheme();
+  const [showSplash, setShowSplash] = useState(true);
+  const [fontLoaded, setFontLoaded] = useState(false);
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await Font.loadAsync({
+          'Montserrat-ExtraBold': require('../assets/fonts/Montserrat-ExtraBold.ttf'),
+        });
+        if (!cancelled) setFontLoaded(true);
+      } catch (err) {
+        console.warn('Font load failed, continuing with fallback:', err);
+        if (!cancelled) setFontLoaded(true); // continue anyway with system font
+      }
+      // Hide native splash once our animated one is ready
       SplashScreen.hideAsync().catch(() => {});
-    }, 1500);
-    return () => clearTimeout(timeout);
+    })();
+    // Safety timeout: always hide native splash after 5s
+    const safetyTimeout = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+      if (!fontLoaded) setFontLoaded(true);
+      setShowSplash(false);
+    }, 5000);
+    return () => { cancelled = true; clearTimeout(safetyTimeout); };
+  }, []);
+
+  const handleSplashFinish = useCallback(() => {
+    setShowSplash(false);
   }, []);
 
   return (
@@ -97,6 +122,9 @@ function InnerLayout() {
         <Stack.Screen name="vendor-edit-profile" />
         <Stack.Screen name="+not-found" />
       </Stack>
+      {showSplash && (
+        <AnimatedSplash onFinish={handleSplashFinish} fontLoaded={fontLoaded} />
+      )}
     </>
   );
 }
