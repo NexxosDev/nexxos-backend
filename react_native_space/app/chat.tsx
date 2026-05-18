@@ -132,9 +132,12 @@ export default function ChatScreen() {
     intervalRef.current = setInterval(async () => {
       await fetchMessages();
       await markAsDeliveredAndRead();
+      // Continuously dismiss any tray notifications for this chat
+      // (covers edge cases: push arrived just before presence was reported, background delays, etc.)
+      if (chatId) dismissNotificationsForContext({ chatId }).catch(() => {});
     }, 4000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [fetchMessages, markAsDeliveredAndRead]);
+  }, [fetchMessages, markAsDeliveredAndRead, chatId]);
 
   // ---------- Reply ----------
   const activateReply = useCallback((msg: ChatMessageItem) => {

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
+import { ChatPresenceService } from '../notification/chat-presence.service';
 
 const MESSAGE_SELECT = {
   id: true,
@@ -73,6 +74,7 @@ export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
+    private readonly chatPresence: ChatPresenceService,
   ) {}
 
   private async verifyAccess(chatId: string, userId: string) {
@@ -187,13 +189,18 @@ export class ChatService {
     const senderName = isVendor && vendorRecord?.businessName ? vendorRecord.businessName : (personalName || 'Usuario');
     const recipientUserId = isClient ? chat.vendor?.userId : chat.clientId;
     if (recipientUserId) {
-      const preview = messageType === 'image' ? 'Imagen' : (messageText.length > 100 ? messageText.substring(0, 97) + '...' : messageText);
-      this.notificationService.sendToUser(
-        recipientUserId,
-        senderName,
-        preview,
-        { type: 'NEW_MESSAGE', chatId },
-      ).catch((err) => this.logger.error('Push error (new message)', err));
+      // Skip push if recipient is currently viewing this exact chat (WhatsApp-style)
+      if (this.chatPresence.isUserInChat(recipientUserId, chatId)) {
+        this.logger.debug(`Skipping push for user ${recipientUserId} — already viewing chat ${chatId}`);
+      } else {
+        const preview = messageType === 'image' ? 'Imagen' : (messageText.length > 100 ? messageText.substring(0, 97) + '...' : messageText);
+        this.notificationService.sendToUser(
+          recipientUserId,
+          senderName,
+          preview,
+          { type: 'NEW_MESSAGE', chatId },
+        ).catch((err) => this.logger.error('Push error (new message)', err));
+      }
     }
 
     return formatMessage(message, chat?.vendor?.userId, chat?.vendor?.businessName);

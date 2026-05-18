@@ -8,20 +8,50 @@ import api from './api';
 let _activeChatId: string | null = null;
 let _appIsActive = AppState.currentState === 'active';
 
-// Track app state changes
+// Track app state changes — when app goes to background, clear backend presence
 AppState.addEventListener('change', (state) => {
+  const wasActive = _appIsActive;
   _appIsActive = state === 'active';
+
+  if (!_appIsActive && wasActive && _activeChatId) {
+    // App went to background — clear presence on backend so push resumes
+    _reportPresenceToBackend(null).catch(() => {});
+  } else if (_appIsActive && !wasActive && _activeChatId) {
+    // App returned to foreground with chat still open — re-report presence
+    _reportPresenceToBackend(_activeChatId).catch(() => {});
+    // Also dismiss any notifications that arrived while backgrounded
+    dismissNotificationsForContext({ chatId: _activeChatId }).catch(() => {});
+  }
 });
+
+/** Report active chat to backend so it can skip sending push */
+async function _reportPresenceToBackend(chatId: string | null) {
+  try {
+    if (chatId) {
+      await api.post('/chat-presence', { chatId });
+    } else {
+      await api.delete('/chat-presence');
+    }
+  } catch {
+    // Non-critical — frontend foreground handler is the fallback
+  }
+}
 
 /** Call when the user opens a specific chat screen */
 export function setActiveChatId(chatId: string) {
   _activeChatId = chatId;
-  // Also dismiss any existing notifications for this chat immediately
+  // Dismiss existing tray notifications for this chat immediately
   dismissNotificationsForContext({ chatId }).catch(() => {});
+  // Tell backend to suppress push for this chat
+  _reportPresenceToBackend(chatId).catch(() => {});
 }
 
 /** Call when the user leaves the chat screen */
-export function clearActiveChatId() { _activeChatId = null; }
+export function clearActiveChatId() {
+  _activeChatId = null;
+  // Tell backend to resume sending push
+  _reportPresenceToBackend(null).catch(() => {});
+}
 
 /** Check if a specific chat is currently active */
 export function getActiveChatId(): string | null { return _activeChatId; }
