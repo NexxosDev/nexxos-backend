@@ -142,12 +142,12 @@ export class AuthService {
       where: { email: dto.email },
       include: { userRoles: { include: { role: true } } },
     });
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    if (!user) throw new UnauthorizedException('Credenciales inválidas');
 
     const valid = await bcrypt.compare(dto.password, user.password);
-    if (!valid) throw new UnauthorizedException('Invalid credentials');
+    if (!valid) throw new UnauthorizedException('Credenciales inválidas');
 
-    if (!user.isActive) throw new UnauthorizedException('Account is deactivated');
+    if (!user.isActive) throw new UnauthorizedException('Tu cuenta ha sido desactivada');
 
     const token = this.generateToken(user.id, user.email);
     this.logger.log(`User logged in: ${user.email}`);
