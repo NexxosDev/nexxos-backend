@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, Switch, Pressable, RefreshControl, Pl
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { getVendorDashboard, updateVendorAvailability, getVendorResponseMetrics } from '../../src/services/vendor';
+import { getVendorDashboard, updateVendorAvailability, getVendorResponseMetrics, getVendorPlan } from '../../src/services/vendor';
 import { useReactiveList } from '../../src/hooks/useReactiveList';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
@@ -16,7 +16,7 @@ import EmptyState from '../../src/components/EmptyState';
 import LoadingSpinner from '../../src/components/LoadingSpinner';
 import UnreadBell from '../../src/components/UnreadBell';
 import { useUnread } from '../../src/contexts/UnreadContext';
-import type { VendorDashboard, VendorResponseMetrics } from '../../src/types';
+import type { VendorDashboard, VendorResponseMetrics, VendorPlanInfo } from '../../src/types';
 
 function formatDuration(ms: number): string {
   if (ms < 0) return '0s';
@@ -40,6 +40,7 @@ export default function VendorHome() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [dashboard, setDashboard] = useState<VendorDashboard | null>(null);
   const [responseMetrics, setResponseMetrics] = useState<VendorResponseMetrics | null>(null);
+  const [planInfo, setPlanInfo] = useState<VendorPlanInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [toggling, setToggling] = useState(false);
@@ -85,12 +86,14 @@ export default function VendorHome() {
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      const [dashData, metricsData] = await Promise.all([
+      const [dashData, metricsData, planData] = await Promise.all([
         getVendorDashboard(),
         getVendorResponseMetrics().catch(() => null),
+        getVendorPlan().catch(() => null),
       ]);
       setDashboard(dashData ?? null);
       setResponseMetrics(metricsData ?? null);
+      setPlanInfo(planData ?? null);
     } catch { }
     if (isRefresh) setRefreshing(false); else setLoading(false);
   }, []);
@@ -165,6 +168,33 @@ export default function VendorHome() {
           <Ionicons name="chevron-forward" size={20} color={colors.warningBoxText} />
         </Pressable>
       )}
+
+      {/* Plan expiration warning banner (≤15 days) */}
+      {planInfo?.plan?.slug === 'beta' && (planInfo?.subscription?.daysRemaining ?? 999) <= 15 && (planInfo?.subscription?.daysRemaining ?? 0) > 0 ? (
+        <View style={styles.planBanner}>
+          <Text style={styles.planBannerText}>
+            ⏳ Tu Plan Beta vence en {planInfo?.subscription?.daysRemaining ?? 0} {(planInfo?.subscription?.daysRemaining ?? 0) === 1 ? 'día' : 'días'}. Pronto te informaremos sobre los planes disponibles.
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Plan expired banner */}
+      {planInfo?.subscription?.estado === 'GRACE_PERIOD' ? (
+        <View style={[styles.planBanner, { borderLeftColor: colors.error, backgroundColor: colors.errorBg }]}>
+          <Text style={[styles.planBannerText, { color: colors.error }]}>
+            ⚠️ Tu Plan Beta ha expirado. Estás en período de gracia. Pronto te informaremos sobre los planes disponibles.
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Monthly limit reached banner */}
+      {planInfo?.monthlyRequests && (planInfo?.monthlyRequests?.limit ?? -1) !== -1 && (planInfo?.monthlyRequests?.count ?? 0) >= (planInfo?.monthlyRequests?.limit ?? 0) && (planInfo?.monthlyRequests?.limit ?? 0) > 0 ? (
+        <View style={[styles.planBanner, { borderLeftColor: colors.error, backgroundColor: colors.errorBg }]}>
+          <Text style={[styles.planBannerText, { color: colors.error }]}>
+            🚫 Has alcanzado el límite de {planInfo?.monthlyRequests?.limit ?? 0} solicitudes mensuales. No recibirás nuevas solicitudes hasta el próximo mes.
+          </Text>
+        </View>
+      ) : null}
 
       <Text style={styles.greeting}>¡Hola, {dashboard?.businessName ?? 'Vendedor'}!</Text>
 
@@ -315,4 +345,17 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   rmFooterSub: { fontSize: 11, color: c.textSecondary },
   loadMoreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 8, marginTop: 4, borderRadius: BorderRadius.md, backgroundColor: c.surface },
   loadMoreText: { fontSize: 14, fontWeight: '600', color: c.textPrimary },
+  planBanner: {
+    backgroundColor: c.warningBg,
+    borderLeftWidth: 4,
+    borderLeftColor: c.warning,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  planBannerText: {
+    fontSize: 13,
+    color: c.warningBoxText,
+    lineHeight: 19,
+  },
 });

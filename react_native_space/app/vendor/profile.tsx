@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
-import { getVendorProfile } from '../../src/services/vendor';
+import { getVendorProfile, getVendorPlan } from '../../src/services/vendor';
 import { Spacing, BorderRadius } from '../../src/theme/colors';
 import type { ThemeColors } from '../../src/theme/colors';
 import Button from '../../src/components/Button';
@@ -13,7 +13,8 @@ import ProfileAvatar from '../../src/components/ProfileAvatar';
 import StarRating from '../../src/components/StarRating';
 import LoadingSpinner from '../../src/components/LoadingSpinner';
 import BrandLogo from '../../src/components/BrandLogo';
-import type { VendorProfile as VPType } from '../../src/types';
+import VendorPlanCard from '../../src/components/VendorPlanCard';
+import type { VendorProfile as VPType, VendorPlanInfo } from '../../src/types';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -47,6 +48,7 @@ export default function VendorProfileScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [profile, setProfile] = useState<VPType | null>(null);
+  const [planInfo, setPlanInfo] = useState<VendorPlanInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
@@ -55,8 +57,12 @@ export default function VendorProfileScreen() {
   const fetchProfile = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      const data = await getVendorProfile();
+      const [data, plan] = await Promise.all([
+        getVendorProfile(),
+        getVendorPlan().catch(() => null),
+      ]);
       setProfile(data ?? null);
+      setPlanInfo(plan ?? null);
     } catch { }
     if (isRefresh) setRefreshing(false); else setLoading(false);
   }, []);
@@ -133,6 +139,8 @@ export default function VendorProfileScreen() {
             </View>
           ) : null}
         </View>
+
+        <VendorPlanCard planInfo={planInfo} />
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ubicación</Text>

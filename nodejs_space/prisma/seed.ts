@@ -142,31 +142,72 @@ async function main() {
     }
   }
 
-  // Plans
+  // Plans (Beta, Gratuito, Pro, Premium)
   await prisma.plan.upsert({
-    where: { id: '00000000-0000-0000-0000-000000000001' },
+    where: { slug: 'beta' },
     update: {},
     create: {
-      id: '00000000-0000-0000-0000-000000000001',
-      name: 'Plan B\u00e1sico',
-      description: 'Plan gratuito con funcionalidades b\u00e1sicas',
-      price: 0,
-      billingCycle: 'monthly',
+      name: 'Beta',
+      slug: 'beta',
+      description: 'Plan Beta para vendors tempranos con acceso ilimitado temporal',
+      solicitudesMensuales: -1,
+      prioridad: 2,
+      precioMensual: 0,
+      precioAnual: 0,
+      comisionPorcentaje: 0,
+      visibleEnApp: false,
       isActive: true,
     },
   });
   await prisma.plan.upsert({
-    where: { id: '00000000-0000-0000-0000-000000000002' },
+    where: { slug: 'gratuito' },
     update: {},
     create: {
-      id: '00000000-0000-0000-0000-000000000002',
-      name: 'Plan Premium',
-      description: 'Plan premium con todas las funcionalidades',
-      price: 9.99,
-      billingCycle: 'monthly',
+      name: 'Gratuito',
+      slug: 'gratuito',
+      description: 'Plan gratuito con funcionalidades básicas',
+      solicitudesMensuales: 50,
+      prioridad: 1,
+      precioMensual: 0,
+      precioAnual: 0,
+      comisionPorcentaje: 0,
+      visibleEnApp: true,
       isActive: true,
     },
   });
+  await prisma.plan.upsert({
+    where: { slug: 'pro' },
+    update: {},
+    create: {
+      name: 'Pro',
+      slug: 'pro',
+      description: 'Plan Pro con mayor capacidad de solicitudes',
+      solicitudesMensuales: 500,
+      prioridad: 3,
+      precioMensual: 19.99,
+      precioAnual: 199.99,
+      comisionPorcentaje: 5,
+      visibleEnApp: false,
+      isActive: true,
+    },
+  });
+  await prisma.plan.upsert({
+    where: { slug: 'premium' },
+    update: {},
+    create: {
+      name: 'Premium',
+      slug: 'premium',
+      description: 'Plan Premium con solicitudes ilimitadas y máxima prioridad',
+      solicitudesMensuales: -1,
+      prioridad: 4,
+      precioMensual: 49.99,
+      precioAnual: 499.99,
+      comisionPorcentaje: 3,
+      visibleEnApp: false,
+      isActive: true,
+    },
+  });
+
 
   // Test User: john@doe.com
   const hashedPassword = await bcrypt.hash('johndoe123', 10);

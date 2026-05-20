@@ -197,6 +197,34 @@ export interface VendorResponseMetrics {
   slowestResponseTimeMs: number | null;
 }
 
+// ── Vendor Plan types ──
+export interface VendorPlanInfo {
+  plan: {
+    id: string;
+    name: string;
+    slug: string;
+    description: string;
+    solicitudesMensuales: number;
+    prioridad: number;
+    precioMensual: number;
+    precioAnual: number;
+    comisionPorcentaje: number;
+  } | null;
+  subscription: {
+    id: string;
+    estado: string;
+    fechaAsignacion: string;
+    fechaExpiracion: string | null;
+    fechaGracia: string | null;
+    daysRemaining: number | null;
+    totalDays: number | null;
+  } | null;
+  monthlyRequests: {
+    count: number;
+    limit: number; // -1 = unlimited
+  };
+}
+
 export interface ChatMessageReplyTo {
   id: string;
   messageText: string;

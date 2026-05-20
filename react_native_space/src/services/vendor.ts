@@ -1,5 +1,5 @@
 import api from './api';
-import type { VendorProfile, VendorDashboard, VendorRequestListItem, VendorRequestDetailType, VendorResponseMetrics } from '../types';
+import type { VendorProfile, VendorDashboard, VendorRequestListItem, VendorRequestDetailType, VendorResponseMetrics, VendorPlanInfo } from '../types';
 
 export async function getVendorProfile(): Promise<VendorProfile> {
   const res = await api.get('/vendor/profile');
@@ -47,5 +47,10 @@ export async function declineRequest(matchId: string): Promise<{ success: boolea
 
 export async function getVendorResponseMetrics(): Promise<VendorResponseMetrics> {
   const res = await api.get('/vendor/response-metrics');
+  return res?.data;
+}
+
+export async function getVendorPlan(): Promise<VendorPlanInfo> {
+  const res = await api.get('/vendors/my-plan');
   return res?.data;
 }
