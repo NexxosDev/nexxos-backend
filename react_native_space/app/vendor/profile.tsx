@@ -3,12 +3,12 @@ import { View, Text, StyleSheet, ScrollView, Alert, RefreshControl, Pressable, L
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { getVendorProfile, getVendorPlan } from '../../src/services/vendor';
 import { Spacing, BorderRadius } from '../../src/theme/colors';
 import type { ThemeColors } from '../../src/theme/colors';
-import ProfileAvatar from '../../src/components/ProfileAvatar';
 import StarRating from '../../src/components/StarRating';
 import LoadingSpinner from '../../src/components/LoadingSpinner';
 import BrandLogo from '../../src/components/BrandLogo';
@@ -126,12 +126,20 @@ export default function VendorProfileScreen() {
         </View>
 
         <View style={styles.header}>
-          <ProfileAvatar
-            imageUrl={user?.profileImageUrl}
-            initials={`${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`.toUpperCase()}
-            size={90}
-            onImageUpdated={() => refreshUser?.()}
-          />
+          <View style={styles.logoContainer}>
+            {profile?.logoUrl ? (
+              <Image
+                source={{ uri: profile.logoUrl }}
+                style={styles.logoImage}
+                contentFit="cover"
+                transition={200}
+              />
+            ) : (
+              <View style={styles.logoFallback}>
+                <Ionicons name="storefront-outline" size={40} color={colors.textSecondary} />
+              </View>
+            )}
+          </View>
           <Text style={styles.businessName}>{profile?.businessName ?? ''}</Text>
           <Text style={styles.rif}>RIF: {profile?.rif ?? ''}</Text>
           {typeof profile?.metrics?.avgRating === 'number' ? (
@@ -336,6 +344,24 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   header: { alignItems: 'center', marginBottom: Spacing.lg },
+  logoContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    overflow: 'hidden',
+    backgroundColor: c.backgroundSection,
+    borderWidth: 2,
+    borderColor: c.primary,
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  logoFallback: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   businessName: { fontSize: 22, fontWeight: '700', color: c.textPrimary, marginTop: Spacing.sm },
   rif: { fontSize: 14, color: c.textSecondary, marginTop: 2 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.sm },

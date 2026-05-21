@@ -13,6 +13,8 @@ import { uploadRegistrationFile, verifyIdentity } from '../../src/services/ident
 import { upgradeToVendorApi } from '../../src/services/auth';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { formatCedula, validateCedula } from '../../src/utils/cedula';
+import { formatRif, validateRif } from '../../src/utils/rif';
+import ImagePreviewModal from '../../src/components/ImagePreviewModal';
 import type { ThemeColors } from '../../src/theme/colors';
 import { Spacing, BorderRadius } from '../../src/theme/colors';
 import Input from '../../src/components/Input';
@@ -72,6 +74,7 @@ export default function RegisterVendorScreen() {
   const [identityVerified, setIdentityVerified] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState('');
+  const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
   const [showLiveness, setShowLiveness] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
 
@@ -260,7 +263,8 @@ export default function RegisterVendorScreen() {
       return personalValid && identityVerified && emailVerified;
     }
     if (step === 2) {
-      return !!(business?.businessName?.trim?.() && business?.rif?.trim?.() && business?.docImageUri && business?.logoUri);
+      const rifOk = !validateRif(business?.rif ?? '');
+      return !!(business?.businessName?.trim?.() && rifOk && business?.docImageUri && business?.logoUri);
     }
     if (step === 3) return !!(location?.latitude && location?.longitude && location?.fullAddress?.trim?.());
     if (step === 4) return (selectedModels?.length ?? 0) > 0;
@@ -376,13 +380,14 @@ export default function RegisterVendorScreen() {
                 Foto de Cédula <Text style={styles.requiredStar}>*</Text>
               </Text>
               {personalDocUri ? (
-                <View style={styles.imagePreviewContainer}>
+                <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(personalDocUri)}>
                   <Image source={{ uri: personalDocUri }} style={styles.imagePreviewFull} />
+                  <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                   <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('personalDoc')}>
                     <Ionicons name="camera-outline" size={20} color={colors.white} />
                     <Text style={styles.changeImageText}>Cambiar</Text>
                   </Pressable>
-                </View>
+                </Pressable>
               ) : (
                 <Pressable style={styles.imagePicker} onPress={() => showImageOptions('personalDoc')}>
                   <Ionicons name="id-card-outline" size={40} color={colors.textSecondary} />
@@ -396,21 +401,21 @@ export default function RegisterVendorScreen() {
               </Text>
               {selfies?.neutral ? (
                 <View style={styles.selfiePreviewRow}>
-                  <View style={styles.selfieThumb}>
+                  <Pressable style={styles.selfieThumb} onPress={() => setPreviewImageUri(selfies?.neutral ?? null)}>
                     <Image source={{ uri: selfies.neutral }} style={styles.selfieThumbImg} />
                     <Text style={styles.selfieThumbLabel}>Neutra</Text>
-                  </View>
+                  </Pressable>
                   {selfies?.smile ? (
-                    <View style={styles.selfieThumb}>
+                    <Pressable style={styles.selfieThumb} onPress={() => setPreviewImageUri(selfies?.smile ?? null)}>
                       <Image source={{ uri: selfies.smile }} style={styles.selfieThumbImg} />
                       <Text style={styles.selfieThumbLabel}>Sonrisa</Text>
-                    </View>
+                    </Pressable>
                   ) : null}
                   {selfies?.turn ? (
-                    <View style={styles.selfieThumb}>
+                    <Pressable style={styles.selfieThumb} onPress={() => setPreviewImageUri(selfies?.turn ?? null)}>
                       <Image source={{ uri: selfies.turn }} style={styles.selfieThumbImg} />
                       <Text style={styles.selfieThumbLabel}>Girada</Text>
-                    </View>
+                    </Pressable>
                   ) : null}
                   <Pressable style={styles.retakeSelfieBtn} onPress={() => { setSelfies({}); setIdentityVerified(false); setShowLiveness(true); }}>
                     <Ionicons name="refresh-outline" size={20} color={colors.primary} />
@@ -472,19 +477,20 @@ export default function RegisterVendorScreen() {
           <View>
             <Text style={styles.stepTitle}>Datos del Negocio</Text>
             <Input label="Razón Social" value={business.businessName} onChangeText={(v) => setBusiness((p) => ({ ...(p ?? {}), businessName: v }))} />
-            <Input label="RIF" value={business.rif} onChangeText={(v) => setBusiness((p) => ({ ...(p ?? {}), rif: v }))} />
+            <Input label="RIF" value={business.rif} onChangeText={(v) => setBusiness((p) => ({ ...(p ?? {}), rif: formatRif(v) }))} placeholder="J-12345678" error={business?.rif ? validateRif(business.rif) : ''} />
 
             <Text style={styles.fieldLabel}>
               Documento de la Empresa (RIF/Acta Constitutiva) <Text style={styles.requiredStar}>*</Text>
             </Text>
             {business?.docImageUri ? (
-              <View style={styles.imagePreviewContainer}>
+              <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(business.docImageUri)}>
                 <Image source={{ uri: business.docImageUri }} style={styles.imagePreviewFull} />
+                <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                 <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('doc')}>
                   <Ionicons name="camera-outline" size={20} color={colors.white} />
                   <Text style={styles.changeImageText}>Cambiar</Text>
                 </Pressable>
-              </View>
+              </Pressable>
             ) : (
               <Pressable style={styles.imagePicker} onPress={() => showImageOptions('doc')}>
                 <Ionicons name="document-text-outline" size={40} color={colors.textSecondary} />
@@ -497,13 +503,14 @@ export default function RegisterVendorScreen() {
               Logo del Negocio <Text style={styles.requiredStar}>*</Text>
             </Text>
             {business?.logoUri ? (
-              <View style={styles.imagePreviewContainer}>
+              <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(business.logoUri)}>
                 <Image source={{ uri: business.logoUri }} style={styles.imagePreviewFull} />
+                <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                 <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('logo')}>
                   <Ionicons name="image-outline" size={20} color={colors.white} />
                   <Text style={styles.changeImageText}>Cambiar</Text>
                 </Pressable>
-              </View>
+              </Pressable>
             ) : (
               <Pressable style={styles.imagePicker} onPress={() => showImageOptions('logo')}>
                 <Ionicons name="image-outline" size={40} color={colors.textSecondary} />
@@ -610,6 +617,11 @@ export default function RegisterVendorScreen() {
           )}
         </View>
       </KeyboardAvoidingView>
+      <ImagePreviewModal
+        visible={!!previewImageUri}
+        imageUri={previewImageUri}
+        onClose={() => setPreviewImageUri(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -649,6 +661,17 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+  },
+  zoomHint: {
+    position: 'absolute',
+    top: Spacing.sm,
+    right: Spacing.sm,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   changeImageButton: {
     position: 'absolute',
