@@ -27,10 +27,10 @@ export interface ClientLevel {
 }
 
 const LEVELS: ClientLevel[] = [
-  { level: 'EXPLORADOR', emoji: '🧭', label: 'Explorador', minPoints: 0, maxPoints: 99 },
-  { level: 'RODANTE', emoji: '🛞', label: 'Rodante', minPoints: 100, maxPoints: 499 },
-  { level: 'AFINADOR', emoji: '🔧', label: 'Afinador', minPoints: 500, maxPoints: 999 },
-  { level: 'MAESTRO', emoji: '🏆', label: 'Maestro', minPoints: 1000, maxPoints: null },
+  { level: 'EXPLORADOR', emoji: '🧭', label: 'Explorador', minPoints: 0, maxPoints: 199 },
+  { level: 'RODANTE', emoji: '🛞', label: 'Rodante', minPoints: 200, maxPoints: 799 },
+  { level: 'AFINADOR', emoji: '🔧', label: 'Afinador', minPoints: 800, maxPoints: 1499 },
+  { level: 'MAESTRO', emoji: '🏆', label: 'Maestro', minPoints: 1500, maxPoints: null },
 ];
 
 @Injectable()
