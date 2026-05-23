@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Alert, Platform } from 'react-native';
+import React, { useState, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Alert, Platform, KeyboardAvoidingView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../contexts/ThemeContext';
@@ -28,6 +28,7 @@ interface RateVendorModalProps {
 export default function RateVendorModal({ visible, requestId, vendors = [], onClose, onRated }: RateVendorModalProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const scrollRef = useRef<ScrollView>(null);
   const [selectedVendorId, setSelectedVendorId] = useState('');
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -82,88 +83,100 @@ export default function RateVendorModal({ visible, requestId, vendors = [], onCl
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleSkip}>
       <Pressable style={styles.overlay} onPress={handleSkip} />
-      <View style={styles.sheet}>
-        {success ? (
-          <View style={styles.successContainer}>
-            <Text style={styles.successEmoji}>🎉</Text>
-            <Text style={styles.successTitle}>¡Gracias por calificar!</Text>
-            <Text style={styles.successPoints}>+{success.points} puntos</Text>
-            {success.bonus ? (
-              <View style={styles.bonusBadge}>
-                <Ionicons name="trophy" size={16} color={colors.primary} />
-                <Text style={styles.bonusText}>¡Bonus por primera calificación! 🏆</Text>
-              </View>
-            ) : null}
-            <Button title="Continuar" onPress={handleDone} style={styles.doneBtn} />
-          </View>
-        ) : (
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <Text style={styles.title}>⭐ Califica al vendedor</Text>
-            <Text style={styles.subtitle}>Gana puntos calificando al vendedor que te ayudó</Text>
-
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-
-            <Text style={styles.label}>¿Quién te ayudó?</Text>
-            {(vendors ?? []).map((v) => (
-              <Pressable
-                key={v?.id}
-                style={[styles.vendorOption, selectedVendorId === v?.id && styles.vendorOptionActive]}
-                onPress={() => setSelectedVendorId(v?.id ?? '')}
-              >
-                <View style={styles.vendorInfo}>
-                  <Text style={styles.vendorInitial}>{v?.businessName?.[0]?.toUpperCase?.() ?? '?'}</Text>
-                  <View>
-                    <Text style={styles.vendorName}>{v?.businessName ?? ''}</Text>
-                    {typeof v?.avgRating === 'number' ? (
-                      <Text style={styles.vendorRating}>⭐ {v.avgRating?.toFixed?.(1) ?? '0'}</Text>
-                    ) : null}
-                  </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoid}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
+      >
+        <View style={styles.sheet}>
+          {success ? (
+            <View style={styles.successContainer}>
+              <Text style={styles.successEmoji}>🎉</Text>
+              <Text style={styles.successTitle}>¡Gracias por calificar!</Text>
+              <Text style={styles.successPoints}>+{success.points} puntos</Text>
+              {success.bonus ? (
+                <View style={styles.bonusBadge}>
+                  <Ionicons name="trophy" size={16} color={colors.primary} />
+                  <Text style={styles.bonusText}>¡Bonus por primera calificación! 🏆</Text>
                 </View>
-                {selectedVendorId === v?.id ? (
-                  <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
-                ) : null}
+              ) : null}
+              <Button title="Continuar" onPress={handleDone} style={styles.doneBtn} />
+            </View>
+          ) : (
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              ref={scrollRef}
+            >
+              <Text style={styles.title}>⭐ Califica al vendedor</Text>
+              <Text style={styles.subtitle}>Gana puntos calificando al vendedor que te ayudó</Text>
+
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+
+              <Text style={styles.label}>¿Quién te ayudó?</Text>
+              {(vendors ?? []).map((v) => (
+                <Pressable
+                  key={v?.id}
+                  style={[styles.vendorOption, selectedVendorId === v?.id && styles.vendorOptionActive]}
+                  onPress={() => setSelectedVendorId(v?.id ?? '')}
+                >
+                  <View style={styles.vendorInfo}>
+                    <Text style={styles.vendorInitial}>{v?.businessName?.[0]?.toUpperCase?.() ?? '?'}</Text>
+                    <View>
+                      <Text style={styles.vendorName}>{v?.businessName ?? ''}</Text>
+                      {typeof v?.avgRating === 'number' ? (
+                        <Text style={styles.vendorRating}>⭐ {v.avgRating?.toFixed?.(1) ?? '0'}</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                  {selectedVendorId === v?.id ? (
+                    <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+                  ) : null}
+                </Pressable>
+              ))}
+
+              <Text style={styles.label}>Calificación</Text>
+              <View style={styles.ratingRow}>
+                <StarRating rating={rating} onChange={setRating} size={32} />
+              </View>
+
+              <Text style={styles.label}>Comentario <Text style={styles.optional}>(+10 pts si ≥ 20 caracteres)</Text></Text>
+              <TextInput
+                style={styles.commentInput}
+                placeholder="Cuéntanos tu experiencia..."
+                placeholderTextColor={colors.textSecondary}
+                value={comment}
+                onChangeText={setComment}
+                multiline
+                maxLength={500}
+                onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd?.({ animated: true }), 300)}
+              />
+              {(comment?.length ?? 0) > 0 && (comment?.length ?? 0) < 20 ? (
+                <Text style={styles.charHint}>{20 - (comment?.length ?? 0)} caracteres más para bonus</Text>
+              ) : null}
+
+              <View style={styles.pointsPreview}>
+                <Ionicons name="star" size={14} color={colors.primary} />
+                <Text style={styles.pointsPreviewText}>
+                  +20 pts por calificar{(comment?.length ?? 0) >= 20 ? ' + 10 pts por comentario' : ''}
+                </Text>
+              </View>
+
+              <Button title="Enviar Calificación" onPress={handleSubmit} loading={submitting} style={styles.submitBtn} />
+              <Pressable onPress={handleSkip} style={styles.skipBtn}>
+                <Text style={styles.skipText}>Ahora no</Text>
               </Pressable>
-            ))}
-
-            <Text style={styles.label}>Calificación</Text>
-            <View style={styles.ratingRow}>
-              <StarRating rating={rating} onChange={setRating} size={32} />
-            </View>
-
-            <Text style={styles.label}>Comentario <Text style={styles.optional}>(+10 pts si ≥ 20 caracteres)</Text></Text>
-            <TextInput
-              style={styles.commentInput}
-              placeholder="Cuéntanos tu experiencia..."
-              placeholderTextColor={colors.textSecondary}
-              value={comment}
-              onChangeText={setComment}
-              multiline
-              maxLength={500}
-            />
-            {(comment?.length ?? 0) > 0 && (comment?.length ?? 0) < 20 ? (
-              <Text style={styles.charHint}>{20 - (comment?.length ?? 0)} caracteres más para bonus</Text>
-            ) : null}
-
-            <View style={styles.pointsPreview}>
-              <Ionicons name="star" size={14} color={colors.primary} />
-              <Text style={styles.pointsPreviewText}>
-                +20 pts por calificar{(comment?.length ?? 0) >= 20 ? ' + 10 pts por comentario' : ''}
-              </Text>
-            </View>
-
-            <Button title="Enviar Calificación" onPress={handleSubmit} loading={submitting} style={styles.submitBtn} />
-            <Pressable onPress={handleSkip} style={styles.skipBtn}>
-              <Text style={styles.skipText}>Ahora no</Text>
-            </Pressable>
-          </ScrollView>
-        )}
-      </View>
+            </ScrollView>
+          )}
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const createStyles = (c: ThemeColors) => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: c.overlay },
+  keyboardAvoid: { justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: c.surface,
     borderTopLeftRadius: 20,
