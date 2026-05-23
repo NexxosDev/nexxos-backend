@@ -13,7 +13,7 @@ export class ClientPointsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get client points summary (total, level, progress, history)' })
   async getPoints(@Request() req: any) {
-    return this.pointsService.getClientPointsSummary(req.user?.userId);
+    return this.pointsService.getClientPointsSummary(req.user?.id);
   }
 
   @Post('rating-reminders')
