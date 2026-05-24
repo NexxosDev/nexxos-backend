@@ -127,7 +127,11 @@ export default function RequestDetailScreen() {
       <ScrollView contentContainerStyle={styles.scroll} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={colors.primary} />}>
         <View style={styles.infoCard}>
           {(detail?.searchRadiusKm ?? 0) > 0 ? (
-            <InfoRow icon="navigate-outline" label="Área de búsqueda" value={`${detail?.searchRadiusKm} km a la redonda`} c={colors} />
+            <InfoRow icon="navigate-outline" label="Área de búsqueda" value={
+              detail?.originalRadiusKm && detail?.searchRadiusKm && detail.searchRadiusKm > detail.originalRadiusKm
+                ? `${detail.searchRadiusKm} km a la redonda (ampliado desde ${detail.originalRadiusKm} km)`
+                : `${detail?.searchRadiusKm} km a la redonda`
+            } c={colors} />
           ) : (
             <>
               <InfoRow icon="location-outline" label="Ubicación" value={[detail?.municipality?.name, detail?.state?.name].filter(Boolean).join(', ') || 'No especificada'} c={colors} />

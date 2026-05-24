@@ -10,6 +10,18 @@ import { CloseRequestDto } from './dto/close-request.dto';
 import { UpdateResponseTagsDto } from './dto/update-response-tags.dto';
 import { RateVendorDto } from './dto/rate-vendor.dto';
 
+@ApiTags('Requests (Cron)')
+@Controller('api/requests')
+export class RequestsCronController {
+  constructor(private readonly requestsService: RequestsService) {}
+
+  @Post('cron/expand-radius')
+  @ApiOperation({ summary: 'Cron: Auto-expand search radius for requests without responses' })
+  expandRadii() {
+    return this.requestsService.expandSearchRadii();
+  }
+}
+
 @ApiTags('Requests (Client)')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)

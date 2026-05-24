@@ -56,6 +56,7 @@ export interface RequestDetail {
   municipality: { id: string; name: string } | null;
   parish: { id: string; name: string } | null;
   searchRadiusKm: number | null;
+  originalRadiusKm: number | null;
   freeDescription: string;
   status: string;
   responseCount: number;
@@ -118,6 +119,7 @@ export interface VendorRequestDetailType {
     state: string;
     parish: string | null;
     searchRadiusKm: number | null;
+    originalRadiusKm: number | null;
     createdAt: string;
     clientFirstName: string;
     clientLastName?: string;

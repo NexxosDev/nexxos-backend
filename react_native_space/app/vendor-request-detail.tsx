@@ -118,7 +118,11 @@ export default function VendorRequestDetailScreen() {
           <InfoRow icon="construct-outline" label="Repuesto" value={`${req?.partCategory ?? ''}${req?.partSubcategory ? ` - ${req.partSubcategory}` : ''}`} c={colors} />
           <InfoRow icon="document-text-outline" label="Descripción" value={req?.freeDescription ?? ''} c={colors} />
           {(req?.searchRadiusKm ?? 0) > 0 ? (
-            <InfoRow icon="navigate-outline" label="Área de búsqueda" value={`${req?.searchRadiusKm} km a la redonda`} c={colors} />
+            <InfoRow icon="navigate-outline" label="Área de búsqueda" value={
+              req?.originalRadiusKm && req?.searchRadiusKm && req.searchRadiusKm > req.originalRadiusKm
+                ? `${req.searchRadiusKm} km a la redonda (ampliado desde ${req.originalRadiusKm} km)`
+                : `${req?.searchRadiusKm} km a la redonda`
+            } c={colors} />
           ) : (
             <>
               {(req?.municipality || req?.state) ? (

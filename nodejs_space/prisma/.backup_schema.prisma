@@ -274,6 +274,9 @@ model Request {
   createdAt         DateTime  @default(now()) @map("created_at")
   closedAt                DateTime? @map("closed_at")
   ratingReminderSentAt   DateTime? @map("rating_reminder_sent_at")
+  originalRadiusKm       Int?      @map("original_radius_km")
+  lastExpansionAt        DateTime? @map("last_expansion_at")
+  expansionCount         Int       @default(0) @map("expansion_count")
 
   client              User                 @relation(fields: [clientId], references: [id])
   vehicleBrand        VehicleBrand         @relation(fields: [vehicleBrandId], references: [id])

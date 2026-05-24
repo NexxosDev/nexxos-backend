@@ -43,6 +43,14 @@ export class RequestsService {
   // ── Client: Create request with auto-matching ──
   async createRequest(clientId: string, dto: CreateRequestDto) {
     const now = new Date();
+    // Detect radius mode to store originalRadiusKm
+    const isRadiusMode =
+      typeof dto.latitude === 'number' &&
+      typeof dto.longitude === 'number' &&
+      typeof dto.searchRadiusKm === 'number' &&
+      !dto.municipalityId &&
+      !dto.stateId;
+
     const request = await this.prisma.request.create({
       data: {
         clientId,
@@ -58,6 +66,7 @@ export class RequestsService {
         partSubcategoryId: dto.partSubcategoryId || null,
         freeDescription: dto.freeDescription,
         lastMessageAt: now,
+        originalRadiusKm: isRadiusMode ? dto.searchRadiusKm : null,
       },
     });
 
@@ -321,6 +330,7 @@ export class RequestsService {
       municipality: request.municipality ? { id: request.municipality.id, name: request.municipality.name } : null,
       parish: request.parish ? { id: request.parish.id, name: request.parish.name } : null,
       searchRadiusKm: request.searchRadiusKm ?? null,
+      originalRadiusKm: request.originalRadiusKm ?? null,
       freeDescription: request.freeDescription,
       status: request.status,
       responseCount: request._count.requestResponses,
@@ -757,6 +767,7 @@ export class RequestsService {
         state: match.request.state?.name ?? null,
         parish: match.request.parish?.name ?? null,
         searchRadiusKm: match.request.searchRadiusKm ?? null,
+        originalRadiusKm: match.request.originalRadiusKm ?? null,
         createdAt: match.request.createdAt.toISOString(),
         clientFirstName: match.request.client.firstName,
         clientLastName: match.request.client.lastName ?? '',
@@ -898,5 +909,180 @@ export class RequestsService {
     }
 
     return { responseId, tags };
+  }
+
+  // ── Cron: Auto-expand search radius for GPS-based requests without responses ──
+  private static readonly EXPANSION_STEP_KM = 5;
+  private static readonly MAX_RADIUS_KM = 15;
+  private static readonly MAX_EXPANSIONS = 2;
+  private static readonly WAIT_MINUTES = 15;
+
+  async expandSearchRadii(): Promise<{ expanded: number; maxReached: number }> {
+    const cutoff = new Date(Date.now() - RequestsService.WAIT_MINUTES * 60 * 1000);
+
+    // Find eligible requests: GPS-based, open/in-process, no responses, has room to expand
+    const eligible = await this.prisma.request.findMany({
+      where: {
+        status: { in: ['ABIERTA', 'EN_PROCESO'] },
+        originalRadiusKm: { not: null },           // GPS-based request
+        latitude: { not: null },
+        longitude: { not: null },
+        expansionCount: { lt: RequestsService.MAX_EXPANSIONS },
+        searchRadiusKm: { lt: RequestsService.MAX_RADIUS_KM },
+        requestResponses: { none: {} },             // no responses yet
+        // Either never expanded (check createdAt) or last expansion was > WAIT_MINUTES ago
+        OR: [
+          { expansionCount: 0, createdAt: { lte: cutoff } },
+          { expansionCount: { gt: 0 }, lastExpansionAt: { lte: cutoff } },
+        ],
+      },
+      include: {
+        vehicleBrand: true,
+        vehicleModel: true,
+        partCategory: true,
+        partSubcategory: true,
+        requestVendorMatches: { select: { vendorId: true } },
+      },
+    });
+
+    this.logger.log(`[RadiusExpansion] Found ${eligible.length} requests eligible for expansion`);
+
+    let expanded = 0;
+    let maxReached = 0;
+
+    for (const request of eligible) {
+      try {
+        const currentRadius = request.searchRadiusKm ?? request.originalRadiusKm ?? 5;
+        const newRadius = Math.min(currentRadius + RequestsService.EXPANSION_STEP_KM, RequestsService.MAX_RADIUS_KM);
+        const newExpansionCount = request.expansionCount + 1;
+        const hitMax = newRadius >= RequestsService.MAX_RADIUS_KM;
+
+        // Find NEW vendors in expanded radius (exclude already matched)
+        const alreadyMatchedIds = (request.requestVendorMatches ?? []).map((m: any) => m.vendorId);
+        const matchingConditions: any = {
+          isAvailable: true,
+          vendorVehicleModels: { some: { vehicleModelId: request.vehicleModelId } },
+          userId: { not: request.clientId },
+        };
+        if (alreadyMatchedIds.length > 0) {
+          matchingConditions.id = { notIn: alreadyMatchedIds };
+        }
+        if (request.partSubcategoryId) {
+          matchingConditions.vendorPartSubcategories = {
+            some: { partSubcategoryId: request.partSubcategoryId },
+          };
+        } else {
+          const subcats = await this.prisma.partSubcategory.findMany({
+            where: { categoryId: request.partCategoryId },
+            select: { id: true },
+          });
+          if (subcats.length > 0) {
+            matchingConditions.vendorPartSubcategories = {
+              some: { partSubcategoryId: { in: subcats.map((s: any) => s.id) } },
+            };
+          }
+        }
+
+        const candidates = await this.prisma.vendor.findMany({
+          where: matchingConditions,
+          select: { id: true, latitude: true, longitude: true, userId: true },
+        });
+
+        const clientLat = request.latitude as number;
+        const clientLng = request.longitude as number;
+
+        // Filter by new radius but exclude those within old radius (they weren't matched for a reason — plan limits etc.)
+        // Actually we should include all in new radius that aren't already matched
+        const newVendors = candidates.filter(
+          (v: any) =>
+            typeof v.latitude === 'number' &&
+            typeof v.longitude === 'number' &&
+            this.haversineKm(clientLat, clientLng, v.latitude, v.longitude) <= newRadius,
+        );
+
+        // Filter by plan limits
+        const eligibleNew: typeof newVendors = [];
+        for (const v of newVendors) {
+          const canReceive = await this.plansService.canReceiveRequests(v.id);
+          if (canReceive) eligibleNew.push(v);
+        }
+
+        // Update request radius
+        await this.prisma.request.update({
+          where: { id: request.id },
+          data: {
+            searchRadiusKm: newRadius,
+            expansionCount: newExpansionCount,
+            lastExpansionAt: new Date(),
+          },
+        });
+
+        // Create matches for new vendors
+        if (eligibleNew.length > 0) {
+          await this.prisma.requestVendorMatch.createMany({
+            data: eligibleNew.map((v: any) => ({
+              requestId: request.id,
+              vendorId: v.id,
+            })),
+            skipDuplicates: true,
+          });
+
+          // Increment metrics
+          await this.prisma.vendorMetrics.updateMany({
+            where: { vendorId: { in: eligibleNew.map((v: any) => v.id) } },
+            data: { totalRequestsReceived: { increment: 1 } },
+          });
+          for (const v of eligibleNew) {
+            this.plansService.incrementMonthlyCount(v.id).catch((err) =>
+              this.logger.error(`Failed to increment monthly count for vendor ${v.id}`, err),
+            );
+          }
+
+          // Push to new vendors
+          const vendorUserIds = eligibleNew.map((v: any) => v.userId);
+          const summary = `${request.vehicleBrand?.name ?? ''} ${request.vehicleModel?.name ?? ''} - ${request.partCategory?.name ?? ''}`;
+          const clientUser = await this.prisma.user.findUnique({
+            where: { id: request.clientId },
+            select: { firstName: true, lastName: true },
+          });
+          const clientName = `${clientUser?.firstName ?? ''} ${clientUser?.lastName ?? ''}`.trim() || 'Un cliente';
+          this.notificationService.sendToMultiple(
+            vendorUserIds,
+            `📩 ${clientName} creó una solicitud`,
+            summary,
+            { type: 'NEW_REQUEST', requestId: request.id },
+          ).catch((err) => this.logger.error('Push error (expansion new vendors)', err));
+        }
+
+        // Push to client about expansion
+        const originalKm = request.originalRadiusKm ?? currentRadius;
+        if (!hitMax) {
+          this.notificationService.sendToUser(
+            request.clientId,
+            '🔍 Ampliamos tu búsqueda',
+            `No encontramos vendedores en ${currentRadius} km. Ahora buscamos en ${newRadius} km para ayudarte.`,
+            { type: 'RADIUS_EXPANDED', requestId: request.id },
+          ).catch((err) => this.logger.error('Push error (expansion client)', err));
+        } else {
+          this.notificationService.sendToUser(
+            request.clientId,
+            '🌍 Última ampliación de búsqueda',
+            `Ahora buscamos en ${newRadius} km a la redonda. Si no hay respuestas, te sugerimos crear otra solicitud.`,
+            { type: 'RADIUS_MAX_REACHED', requestId: request.id },
+          ).catch((err) => this.logger.error('Push error (expansion max)', err));
+          maxReached++;
+        }
+
+        this.logger.log(
+          `[RadiusExpansion] Request ${request.id}: ${currentRadius}km → ${newRadius}km, ${eligibleNew.length} new vendors matched`,
+        );
+        expanded++;
+      } catch (err) {
+        this.logger.error(`[RadiusExpansion] Error expanding request ${request.id}`, err);
+      }
+    }
+
+    this.logger.log(`[RadiusExpansion] Done: ${expanded} expanded, ${maxReached} hit max`);
+    return { expanded, maxReached };
   }
 }
