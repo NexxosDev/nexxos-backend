@@ -269,9 +269,11 @@ export class RequestsService {
         partSubcategory: r.partSubcategory?.name ?? null,
         status: r.status,
         responseCount: r._count.requestResponses,
-        hasRating: r._count.requestResponses > 0
-          ? !!(r.requestRating && r.requestRating.rating > 0)
-          : null,
+        hasRating: r.status === 'CERRADA'
+          ? true  // closed requests always have RequestRating → "Calificada"
+          : r._count.requestResponses > 0
+            ? false  // open/in-process with responses → "Sin calificar"
+            : null,  // no responses → no badge
         state: r.state?.name ?? null,
         municipality: r.municipality?.name ?? null,
         lastMessageAt: r.lastMessageAt?.toISOString?.() ?? null,
@@ -397,10 +399,10 @@ export class RequestsService {
     return { items };
   }
 
-  // ── Helper: recalculate vendor metrics excluding rating=0 ──
+  // ── Helper: recalculate vendor metrics (only rating >= 1 counts) ──
   private async recalcVendorMetrics(vendorId: string) {
     const realRatings = await this.prisma.requestRating.findMany({
-      where: { vendorId, rating: { gt: 0 } },
+      where: { vendorId, rating: { gte: 1 } },
       select: { rating: true },
     });
     const avgRating = realRatings.length > 0
@@ -420,6 +422,16 @@ export class RequestsService {
     if (request.clientId !== clientId) throw new ForbiddenException();
     if (request.status === 'CERRADA') throw new BadRequestException('Esta solicitud ya fue cerrada');
 
+    // Always create a RequestRating on close:
+    //   resolved + stars   → rating 1-5
+    //   resolved + no stars → rating -1 (skipped)
+    //   not resolved        → rating 0 ("No me ayudaron")
+    const firstResponse = await this.prisma.requestResponse.findFirst({
+      where: { requestId },
+      select: { vendorId: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
     if (dto.resolved && dto.vendorId && dto.rating) {
       // Resolved + rated with stars
       const vendor = await this.prisma.vendor.findUnique({ where: { id: dto.vendorId } });
@@ -434,20 +446,23 @@ export class RequestsService {
         data: { requestId, clientId, vendorId: dto.vendorId, rating: dto.rating, comment: dto.comment || null },
       });
       await this.recalcVendorMetrics(dto.vendorId);
-    } else if (!dto.resolved) {
-      // Not resolved → create rating=0 to mark as "handled" (won't affect vendor avg)
-      const firstResponse = await this.prisma.requestResponse.findFirst({
-        where: { requestId },
-        select: { vendorId: true },
-        orderBy: { createdAt: 'asc' },
-      });
-      if (firstResponse) {
+    } else if (dto.resolved && !dto.rating) {
+      // Resolved but skipped stars → rating = -1
+      const vendorId = dto.vendorId || firstResponse?.vendorId;
+      if (vendorId) {
         await this.prisma.requestRating.create({
-          data: { requestId, clientId, vendorId: firstResponse.vendorId, rating: 0, comment: 'No resuelto' },
+          data: { requestId, clientId, vendorId, rating: -1, comment: null },
+        });
+      }
+    } else if (!dto.resolved) {
+      // Not resolved → rating = 0
+      const vendorId = firstResponse?.vendorId;
+      if (vendorId) {
+        await this.prisma.requestRating.create({
+          data: { requestId, clientId, vendorId, rating: 0, comment: 'No resuelto' },
         });
       }
     }
-    // Note: resolved=true without rating → no RequestRating created, stays as "pending" so client can rate later
 
     const updated = await this.prisma.request.update({
       where: { id: requestId },
@@ -506,9 +521,9 @@ export class RequestsService {
     if (request.clientId !== clientId) throw new ForbiddenException();
     if (request.status !== 'CERRADA') throw new BadRequestException('La solicitud debe estar cerrada para calificar');
 
-    // Check if already rated (allow overwriting a rating=0 placeholder from "No me ayudaron")
+    // Check if already rated (allow overwriting rating<=0 i.e. -1 skipped or 0 not resolved)
     const existing = await this.prisma.requestRating.findUnique({ where: { requestId } });
-    if (existing && existing.rating > 0) {
+    if (existing && existing.rating >= 1) {
       throw new BadRequestException('Ya calificaste a un vendedor en esta solicitud');
     }
 
@@ -566,19 +581,19 @@ export class RequestsService {
     };
   }
 
-  // ── Client: Get closed requests that haven't been rated ──
+  // ── Client: Get requests with responses but no rating yet (open/in-process only) ──
   async getPendingRatings(clientId: string) {
-    const closedRequests = await this.prisma.request.findMany({
+    const pendingRequests = await this.prisma.request.findMany({
       where: {
         clientId,
-        status: 'CERRADA',
+        status: { in: ['ABIERTA', 'EN_PROCESO'] },
         requestRating: null, // no rating yet
         requestResponses: { some: {} }, // has at least one response
       },
       select: {
         id: true,
         freeDescription: true,
-        closedAt: true,
+        createdAt: true,
         vehicleBrand: { select: { name: true } },
         vehicleModel: { select: { name: true } },
         partCategory: { select: { name: true } },
@@ -595,13 +610,13 @@ export class RequestsService {
           },
         },
       },
-      orderBy: { closedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
       take: 10,
     });
 
     // Resolve logo URLs
     const items = await Promise.all(
-      closedRequests.map(async (r: any) => {
+      pendingRequests.map(async (r: any) => {
         const vendors = await Promise.all(
           (r.requestResponses ?? []).map(async (resp: any) => {
             let logoUrl: string | null = null;
@@ -619,7 +634,7 @@ export class RequestsService {
         return {
           requestId: r.id,
           description: r.freeDescription,
-          closedAt: r.closedAt?.toISOString?.() ?? null,
+          createdAt: r.createdAt?.toISOString?.() ?? null,
           vehicle: `${r.vehicleBrand?.name ?? ''} ${r.vehicleModel?.name ?? ''}`.trim(),
           category: r.partCategory?.name ?? '',
           vendors,
