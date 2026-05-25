@@ -67,30 +67,76 @@ export class CatalogService {
     const q = (query ?? '').trim().toLowerCase();
     if (!q || q.length < 2) return { items: [] };
 
-    // Search by subcategory name OR keyword match
-    const items = await this.prisma.partSubcategory.findMany({
-      where: {
-        OR: [
-          { name: { contains: q, mode: 'insensitive' } },
-          { keywords: { some: { keyword: { contains: q, mode: 'insensitive' } } } },
-        ],
-      },
-      select: {
-        id: true,
-        name: true,
-        categoryId: true,
-        category: { select: { id: true, name: true } },
-      },
-      orderBy: { name: 'asc' },
-      take: 10,
-    });
+    // Split query into individual words for multi-word search
+    const words = q.split(/\s+/).filter((w) => w.length >= 2);
+    if (words.length === 0) return { items: [] };
+
+    // Use pg_trgm for fuzzy matching + exact ILIKE for precision
+    // Strategy: search keywords and subcategory names with trigram similarity
+    // Score: exact match > contains > fuzzy similarity
+    const searchQuery = words.join(' ');
+    const likePattern = `%${q}%`;
+
+    const results: Array<{
+      sub_id: string;
+      sub_name: string;
+      cat_id: string;
+      cat_name: string;
+      score: number;
+    }> = await this.prisma.$queryRawUnsafe(
+      `
+      WITH keyword_matches AS (
+        -- Exact keyword contains (highest precision)
+        SELECT DISTINCT ps.id as sub_id, ps.name as sub_name,
+               pc.id as cat_id, pc.name as cat_name,
+               CASE
+                 WHEN LOWER(pk.keyword) = $1 THEN 1.0
+                 WHEN LOWER(pk.keyword) LIKE $2 THEN 0.9
+                 ELSE similarity(LOWER(pk.keyword), $1)
+               END as score
+        FROM part_keywords pk
+        JOIN part_subcategories ps ON ps.id = pk.subcategory_id
+        JOIN part_categories pc ON pc.id = ps.category_id
+        WHERE LOWER(pk.keyword) LIKE $2
+           OR similarity(LOWER(pk.keyword), $1) > 0.25
+      ),
+      name_matches AS (
+        -- Subcategory name matches
+        SELECT DISTINCT ps.id as sub_id, ps.name as sub_name,
+               pc.id as cat_id, pc.name as cat_name,
+               CASE
+                 WHEN LOWER(ps.name) = $1 THEN 1.0
+                 WHEN LOWER(ps.name) LIKE $2 THEN 0.85
+                 ELSE similarity(LOWER(ps.name), $1) * 0.8
+               END as score
+        FROM part_subcategories ps
+        JOIN part_categories pc ON pc.id = ps.category_id
+        WHERE LOWER(ps.name) LIKE $2
+           OR similarity(LOWER(ps.name), $1) > 0.2
+      ),
+      combined AS (
+        SELECT * FROM keyword_matches
+        UNION ALL
+        SELECT * FROM name_matches
+      )
+      SELECT sub_id, sub_name, cat_id, cat_name, MAX(score) as score
+      FROM combined
+      GROUP BY sub_id, sub_name, cat_id, cat_name
+      HAVING MAX(score) > 0.2
+      ORDER BY MAX(score) DESC
+      LIMIT 15
+      `,
+      q,
+      likePattern,
+    );
 
     return {
-      items: items.map((i: any) => ({
-        subcategoryId: i.id,
-        subcategoryName: i.name,
-        categoryId: i.category.id,
-        categoryName: i.category.name,
+      items: (results ?? []).map((r) => ({
+        subcategoryId: r.sub_id,
+        subcategoryName: r.sub_name,
+        categoryId: r.cat_id,
+        categoryName: r.cat_name,
+        score: Number(r.score ?? 0),
       })),
     };
   }
