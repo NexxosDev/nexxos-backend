@@ -24,6 +24,7 @@ export default function RegisterClientScreen() {
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [emailVerified, setEmailVerified] = useState(false);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -96,7 +97,22 @@ export default function RegisterClientScreen() {
           <Input label="Contraseña" value={form.password} onChangeText={(v) => update('password', v)} secureTextEntry error={fieldErrors?.password} />
           <Input label="Confirmar Contraseña" value={form.confirmPassword} onChangeText={(v) => update('confirmPassword', v)} secureTextEntry error={fieldErrors?.confirmPassword} />
 
-          <Button title="Registrarme como Cliente" onPress={handleRegister} loading={loading} disabled={!emailVerified} />
+          {/* Age confirmation checkbox (LOPNNA) */}
+          <Pressable
+            onPress={() => setAgeConfirmed((v) => !v)}
+            style={styles.checkboxRow}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: ageConfirmed }}
+          >
+            <View style={[styles.checkbox, ageConfirmed && styles.checkboxChecked]}>
+              {ageConfirmed ? <Ionicons name="checkmark" size={14} color="#000" /> : null}
+            </View>
+            <Text style={styles.checkboxLabel}>
+              Confirmo que soy <Text style={{ fontWeight: '700' }}>mayor de 18 años</Text> (LOPNNA)
+            </Text>
+          </Pressable>
+
+          <Button title="Registrarme como Cliente" onPress={handleRegister} loading={loading} disabled={!emailVerified || !ageConfirmed} />
 
           <Text style={styles.legalText}>
             Al crear tu cuenta, aceptas los{' '}
@@ -120,6 +136,10 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   back: { width: 44, height: 44, justifyContent: 'center', marginBottom: Spacing.sm },
   title: { fontSize: 24, fontWeight: '700', color: c.textPrimary, marginBottom: Spacing.lg },
   error: { backgroundColor: c.errorBg, color: c.error, padding: Spacing.md, borderRadius: 8, fontSize: 14, marginBottom: Spacing.md },
+  checkboxRow: { flexDirection: 'row', alignItems: 'center', marginTop: Spacing.md, marginBottom: Spacing.sm, paddingVertical: 4 },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: c.border, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  checkboxChecked: { backgroundColor: c.primary, borderColor: c.primary },
+  checkboxLabel: { flex: 1, fontSize: 13, color: c.textSecondary, lineHeight: 18 },
   legalText: { fontSize: 12, color: c.textSecondary, textAlign: 'center', marginTop: Spacing.md, lineHeight: 18 },
   legalLink: { color: c.primary, fontWeight: '600', textDecorationLine: 'underline' },
   loginLink: { alignItems: 'center', marginTop: Spacing.md, marginBottom: Spacing.xl },

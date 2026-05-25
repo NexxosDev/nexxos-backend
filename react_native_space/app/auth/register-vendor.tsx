@@ -77,6 +77,7 @@ export default function RegisterVendorScreen() {
   const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
   const [showLiveness, setShowLiveness] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
 
   // Pre-fill personal data for existing users
   useEffect(() => {
@@ -269,6 +270,7 @@ export default function RegisterVendorScreen() {
     if (step === 3) return !!(location?.latitude && location?.longitude && location?.fullAddress?.trim?.());
     if (step === 4) return (selectedModels?.length ?? 0) > 0;
     if (step === 5) return (selectedSubcategories?.length ?? 0) > 0;
+    if (step === 6) return ageConfirmed;
     return true;
   };
 
@@ -585,6 +587,21 @@ export default function RegisterVendorScreen() {
               <Text style={styles.summaryLabel}>Subcategorías seleccionadas</Text>
               <Text style={styles.summaryValue}>{selectedSubcategories?.length ?? 0} subcategorías</Text>
             </View>
+
+            {/* Age confirmation checkbox (LOPNNA) */}
+            <Pressable
+              onPress={() => setAgeConfirmed((v) => !v)}
+              style={styles.checkboxRow}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: ageConfirmed }}
+            >
+              <View style={[styles.checkbox, ageConfirmed && styles.checkboxChecked]}>
+                {ageConfirmed ? <Ionicons name="checkmark" size={14} color="#000" /> : null}
+              </View>
+              <Text style={styles.checkboxLabel}>
+                Confirmo que soy <Text style={{ fontWeight: '700' }}>mayor de 18 años</Text> (LOPNNA)
+              </Text>
+            </Pressable>
           </View>
         );
       default:
@@ -641,6 +658,10 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   topTitle: { fontSize: 17, fontWeight: '600', color: c.textPrimary },
   scroll: { padding: Spacing.lg, paddingBottom: 100 },
   footer: { padding: Spacing.lg, borderTopWidth: 1, borderTopColor: c.border, backgroundColor: c.surface },
+  checkboxRow: { flexDirection: 'row', alignItems: 'center', marginTop: Spacing.md, paddingVertical: 4 },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: c.border, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  checkboxChecked: { backgroundColor: c.primary, borderColor: c.primary },
+  checkboxLabel: { flex: 1, fontSize: 13, color: c.textSecondary, lineHeight: 18 },
   legalText: { fontSize: 12, color: c.textSecondary, textAlign: 'center', marginTop: Spacing.sm, lineHeight: 18 },
   legalLink: { color: c.primary, fontWeight: '600', textDecorationLine: 'underline' } as any,
   error: { backgroundColor: c.errorBg, color: c.error, padding: Spacing.md, borderRadius: 8, fontSize: 14, marginBottom: Spacing.md },
