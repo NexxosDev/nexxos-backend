@@ -19,7 +19,6 @@ out
 .logs
 *.tsbuildinfo
 
-# Firebase credentials
+# Firebase credentials (secrets only - google-services.json is public config, must be tracked)
 .abacusai/fcm-service-account.json
-.abacusai/google-services.json
 react_native_space/fcm-service-account.json
