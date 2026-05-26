@@ -57,6 +57,26 @@ export class LegalHtmlController {
     }
   }
 
+  @Get('faq')
+  @ApiExcludeEndpoint()
+  async getFaq(@Res() res: Response) {
+    try {
+      const doc = await this.legalService.findByKey('faq');
+      const data = JSON.parse(doc?.content ?? '{"categories":[]}');
+      const categories = data?.categories ?? [];
+      let html = '';
+      for (const cat of categories) {
+        html += `<h2>${cat?.label ?? ''}</h2>`;
+        for (const item of (cat?.items ?? [])) {
+          html += `<details><summary style="cursor:pointer;padding:10px 0;font-weight:600;font-size:15px;color:#E0E0E0;border-bottom:1px solid #333;">${item?.q ?? ''}</summary><p style="padding:10px 0 16px;color:#CCC;line-height:1.7;">${(item?.a ?? '').replace(/\\n/g, '<br>')}</p></details>`;
+        }
+      }
+      res.type('html').send(this.wrapHtml(doc?.title ?? 'Preguntas Frecuentes', html));
+    } catch {
+      res.type('html').send(this.wrapHtml('Preguntas Frecuentes', '<p>Documento no disponible.</p>'));
+    }
+  }
+
   @Get('sobre-nosotros')
   @ApiExcludeEndpoint()
   async getSobreNosotros(@Res() res: Response) {

@@ -18,9 +18,21 @@ export class LegalApiController {
     return this.legalService.findAll();
   }
 
+  @Get('faq')
+  @ApiOperation({ summary: 'Obtener FAQ estructurado (JSON con categorías y preguntas)' })
+  async getFaq() {
+    const doc = await this.legalService.findByKey('faq');
+    try {
+      const parsed = JSON.parse(doc?.content ?? '{}');
+      return { id: doc?.id, title: doc?.title, updatedAt: doc?.updatedAt, ...parsed };
+    } catch {
+      return { id: doc?.id, title: doc?.title, updatedAt: doc?.updatedAt, categories: [] };
+    }
+  }
+
   @Get(':key')
-  @ApiOperation({ summary: 'Obtener documento legal por key (terminos, privacidad, sobre-nosotros)' })
-  @ApiParam({ name: 'key', enum: ['terminos', 'privacidad', 'sobre-nosotros'] })
+  @ApiOperation({ summary: 'Obtener documento legal por key (terminos, privacidad, sobre-nosotros, faq)' })
+  @ApiParam({ name: 'key', enum: ['terminos', 'privacidad', 'sobre-nosotros', 'faq'] })
   async findByKey(@Param('key') key: string) {
     return this.legalService.findByKey(key);
   }
@@ -30,7 +42,7 @@ export class LegalApiController {
   @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Actualizar documento legal (solo ADMIN)' })
-  @ApiParam({ name: 'key', enum: ['terminos', 'privacidad', 'sobre-nosotros'] })
+  @ApiParam({ name: 'key', enum: ['terminos', 'privacidad', 'sobre-nosotros', 'faq'] })
   @ApiBody({ schema: { type: 'object', properties: { content: { type: 'string' }, title: { type: 'string' } }, required: ['content'] } })
   async update(
     @Param('key') key: string,
