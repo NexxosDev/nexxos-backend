@@ -294,7 +294,8 @@ export default function VendorProfileScreen() {
           ) : null}
         </View>
 
-        {/* ── Action Buttons ── */}
+        {/* ── CUENTA ── */}
+        <Text style={styles.sectionLabel}>CUENTA</Text>
         <View style={styles.actionsCard}>
           <ProfileActionButton
             label="Editar Perfil"
@@ -309,7 +310,8 @@ export default function VendorProfileScreen() {
           />
         </View>
 
-        {/* ── Suggestions ── */}
+        {/* ── COMUNIDAD ── */}
+        <Text style={styles.sectionLabel}>COMUNIDAD</Text>
         <View style={styles.actionsCard}>
           <ProfileActionButton
             label="Ayúdanos a crecer"
@@ -318,7 +320,8 @@ export default function VendorProfileScreen() {
           />
         </View>
 
-        {/* ── About / Legal ── */}
+        {/* ── INFORMACIÓN Y LEGAL ── */}
+        <Text style={styles.sectionLabel}>INFORMACIÓN Y LEGAL</Text>
         <View style={styles.actionsCard}>
           <ProfileActionButton
             label="Sobre NEXXOS"
@@ -391,6 +394,15 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   sectionTitle: { fontSize: 15, fontWeight: '600', color: c.textPrimary, marginBottom: Spacing.sm },
   sectionValue: { fontSize: 14, color: c.textSubtitle, marginBottom: 4 },
   sectionValueMuted: { fontSize: 13, color: c.textSecondary, marginBottom: 4, fontStyle: 'italic' },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: c.textSecondary,
+    letterSpacing: 1,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.sm,
+    paddingHorizontal: 4,
+  },
   actionsCard: {
     marginBottom: Spacing.md,
     gap: 2,
