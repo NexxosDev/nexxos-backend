@@ -47,6 +47,27 @@ export class NotificationService implements OnModuleInit {
     return { success: true };
   }
 
+  // ── Resolve channel & category from notification type ──
+  private getNotificationMeta(data?: Record<string, any>) {
+    const type = data?.type as string | undefined;
+    switch (type) {
+      case 'NEW_MESSAGE':
+        return { channelId: 'messages', categoryIdentifier: 'MESSAGE' };
+      case 'NEW_REQUEST':
+        return { channelId: 'requests', categoryIdentifier: 'REQUEST' };
+      case 'NEW_RESPONSE':
+        return { channelId: 'requests', categoryIdentifier: 'REQUEST' };
+      case 'REQUEST_CLOSED':
+        return { channelId: 'requests', categoryIdentifier: 'REQUEST' };
+      case 'RATING_RECEIVED':
+        return { channelId: 'ratings', categoryIdentifier: 'RATING' };
+      case 'RATING_REMINDER':
+        return { channelId: 'ratings', categoryIdentifier: 'RATING' };
+      default:
+        return { channelId: 'default', categoryIdentifier: 'DEFAULT' };
+    }
+  }
+
   // ── Send notification to a single user ──
   async sendToUser(
     userId: string,
@@ -64,6 +85,8 @@ export class NotificationService implements OnModuleInit {
       return;
     }
 
+    const { channelId, categoryIdentifier } = this.getNotificationMeta(data);
+
     const messages = tokens.map((t: any) => ({
       to: t.token,
       sound: 'default' as const,
@@ -71,7 +94,8 @@ export class NotificationService implements OnModuleInit {
       body,
       data: data ?? {},
       priority: 'high' as const,
-      channelId: 'default',
+      channelId,
+      categoryIdentifier,
     }));
 
     await this.sendMessages(messages);
@@ -93,6 +117,8 @@ export class NotificationService implements OnModuleInit {
 
     if (tokens.length === 0) return;
 
+    const { channelId, categoryIdentifier } = this.getNotificationMeta(data);
+
     const messages = tokens.map((t: any) => ({
       to: t.token,
       sound: 'default' as const,
@@ -100,7 +126,8 @@ export class NotificationService implements OnModuleInit {
       body,
       data: data ?? {},
       priority: 'high' as const,
-      channelId: 'default',
+      channelId,
+      categoryIdentifier,
     }));
 
     await this.sendMessages(messages);

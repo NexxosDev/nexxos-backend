@@ -100,13 +100,33 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 
   try {
-    // Configurar canal de Android
+    // Configurar canales de Android
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
-        name: 'Default',
+        name: 'General',
         importance: Notifications.AndroidImportance.MAX,
         sound: 'default',
         vibrationPattern: [0, 250, 250, 250],
+      });
+      await Notifications.setNotificationChannelAsync('messages', {
+        name: 'Mensajes',
+        description: 'Mensajes del chat con vendedores y clientes',
+        importance: Notifications.AndroidImportance.MAX,
+        sound: 'default',
+        vibrationPattern: [0, 250, 250, 250],
+      });
+      await Notifications.setNotificationChannelAsync('requests', {
+        name: 'Solicitudes',
+        description: 'Nuevas solicitudes, respuestas y cierres',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: 'default',
+        vibrationPattern: [0, 250, 250, 250],
+      });
+      await Notifications.setNotificationChannelAsync('ratings', {
+        name: 'Calificaciones',
+        description: 'Calificaciones recibidas y recordatorios',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        sound: 'default',
       });
     }
 
