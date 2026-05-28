@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform, Dimensions, ActivityIndicator, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { manipulateAsync, FlipType, SaveFormat } from 'expo-image-manipulator';
 import { Ionicons } from '@expo/vector-icons';
@@ -79,16 +79,17 @@ export default function ImageEditorModal({ uri, onSend, onCancel }: ImageEditorM
     }
   }, [uri, rotation, flipH, flipV, onSend]);
 
-  // Build transform style for preview
-  const previewTransform = useMemo(() => {
-    const transforms: any[] = [];
-    if (rotation !== 0) transforms.push({ rotate: `${rotation}deg` });
-    if (flipH) transforms.push({ scaleX: -1 });
-    if (flipV) transforms.push({ scaleY: -1 });
-    return transforms;
-  }, [rotation, flipH, flipV]);
-
   const hasChanges = rotation !== 0 || flipH || flipV;
+
+  // Build transform style for the wrapper View
+  const previewWrapperStyle = useMemo((): ViewStyle => {
+    const t: ViewStyle['transform'] = [];
+    if (rotation !== 0) (t as any[]).push({ rotate: `${rotation}deg` });
+    if (flipH) (t as any[]).push({ scaleX: -1 });
+    if (flipV) (t as any[]).push({ scaleY: -1 });
+    if ((t as any[]).length === 0) (t as any[]).push({ rotate: '0deg' });
+    return { transform: t };
+  }, [rotation, flipH, flipV]);
 
   return (
     <View style={styles.container}>
@@ -107,17 +108,16 @@ export default function ImageEditorModal({ uri, onSend, onCancel }: ImageEditorM
         )}
       </View>
 
-      {/* Image preview */}
+      {/* Image preview — transforms applied to wrapper View, not Image */}
       <View style={styles.previewContainer}>
-        <Image
-          source={{ uri }}
-          style={[
-            styles.previewImage,
-            { transform: previewTransform.length > 0 ? previewTransform : undefined },
-          ]}
-          contentFit="contain"
-          transition={150}
-        />
+        <View style={previewWrapperStyle}>
+          <Image
+            source={{ uri }}
+            style={styles.previewImage}
+            contentFit="contain"
+            transition={150}
+          />
+        </View>
       </View>
 
       {/* Tool bar */}
