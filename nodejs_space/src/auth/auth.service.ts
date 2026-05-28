@@ -326,7 +326,7 @@ export class AuthService {
       if (key) s3KeysToDelete.push(key);
     }
     if (vendor) {
-      for (const field of ['logoUrl', 'documentImageUrl', 'personalDocUrl', 'selfieUrl'] as const) {
+      for (const field of ['logoUrl', 'documentImageUrl', 'personalDocUrl', 'selfieUrl', 'facadeImageUrl'] as const) {
         const url = vendor[field];
         if (url) {
           const key = this.extractS3Key(url);
@@ -364,6 +364,7 @@ export class AuthService {
           documentImageUrl: null,
           personalDocUrl: null,
           selfieUrl: null,
+          facadeImageUrl: null,
           identityVerified: false,
           isAvailable: false,
           latitude: null,

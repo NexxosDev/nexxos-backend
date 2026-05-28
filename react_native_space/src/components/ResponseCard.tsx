@@ -70,7 +70,14 @@ export default function ResponseCard({ businessName, logoUrl, facadeImageUrl, av
         )}
         <View style={styles.info}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={styles.name} numberOfLines={1}>{businessName ?? ''}</Text>
+            {hasFacade ? (
+              <Pressable onPress={() => setFacadeModal(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 }}>
+                <Text style={styles.nameLink} numberOfLines={1}>{businessName ?? ''}</Text>
+                <Ionicons name="storefront-outline" size={12} color={LINK_COLOR} />
+              </Pressable>
+            ) : (
+              <Text style={styles.name} numberOfLines={1}>{businessName ?? ''}</Text>
+            )}
             {unread > 0 ? (
               <View style={styles.unreadBadge}>
                 <Text style={styles.unreadText}>{unread > 99 ? '99+' : String(unread)}</Text>
@@ -121,16 +128,6 @@ export default function ResponseCard({ businessName, logoUrl, facadeImageUrl, av
         </View>
       ) : null}
 
-      {hasFacade ? (
-        <Pressable style={styles.facadeRow} onPress={() => setFacadeModal(true)}>
-          <Image source={{ uri: facadeImageUrl! }} style={styles.facadeThumb} contentFit="cover" onError={() => setFacadeError(true)} />
-          <View style={styles.facadeLabelRow}>
-            <Ionicons name="business-outline" size={12} color={colors.textSecondary} />
-            <Text style={styles.facadeLabel}>Fachada del negocio</Text>
-          </View>
-        </Pressable>
-      ) : null}
-
       <Text style={styles.message} numberOfLines={2}>{initialMessage ?? ''}</Text>
       {onOpenChat ? <Button title="Abrir Chat" variant="secondary" onPress={onOpenChat} style={styles.chatBtn} /> : null}
 
@@ -176,6 +173,7 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   avatarImg: { width: 36, height: 36, borderRadius: 18, marginRight: Spacing.sm, backgroundColor: c.backgroundSection },
   info: { flex: 1 },
   name: { fontSize: 14, fontWeight: '600', color: c.textPrimary },
+  nameLink: { fontSize: 14, fontWeight: '600', color: '#07a0ff', textDecorationLine: 'underline', flexShrink: 1 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 2, flexWrap: 'wrap' },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   rating: { fontSize: 12, color: c.textSecondary },
@@ -191,10 +189,6 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   tagChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: BorderRadius.full, gap: 4 },
   tagChipEmoji: { fontSize: 12 },
   tagChipText: { fontSize: 11, fontWeight: '600' },
-  facadeRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm, backgroundColor: c.backgroundSection, borderRadius: BorderRadius.sm, padding: 6, overflow: 'hidden' },
-  facadeThumb: { width: 56, height: 42, borderRadius: 6, backgroundColor: c.border },
-  facadeLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 },
-  facadeLabel: { fontSize: 12, color: c.textSecondary },
   facadeModalImg: { width: 320, height: 240, borderRadius: 12 },
   logoModalOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center',
