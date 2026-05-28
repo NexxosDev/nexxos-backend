@@ -25,6 +25,7 @@ import QuickReplyPicker from '../src/components/QuickReplyPicker';
 import { Spacing, BorderRadius } from '../src/theme/colors';
 import type { ThemeColors } from '../src/theme/colors';
 import ChatMessageComp from '../src/components/ChatMessage';
+import ImageEditorModal from '../src/components/ImageEditorModal';
 import LoadingSpinner from '../src/components/LoadingSpinner';
 import { getDateKey, getDateLabel } from '../src/utils/dateSeparator';
 import type { ChatInfo, ChatMessageItem } from '../src/types';
@@ -50,6 +51,7 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [editorImageUri, setEditorImageUri] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<ChatMessageItem | null>(null);
 
   // Edit mode
@@ -226,20 +228,28 @@ export default function ChatScreen() {
       if (source === 'camera') {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
         if (!perm?.granted) { Alert.alert('Permiso necesario', 'Necesitas permitir el acceso a la cámara.'); return; }
-        result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7, allowsEditing: true });
+        result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 });
       } else {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!perm?.granted) { Alert.alert('Permiso necesario', 'Necesitas permitir el acceso a la galería.'); return; }
-        result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, allowsEditing: true });
+        result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
       }
       if (result?.canceled || !result?.assets?.[0]) return;
       const asset = result.assets[0];
       const uri = asset?.uri ?? '';
       if (!uri) return;
-      const fileName = uri.split('/').pop() ?? `image_${Date.now()}.jpg`;
-      const contentType = asset?.mimeType ?? 'image/jpeg';
+      // Open custom editor instead of native crop
+      setEditorImageUri(uri);
+    } catch { }
+  };
+
+  const handleEditorSend = async (editedUri: string) => {
+    setEditorImageUri(null);
+    try {
+      const fileName = editedUri.split('/').pop() ?? `image_${Date.now()}.jpg`;
+      const contentType = 'image/jpeg';
       setUploading(true);
-      const uploadRes = await uploadFileWithUrl(uri, fileName, contentType);
+      const uploadRes = await uploadFileWithUrl(editedUri, fileName, contentType);
       const imageUrl = uploadRes?.url ?? '';
       if (imageUrl) {
         playSend();
@@ -714,6 +724,17 @@ export default function ChatScreen() {
           </>
         )}
       </KeyboardAvoidingView>
+
+      {/* Image Editor */}
+      <Modal visible={!!editorImageUri} animationType="slide" onRequestClose={() => setEditorImageUri(null)}>
+        {editorImageUri ? (
+          <ImageEditorModal
+            uri={editorImageUri}
+            onSend={handleEditorSend}
+            onCancel={() => setEditorImageUri(null)}
+          />
+        ) : null}
+      </Modal>
 
       {/* Context menu */}
       <Modal visible={!!contextMenuMsg} transparent animationType="fade" onRequestClose={() => setContextMenuMsg(null)}>
