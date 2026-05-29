@@ -43,5 +43,5 @@ coverage
 *.lcov
 
 # Build outputs
-dist
-build
+# dist
+# build
