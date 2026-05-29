@@ -7,13 +7,18 @@ import { Request, Response, NextFunction } from 'express';
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   try {
+    logger.log('Iniciando proceso de bootstrap...');
+    
+    logger.log('Creando instancia de NestFactory (esto puede tardar si la conexión a DB es lenta)...');
     const app = await NestFactory.create(AppModule);
+    logger.log('Instancia de NestFactory creada correctamente.');
 
     app.enableCors({ origin: '*' });
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
     // Swagger setup
     const swaggerPath = 'api-docs';
+    logger.log(`Configurando Swagger en la ruta /${swaggerPath}...`);
 
     // Prevent caching of swagger docs
     app.use(`/${swaggerPath}`, (req: Request, res: Response, next: NextFunction) => {
@@ -43,13 +48,17 @@ async function bootstrap() {
         .swagger-ui .btn.authorize svg { fill: white; }
       `,
     });
+    logger.log('Swagger configurado.');
 
     const port = process.env.PORT || 3000;
+    logger.log(`Intentando abrir puerto ${port} en host 0.0.0.0...`);
     await app.listen(port, '0.0.0.0');
+    
     logger.log(`NEXXOS API running on port ${port}`);
     logger.log(`Swagger docs at /${swaggerPath}`);
+    logger.log('### APLICACIÓN LISTA Y ESCUCHANDO ###');
   } catch (error) {
-    logger.error('Error durante el bootstrap de la aplicación:');
+    logger.error('!!! ERROR CRÍTICO DURANTE EL BOOTSTRAP !!!');
     logger.error(error.stack || error.message || error);
     process.exit(1);
   }
