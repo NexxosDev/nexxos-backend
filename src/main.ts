@@ -43,8 +43,9 @@ async function bootstrap() {
     `,
   });
 
-  await app.listen(3000);
-  logger.log('NEXXOS API running on port 3000');
-  logger.log(`Swagger docs at http://localhost:3000/${swaggerPath}`);
+  const port = process.env.PORT || 3000;
+  await app.listen(port, '0.0.0.0');
+  logger.log(`NEXXOS API running on port ${port}`);
+  logger.log(`Swagger docs at /${swaggerPath}`);
 }
 bootstrap();
