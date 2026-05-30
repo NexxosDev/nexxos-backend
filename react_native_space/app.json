@@ -81,7 +81,8 @@
         {
           "defaultChannel": "default"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "scheme": "abacusai1776194339",
     "extra": {

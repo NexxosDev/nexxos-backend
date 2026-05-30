@@ -149,6 +149,7 @@ export interface VendorDashboard {
       id: string;
       vehicleBrand: string;
       vehicleModel: string;
+      vehicleYear: number | null;
       partCategory: string;
       partSubcategory: string | null;
       municipality: string;

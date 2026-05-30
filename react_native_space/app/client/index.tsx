@@ -105,6 +105,7 @@ export default function ClientHome() {
           <RequestCard
             vehicleBrand={item?.vehicleBrand ?? ''}
             vehicleModel={item?.vehicleModel ?? ''}
+            vehicleYear={item?.vehicleYear}
             partCategory={item?.partCategory ?? ''}
             status={item?.status ?? ''}
             responseCount={item?.responseCount ?? 0}

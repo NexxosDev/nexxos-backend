@@ -240,6 +240,7 @@ export class VendorService {
             id: m.request.id,
             vehicleBrand: m.request.vehicleBrand.name,
             vehicleModel: m.request.vehicleModel.name,
+            vehicleYear: m.request.vehicleYear ?? null,
             partCategory: m.request.partCategory.name,
             partSubcategory: m.request.partSubcategory?.name ?? null,
             municipality: m.request.municipality?.name ?? null,

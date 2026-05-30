@@ -126,6 +126,7 @@ export default function VendorRequests() {
             <RequestCard
               vehicleBrand={item?.request?.vehicleBrand ?? ''}
               vehicleModel={item?.request?.vehicleModel ?? ''}
+              vehicleYear={item?.request?.vehicleYear}
               partCategory={item?.request?.partCategory ?? ''}
               status={item?.status ?? ''}
               municipality={item?.request?.municipality}
