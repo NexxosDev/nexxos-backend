@@ -81,3 +81,41 @@ export async function reorderQuickReplies(items: { id: string; order: number }[]
   const res = await api.put('/vendor/quick-replies/reorder', { items });
   return res?.data ?? [];
 }
+
+// ── Plans ──────────────────────────────────────────────
+
+export interface PlanListItem {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  solicitudesMensuales: number;
+  prioridad: number;
+  precioMensual: number;
+  precioAnual: number;
+  comisionPorcentaje: number;
+  visibleEnApp: boolean;
+  isActive: boolean;
+}
+
+export interface PaymentInfo {
+  banco: string;
+  tipoCuenta: string;
+  numeroCuenta: string;
+  titular: string;
+  rif: string;
+  concepto: string;
+  contactoWhatsApp: string;
+  contactoEmail: string;
+  instrucciones: string;
+}
+
+export async function getVisiblePlans(): Promise<PlanListItem[]> {
+  const res = await api.get('/plans');
+  return res?.data ?? [];
+}
+
+export async function getPaymentInfo(): Promise<PaymentInfo> {
+  const res = await api.get('/config/payment-info');
+  return res?.data;
+}

@@ -128,6 +128,8 @@ function InnerLayout() {
         <Stack.Screen name="vendor-edit-profile" />
         <Stack.Screen name="about" />
         <Stack.Screen name="legal-document" />
+        <Stack.Screen name="plans" />
+        <Stack.Screen name="payment-info" />
         <Stack.Screen name="+not-found" />
       </Stack>
       {showSplash && (

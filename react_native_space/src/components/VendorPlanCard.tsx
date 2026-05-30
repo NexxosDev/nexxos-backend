@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '../contexts/ThemeContext';
 import { Spacing, BorderRadius } from '../theme/colors';
 import type { ThemeColors } from '../theme/colors';
@@ -24,6 +26,7 @@ function formatRemainingTime(days: number | null | undefined): string {
 
 export default function VendorPlanCard({ planInfo }: Props) {
   const { colors } = useTheme();
+  const router = useRouter();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   if (!planInfo?.plan || !planInfo?.subscription) return null;
@@ -91,6 +94,24 @@ export default function VendorPlanCard({ planInfo }: Props) {
           <Text style={[styles.limitText, { color: colors.error }]}>Has alcanzado el límite mensual de solicitudes</Text>
         ) : null}
       </View>
+
+      {/* Ver Planes button */}
+      <Pressable
+        onPress={() => {
+          if (Platform.OS !== 'web') {
+            Haptics.impactAsync?.(Haptics.ImpactFeedbackStyle.Light)?.catch?.(() => {});
+          }
+          router.push('/plans');
+        }}
+        style={({ pressed }) => [
+          styles.viewPlansBtn,
+          { opacity: pressed ? 0.8 : 1 },
+        ]}
+      >
+        <Ionicons name="pricetags-outline" size={16} color={badgeColor} />
+        <Text style={[styles.viewPlansBtnText, { color: badgeColor }]}>Ver Planes</Text>
+        <Ionicons name="chevron-forward" size={16} color={badgeColor} />
+      </Pressable>
     </View>
   );
 }
@@ -174,5 +195,19 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     marginTop: 6,
+  },
+  viewPlansBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: Spacing.sm,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: c.border,
+  },
+  viewPlansBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
