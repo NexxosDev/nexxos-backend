@@ -98,31 +98,24 @@ export interface PlanListItem {
   isActive: boolean;
 }
 
-export interface PaymentInfo {
-  banco: string;
-  tipoCuenta: string;
-  numeroCuenta: string;
-  titular: string;
-  rif: string;
+export interface PaymentMethodField {
+  label: string;
+  value: string;
+}
+
+export interface PaymentMethod {
+  isActive: boolean;
+  label: string;
+  icon: string;
+  fields: Record<string, string>;
   concepto: string;
   contactoWhatsApp: string;
   contactoEmail: string;
   instrucciones: string;
 }
 
-export interface PagoMovilInfo {
-  telefono: string;
-  rif: string;
-  banco: string;
-  concepto: string;
-  contactoWhatsApp: string;
-  contactoEmail: string;
-  instrucciones: string;
-}
-
-export interface AllPaymentInfo {
-  transferencia: PaymentInfo | null;
-  pagoMovil: PagoMovilInfo | null;
+export interface PaymentMethodsResponse {
+  methods: Record<string, PaymentMethod>;
 }
 
 export async function getVisiblePlans(): Promise<PlanListItem[]> {
@@ -130,7 +123,7 @@ export async function getVisiblePlans(): Promise<PlanListItem[]> {
   return res?.data ?? [];
 }
 
-export async function getPaymentInfo(): Promise<AllPaymentInfo> {
+export async function getPaymentInfo(): Promise<PaymentMethodsResponse> {
   const res = await api.get('/config/payment-info');
-  return res?.data ?? { transferencia: null, pagoMovil: null };
+  return res?.data ?? { methods: {} };
 }

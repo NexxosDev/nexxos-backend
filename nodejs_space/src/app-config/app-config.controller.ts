@@ -17,7 +17,7 @@ class UpdateConfigDto {
   value: string;
 }
 
-const ALLOWED_KEYS = ['PLANS_MODE', 'PAYMENT_INFO', 'PAGO_MOVIL_INFO'];
+const ALLOWED_KEYS = ['PLANS_MODE', 'PAYMENT_INFO', 'PAGO_MOVIL_INFO', 'PAYMENT_METHODS'];
 
 @ApiTags('App Config')
 @Controller('api')
@@ -51,19 +51,21 @@ export class AppConfigController {
   @Get('config/payment-info')
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
-  @ApiOperation({ summary: 'Get payment info for plan purchases (authenticated users)' })
+  @ApiOperation({ summary: 'Get active payment methods for plan purchases (authenticated users)' })
   async getPaymentInfo() {
-    const [rawTransferencia, rawPagoMovil] = await Promise.all([
-      this.configService.get('PAYMENT_INFO'),
-      this.configService.get('PAGO_MOVIL_INFO'),
-    ]);
-
-    let transferencia: Record<string, unknown> | null = null;
-    let pagoMovil: Record<string, unknown> | null = null;
-
-    try { transferencia = JSON.parse(rawTransferencia); } catch { /* not configured */ }
-    try { pagoMovil = JSON.parse(rawPagoMovil); } catch { /* not configured */ }
-
-    return { transferencia, pagoMovil };
+    const raw = await this.configService.get('PAYMENT_METHODS');
+    try {
+      const allMethods = JSON.parse(raw) as Record<string, { isActive?: boolean; [k: string]: unknown }>;
+      // Filter to only active methods
+      const activeMethods: Record<string, unknown> = {};
+      for (const [key, method] of Object.entries(allMethods ?? {})) {
+        if (method?.isActive) {
+          activeMethods[key] = method;
+        }
+      }
+      return { methods: activeMethods };
+    } catch {
+      return { methods: {} };
+    }
   }
 }

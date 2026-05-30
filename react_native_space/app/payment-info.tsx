@@ -8,14 +8,24 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useTheme } from '../src/contexts/ThemeContext';
 import { useAuth } from '../src/contexts/AuthContext';
 import { Spacing, BorderRadius } from '../src/theme/colors';
 import type { ThemeColors } from '../src/theme/colors';
-import { getPaymentInfo } from '../src/services/vendor';
-import type { AllPaymentInfo } from '../src/services/vendor';
+import { getPaymentInfo, getVendorProfile } from '../src/services/vendor';
+import type { PaymentMethod } from '../src/services/vendor';
 
-type PaymentTab = 'transferencia' | 'pagoMovil';
+/* Human-readable labels for field keys */
+const FIELD_LABELS: Record<string, string> = {
+  banco: 'Banco',
+  tipoCuenta: 'Tipo de Cuenta',
+  numeroCuenta: 'Número de Cuenta',
+  titular: 'Titular',
+  rif: 'Cédula / RIF',
+  telefono: 'Teléfono',
+  email: 'Email Zelle',
+};
 
 export default function PaymentInfoScreen() {
   const router = useRouter();
@@ -30,10 +40,11 @@ export default function PaymentInfoScreen() {
   const precioMensual = parseFloat((params?.precioMensual as string) ?? '0') || 0;
   const precioAnual = parseFloat((params?.precioAnual as string) ?? '0') || 0;
 
-  const [allPaymentInfo, setAllPaymentInfo] = useState<AllPaymentInfo | null>(null);
+  const [methods, setMethods] = useState<Record<string, PaymentMethod>>({});
   const [loading, setLoading] = useState(true);
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<PaymentTab>('transferencia');
+  const [expandedMethod, setExpandedMethod] = useState<string | null>(null);
+  const [businessName, setBusinessName] = useState('');
 
   useFocusEffect(
     useCallback(() => {
@@ -41,19 +52,25 @@ export default function PaymentInfoScreen() {
       (async () => {
         setLoading(true);
         try {
-          const info = await getPaymentInfo();
+          const [payData, vendorData] = await Promise.all([
+            getPaymentInfo().catch(() => ({ methods: {} })),
+            getVendorProfile().catch(() => null),
+          ]);
           if (!cancelled) {
-            setAllPaymentInfo(info ?? null);
-            // Default to whichever is available
-            if (!info?.transferencia && info?.pagoMovil) {
-              setActiveTab('pagoMovil');
+            const m = payData?.methods ?? {};
+            setMethods(m);
+            setBusinessName(vendorData?.businessName ?? user?.name ?? '');
+            // Auto-expand if only 1 method
+            const keys = Object.keys(m);
+            if (keys?.length === 1) {
+              setExpandedMethod(keys[0] ?? null);
             }
           }
         } catch { /* handled */ }
         if (!cancelled) setLoading(false);
       })();
       return () => { cancelled = true; };
-    }, [])
+    }, [user?.name])
   );
 
   const copyToClipboard = async (text: string, field: string) => {
@@ -67,53 +84,52 @@ export default function PaymentInfoScreen() {
     } catch { /* ignore */ }
   };
 
-  const transferencia = allPaymentInfo?.transferencia;
-  const pagoMovil = allPaymentInfo?.pagoMovil;
+  const toggleMethod = (key: string) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync?.(Haptics.ImpactFeedbackStyle.Light)?.catch?.(() => {});
+    }
+    setCopiedField(null);
+    setExpandedMethod(prev => prev === key ? null : key);
+  };
 
-  const currentConcepto = activeTab === 'transferencia'
-    ? (transferencia?.concepto ?? '')
-    : (pagoMovil?.concepto ?? '');
-  const concepto = currentConcepto
-    .replace('{planName}', planName)
-    .replace('{vendorName}', user?.name ?? '');
+  const resolveConcepto = (method: PaymentMethod) => {
+    return (method?.concepto ?? '')
+      .replace('{planName}', planName)
+      .replace('{businessName}', businessName || user?.name || '');
+  };
 
-  const currentWhatsApp = activeTab === 'transferencia'
-    ? (transferencia?.contactoWhatsApp ?? '')
-    : (pagoMovil?.contactoWhatsApp ?? '');
-  const currentEmail = activeTab === 'transferencia'
-    ? (transferencia?.contactoEmail ?? '')
-    : (pagoMovil?.contactoEmail ?? '');
-  const currentInstrucciones = activeTab === 'transferencia'
-    ? (transferencia?.instrucciones ?? '')
-    : (pagoMovil?.instrucciones ?? '');
-
-  const openWhatsApp = () => {
-    if (!currentWhatsApp) return;
-    const cleanPhone = currentWhatsApp.replace(/[^0-9+]/g, '');
-    const metodo = activeTab === 'transferencia' ? 'transferencia bancaria' : 'Pago Móvil';
+  const openWhatsApp = (method: PaymentMethod, metodoLabel: string) => {
+    const phone = method?.contactoWhatsApp ?? '';
+    if (!phone) return;
+    const cleanPhone = phone.replace(/[^0-9+]/g, '');
     const msg = encodeURIComponent(
-      `Hola, soy ${user?.name ?? 'un vendedor'} y quiero contratar el Plan ${planName}. Realicé el pago por ${metodo}. Adjunto mi comprobante.`
+      `Hola, soy ${businessName || user?.name || 'un vendedor'} y quiero contratar el Plan ${planName}. Realicé el pago por ${metodoLabel}. Adjunto mi comprobante.`
     );
-    const url = `https://wa.me/${cleanPhone.replace('+', '')}?text=${msg}`;
-    Linking.openURL(url).catch(() => {
+    Linking.openURL(`https://wa.me/${cleanPhone.replace('+', '')}?text=${msg}`).catch(() => {
       Alert.alert('Error', 'No se pudo abrir WhatsApp');
     });
   };
 
-  const openEmail = () => {
-    if (!currentEmail) return;
-    const metodo = activeTab === 'transferencia' ? 'transferencia bancaria' : 'Pago Móvil';
+  const openEmail = (method: PaymentMethod, metodoLabel: string) => {
+    const email = method?.contactoEmail ?? '';
+    if (!email) return;
     const subject = encodeURIComponent(`Comprobante de Pago - Plan ${planName}`);
     const body = encodeURIComponent(
-      `Hola,\n\nSoy ${user?.name ?? 'un vendedor'} y he realizado el pago por ${metodo} para el Plan ${planName}.\n\nAdjunto el comprobante de pago.\n\nSaludos.`
+      `Hola,\n\nSoy ${businessName || user?.name || 'un vendedor'} y he realizado el pago por ${metodoLabel} para el Plan ${planName}.\n\nAdjunto el comprobante de pago.\n\nSaludos.`
     );
-    Linking.openURL(`mailto:${currentEmail}?subject=${subject}&body=${body}`).catch(() => {
+    Linking.openURL(`mailto:${email}?subject=${subject}&body=${body}`).catch(() => {
       Alert.alert('Error', 'No se pudo abrir el correo');
     });
   };
 
   const planColor = planSlug === 'pro' ? '#2196F3' : planSlug === 'premium' ? '#7C3AED' : colors.primary;
-  const hasBothMethods = !!transferencia && !!pagoMovil;
+  const methodKeys = Object.keys(methods ?? {});
+
+  const METHOD_COLORS: Record<string, string> = {
+    transferencia: '#0D47A1',
+    pagoMovil: '#E65100',
+    zelle: '#6C1CD1',
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -130,10 +146,10 @@ export default function PaymentInfoScreen() {
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      ) : !transferencia && !pagoMovil ? (
+      ) : methodKeys?.length === 0 ? (
         <View style={styles.center}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.textSecondary} />
-          <Text style={styles.emptyText}>Información de pago no disponible. Contacta al soporte.</Text>
+          <Text style={styles.emptyText}>No hay métodos de pago activos. Contacta al soporte.</Text>
         </View>
       ) : (
         <ScrollView
@@ -152,133 +168,131 @@ export default function PaymentInfoScreen() {
             </View>
           </View>
 
-          {/* Payment method tabs */}
-          {hasBothMethods && (
-            <View style={styles.tabContainer}>
-              <Pressable
-                onPress={() => { setActiveTab('transferencia'); setCopiedField(null); }}
-                style={[
-                  styles.tab,
-                  activeTab === 'transferencia' && [styles.tabActive, { borderBottomColor: planColor }],
-                ]}
-              >
-                <Ionicons
-                  name="business-outline"
-                  size={18}
-                  color={activeTab === 'transferencia' ? planColor : colors.textSecondary}
-                />
-                <Text style={[
-                  styles.tabText,
-                  activeTab === 'transferencia' && { color: planColor, fontWeight: '700' },
-                ]}>
-                  Transferencia
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => { setActiveTab('pagoMovil'); setCopiedField(null); }}
-                style={[
-                  styles.tab,
-                  activeTab === 'pagoMovil' && [styles.tabActive, { borderBottomColor: planColor }],
-                ]}
-              >
-                <Ionicons
-                  name="phone-portrait-outline"
-                  size={18}
-                  color={activeTab === 'pagoMovil' ? planColor : colors.textSecondary}
-                />
-                <Text style={[
-                  styles.tabText,
-                  activeTab === 'pagoMovil' && { color: planColor, fontWeight: '700' },
-                ]}>
-                  Pago Móvil
-                </Text>
-              </Pressable>
-            </View>
-          )}
+          {/* Method selector label */}
+          <Text style={styles.sectionTitle}>
+            {methodKeys?.length > 1 ? 'Selecciona un método de pago' : 'Método de pago'}
+          </Text>
 
-          {/* ── TRANSFERENCIA BANCARIA ── */}
-          {activeTab === 'transferencia' && transferencia && (
-            <>
-              <Text style={styles.sectionTitle}>Datos Bancarios</Text>
-              <View style={styles.bankCard}>
-                <BankRow label="Banco" value={transferencia?.banco ?? ''} fieldKey="banco" copiedField={copiedField} onCopy={copyToClipboard} styles={styles} colors={colors} />
-                <BankRow label="Tipo de Cuenta" value={transferencia?.tipoCuenta ?? ''} fieldKey="tipo" copiedField={copiedField} onCopy={copyToClipboard} styles={styles} colors={colors} />
-                <BankRow label="Número de Cuenta" value={transferencia?.numeroCuenta ?? ''} fieldKey="cuenta" copiedField={copiedField} onCopy={copyToClipboard} styles={styles} colors={colors} />
-                <BankRow label="Titular" value={transferencia?.titular ?? ''} fieldKey="titular" copiedField={copiedField} onCopy={copyToClipboard} styles={styles} colors={colors} />
-                <BankRow label="RIF" value={transferencia?.rif ?? ''} fieldKey="rif" copiedField={copiedField} onCopy={copyToClipboard} styles={styles} colors={colors} isLast />
+          {/* Method buttons */}
+          {methodKeys.map((key) => {
+            const method = methods?.[key];
+            if (!method) return null;
+            const isExpanded = expandedMethod === key;
+            const methodColor = METHOD_COLORS[key] ?? planColor;
+            const iconName = (method?.icon ?? 'cash-outline') as keyof typeof Ionicons.glyphMap;
+
+            return (
+              <View key={key} style={styles.methodContainer}>
+                {/* Method button */}
+                <Pressable
+                  onPress={() => toggleMethod(key)}
+                  style={({ pressed }) => [
+                    styles.methodButton,
+                    isExpanded
+                      ? { backgroundColor: methodColor, borderColor: methodColor }
+                      : { backgroundColor: colors.cardBg, borderColor: colors.border },
+                    pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+                  ]}
+                >
+                  <View style={[
+                    styles.methodIconCircle,
+                    { backgroundColor: isExpanded ? 'rgba(255,255,255,0.2)' : methodColor + '15' },
+                  ]}>
+                    <Ionicons name={iconName} size={22} color={isExpanded ? '#FFF' : methodColor} />
+                  </View>
+                  <Text style={[
+                    styles.methodButtonText,
+                    { color: isExpanded ? '#FFF' : colors.textPrimary },
+                  ]}>
+                    {method?.label ?? key}
+                  </Text>
+                  <Ionicons
+                    name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={20}
+                    color={isExpanded ? '#FFF' : colors.textSecondary}
+                  />
+                </Pressable>
+
+                {/* Expanded details */}
+                {isExpanded && (
+                  <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)}>
+                    {/* Fields card */}
+                    <View style={styles.bankCard}>
+                      {Object.entries(method?.fields ?? {}).map(([fKey, fValue], idx, arr) => (
+                        <FieldRow
+                          key={fKey}
+                          label={FIELD_LABELS[fKey] ?? fKey}
+                          value={String(fValue ?? '')}
+                          fieldKey={`${key}-${fKey}`}
+                          copiedField={copiedField}
+                          onCopy={copyToClipboard}
+                          styles={styles}
+                          colors={colors}
+                          isLast={idx === (arr?.length ?? 0) - 1}
+                        />
+                      ))}
+                    </View>
+
+                    {/* Concepto */}
+                    <Text style={styles.subSectionTitle}>Concepto</Text>
+                    <Pressable
+                      onPress={() => copyToClipboard(resolveConcepto(method), `concepto-${key}`)}
+                      style={styles.conceptCard}
+                    >
+                      <Text style={styles.conceptText}>{resolveConcepto(method)}</Text>
+                      <View style={styles.copyHint}>
+                        <Ionicons
+                          name={copiedField === `concepto-${key}` ? 'checkmark-circle' : 'copy-outline'}
+                          size={16}
+                          color={copiedField === `concepto-${key}` ? colors.success : colors.textSecondary}
+                        />
+                        <Text style={[styles.copyHintText, copiedField === `concepto-${key}` && { color: colors.success }]}>
+                          {copiedField === `concepto-${key}` ? 'Copiado' : 'Toca para copiar'}
+                        </Text>
+                      </View>
+                    </Pressable>
+
+                    {/* Instructions */}
+                    <Text style={styles.subSectionTitle}>Instrucciones</Text>
+                    <View style={styles.instructionsCard}>
+                      {(method?.instrucciones ?? '').split('\n').filter(Boolean).map((line, i) => (
+                        <View key={`${key}-inst-${i}`} style={styles.instructionRow}>
+                          <View style={[styles.stepCircle, { backgroundColor: methodColor }]}>
+                            <Text style={styles.stepNumber}>{i + 1}</Text>
+                          </View>
+                          <Text style={styles.instructionText}>{line.replace(/^\d+\.\s*/, '')}</Text>
+                        </View>
+                      ))}
+                    </View>
+
+                    {/* Contact buttons */}
+                    <View style={styles.contactRow}>
+                      <Pressable
+                        onPress={() => openWhatsApp(method, method?.label ?? '')}
+                        style={({ pressed }) => [
+                          styles.contactBtn,
+                          { backgroundColor: pressed ? '#20A34D' : '#25D366' },
+                        ]}
+                      >
+                        <Ionicons name="logo-whatsapp" size={20} color="#FFF" />
+                        <Text style={styles.contactBtnText}>WhatsApp</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => openEmail(method, method?.label ?? '')}
+                        style={({ pressed }) => [
+                          styles.contactBtn,
+                          { backgroundColor: pressed ? methodColor + 'CC' : methodColor },
+                        ]}
+                      >
+                        <Ionicons name="mail-outline" size={20} color="#FFF" />
+                        <Text style={styles.contactBtnText}>Correo</Text>
+                      </Pressable>
+                    </View>
+                  </Animated.View>
+                )}
               </View>
-            </>
-          )}
-
-          {/* ── PAGO MÓVIL ── */}
-          {activeTab === 'pagoMovil' && pagoMovil && (
-            <>
-              <Text style={styles.sectionTitle}>Datos Pago Móvil</Text>
-              <View style={styles.bankCard}>
-                <BankRow label="Teléfono" value={pagoMovil?.telefono ?? ''} fieldKey="pm-tel" copiedField={copiedField} onCopy={copyToClipboard} styles={styles} colors={colors} />
-                <BankRow label="Cédula / RIF" value={pagoMovil?.rif ?? ''} fieldKey="pm-rif" copiedField={copiedField} onCopy={copyToClipboard} styles={styles} colors={colors} />
-                <BankRow label="Banco" value={pagoMovil?.banco ?? ''} fieldKey="pm-banco" copiedField={copiedField} onCopy={copyToClipboard} styles={styles} colors={colors} isLast />
-              </View>
-            </>
-          )}
-
-          {/* Concepto */}
-          <Text style={styles.sectionTitle}>Concepto</Text>
-          <Pressable
-            onPress={() => copyToClipboard(concepto, 'concepto')}
-            style={styles.conceptCard}
-          >
-            <Text style={styles.conceptText}>{concepto}</Text>
-            <View style={styles.copyHint}>
-              <Ionicons
-                name={copiedField === 'concepto' ? 'checkmark-circle' : 'copy-outline'}
-                size={16}
-                color={copiedField === 'concepto' ? colors.success : colors.textSecondary}
-              />
-              <Text style={[styles.copyHintText, copiedField === 'concepto' && { color: colors.success }]}>
-                {copiedField === 'concepto' ? 'Copiado' : 'Toca para copiar'}
-              </Text>
-            </View>
-          </Pressable>
-
-          {/* Instructions */}
-          <Text style={styles.sectionTitle}>Instrucciones</Text>
-          <View style={styles.instructionsCard}>
-            {currentInstrucciones.split('\n').filter(Boolean).map((line, i) => (
-              <View key={`${activeTab}-${i}`} style={styles.instructionRow}>
-                <View style={[styles.stepCircle, { backgroundColor: planColor }]}>
-                  <Text style={styles.stepNumber}>{i + 1}</Text>
-                </View>
-                <Text style={styles.instructionText}>{line.replace(/^\d+\.\s*/, '')}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Contact buttons */}
-          <Text style={styles.sectionTitle}>Enviar Comprobante</Text>
-          <View style={styles.contactRow}>
-            <Pressable
-              onPress={openWhatsApp}
-              style={({ pressed }) => [
-                styles.contactBtn,
-                { backgroundColor: pressed ? '#20A34D' : '#25D366' },
-              ]}
-            >
-              <Ionicons name="logo-whatsapp" size={22} color="#FFF" />
-              <Text style={styles.contactBtnText}>WhatsApp</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={openEmail}
-              style={({ pressed }) => [
-                styles.contactBtn,
-                { backgroundColor: pressed ? planColor + 'CC' : planColor },
-              ]}
-            >
-              <Ionicons name="mail-outline" size={22} color="#FFF" />
-              <Text style={styles.contactBtnText}>Correo</Text>
-            </Pressable>
-          </View>
+            );
+          })}
 
           <Text style={styles.disclaimer}>
             Tu plan será activado dentro de las siguientes 24 horas hábiles después de verificar el pago.
@@ -289,7 +303,7 @@ export default function PaymentInfoScreen() {
   );
 }
 
-function BankRow({ label, value, fieldKey, copiedField, onCopy, styles, colors, isLast = false }: {
+function FieldRow({ label, value, fieldKey, copiedField, onCopy, styles, colors, isLast = false }: {
   label: string;
   value: string;
   fieldKey: string;
@@ -352,51 +366,55 @@ const createStyles = (c: ThemeColors, isDark: boolean) => StyleSheet.create({
   summaryPrice: { fontSize: 18, fontWeight: '700', color: c.textPrimary },
   summaryAnnual: { fontSize: 13, color: c.textSecondary },
 
-  // Tabs
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: c.cardBg,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: c.border,
-    marginBottom: Spacing.lg,
-    overflow: 'hidden',
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    gap: 6,
-    borderBottomWidth: 3,
-    borderBottomColor: 'transparent',
-  },
-  tabActive: {
-    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: c.textSecondary,
-  },
-
   // Section
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: c.textPrimary,
-    marginBottom: 10,
+    marginBottom: 12,
+  },
+  subSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: c.textSecondary,
+    marginBottom: 8,
     marginTop: 4,
   },
 
-  // Bank card
+  // Method buttons
+  methodContainer: {
+    marginBottom: 12,
+  },
+  methodButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    gap: 12,
+  },
+  methodIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  methodButtonText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  // Bank card (fields)
   bankCard: {
     backgroundColor: c.cardBg,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: c.border,
-    marginBottom: Spacing.lg,
+    marginTop: 12,
+    marginBottom: 12,
     overflow: 'hidden',
   },
   bankRow: {
@@ -418,7 +436,7 @@ const createStyles = (c: ThemeColors, isDark: boolean) => StyleSheet.create({
     borderWidth: 1,
     borderColor: c.border,
     padding: Spacing.md,
-    marginBottom: Spacing.lg,
+    marginBottom: 12,
   },
   conceptText: { fontSize: 15, fontWeight: '600', color: c.textPrimary },
   copyHint: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
@@ -431,7 +449,7 @@ const createStyles = (c: ThemeColors, isDark: boolean) => StyleSheet.create({
     borderWidth: 1,
     borderColor: c.border,
     padding: Spacing.md,
-    marginBottom: Spacing.lg,
+    marginBottom: 12,
   },
   instructionRow: {
     flexDirection: 'row',
@@ -454,7 +472,7 @@ const createStyles = (c: ThemeColors, isDark: boolean) => StyleSheet.create({
   contactRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: Spacing.lg,
+    marginBottom: 8,
   },
   contactBtn: {
     flex: 1,
@@ -465,7 +483,7 @@ const createStyles = (c: ThemeColors, isDark: boolean) => StyleSheet.create({
     borderRadius: BorderRadius.md,
     gap: 8,
   },
-  contactBtnText: { fontSize: 15, fontWeight: '700', color: '#FFF' },
+  contactBtnText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
 
   // Disclaimer
   disclaimer: {
@@ -473,7 +491,7 @@ const createStyles = (c: ThemeColors, isDark: boolean) => StyleSheet.create({
     color: c.textSecondary,
     textAlign: 'center',
     fontStyle: 'italic',
-    marginTop: 4,
+    marginTop: 12,
     marginBottom: 20,
   },
 });
