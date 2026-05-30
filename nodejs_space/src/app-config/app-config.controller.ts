@@ -17,7 +17,7 @@ class UpdateConfigDto {
   value: string;
 }
 
-const ALLOWED_KEYS = ['PLANS_MODE', 'PAYMENT_INFO'];
+const ALLOWED_KEYS = ['PLANS_MODE', 'PAYMENT_INFO', 'PAGO_MOVIL_INFO'];
 
 @ApiTags('App Config')
 @Controller('api')
@@ -53,11 +53,17 @@ export class AppConfigController {
   @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: 'Get payment info for plan purchases (authenticated users)' })
   async getPaymentInfo() {
-    const raw = await this.configService.get('PAYMENT_INFO');
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return { error: 'Información de pago no configurada' };
-    }
+    const [rawTransferencia, rawPagoMovil] = await Promise.all([
+      this.configService.get('PAYMENT_INFO'),
+      this.configService.get('PAGO_MOVIL_INFO'),
+    ]);
+
+    let transferencia: Record<string, unknown> | null = null;
+    let pagoMovil: Record<string, unknown> | null = null;
+
+    try { transferencia = JSON.parse(rawTransferencia); } catch { /* not configured */ }
+    try { pagoMovil = JSON.parse(rawPagoMovil); } catch { /* not configured */ }
+
+    return { transferencia, pagoMovil };
   }
 }

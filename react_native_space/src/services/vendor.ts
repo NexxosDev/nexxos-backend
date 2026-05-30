@@ -110,12 +110,27 @@ export interface PaymentInfo {
   instrucciones: string;
 }
 
+export interface PagoMovilInfo {
+  telefono: string;
+  rif: string;
+  banco: string;
+  concepto: string;
+  contactoWhatsApp: string;
+  contactoEmail: string;
+  instrucciones: string;
+}
+
+export interface AllPaymentInfo {
+  transferencia: PaymentInfo | null;
+  pagoMovil: PagoMovilInfo | null;
+}
+
 export async function getVisiblePlans(): Promise<PlanListItem[]> {
   const res = await api.get('/plans');
   return res?.data ?? [];
 }
 
-export async function getPaymentInfo(): Promise<PaymentInfo> {
+export async function getPaymentInfo(): Promise<AllPaymentInfo> {
   const res = await api.get('/config/payment-info');
-  return res?.data;
+  return res?.data ?? { transferencia: null, pagoMovil: null };
 }

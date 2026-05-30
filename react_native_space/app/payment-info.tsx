@@ -13,7 +13,9 @@ import { useAuth } from '../src/contexts/AuthContext';
 import { Spacing, BorderRadius } from '../src/theme/colors';
 import type { ThemeColors } from '../src/theme/colors';
 import { getPaymentInfo } from '../src/services/vendor';
-import type { PaymentInfo } from '../src/services/vendor';
+import type { AllPaymentInfo } from '../src/services/vendor';
+
+type PaymentTab = 'transferencia' | 'pagoMovil';
 
 export default function PaymentInfoScreen() {
   const router = useRouter();
@@ -28,9 +30,10 @@ export default function PaymentInfoScreen() {
   const precioMensual = parseFloat((params?.precioMensual as string) ?? '0') || 0;
   const precioAnual = parseFloat((params?.precioAnual as string) ?? '0') || 0;
 
-  const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null);
+  const [allPaymentInfo, setAllPaymentInfo] = useState<AllPaymentInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<PaymentTab>('transferencia');
 
   useFocusEffect(
     useCallback(() => {
@@ -39,7 +42,13 @@ export default function PaymentInfoScreen() {
         setLoading(true);
         try {
           const info = await getPaymentInfo();
-          if (!cancelled) setPaymentInfo(info ?? null);
+          if (!cancelled) {
+            setAllPaymentInfo(info ?? null);
+            // Default to whichever is available
+            if (!info?.transferencia && info?.pagoMovil) {
+              setActiveTab('pagoMovil');
+            }
+          }
         } catch { /* handled */ }
         if (!cancelled) setLoading(false);
       })();
@@ -58,16 +67,32 @@ export default function PaymentInfoScreen() {
     } catch { /* ignore */ }
   };
 
-  const concepto = (paymentInfo?.concepto ?? '')
+  const transferencia = allPaymentInfo?.transferencia;
+  const pagoMovil = allPaymentInfo?.pagoMovil;
+
+  const currentConcepto = activeTab === 'transferencia'
+    ? (transferencia?.concepto ?? '')
+    : (pagoMovil?.concepto ?? '');
+  const concepto = currentConcepto
     .replace('{planName}', planName)
     .replace('{vendorName}', user?.name ?? '');
 
+  const currentWhatsApp = activeTab === 'transferencia'
+    ? (transferencia?.contactoWhatsApp ?? '')
+    : (pagoMovil?.contactoWhatsApp ?? '');
+  const currentEmail = activeTab === 'transferencia'
+    ? (transferencia?.contactoEmail ?? '')
+    : (pagoMovil?.contactoEmail ?? '');
+  const currentInstrucciones = activeTab === 'transferencia'
+    ? (transferencia?.instrucciones ?? '')
+    : (pagoMovil?.instrucciones ?? '');
+
   const openWhatsApp = () => {
-    const phone = paymentInfo?.contactoWhatsApp ?? '';
-    if (!phone) return;
-    const cleanPhone = phone.replace(/[^0-9+]/g, '');
+    if (!currentWhatsApp) return;
+    const cleanPhone = currentWhatsApp.replace(/[^0-9+]/g, '');
+    const metodo = activeTab === 'transferencia' ? 'transferencia bancaria' : 'Pago Móvil';
     const msg = encodeURIComponent(
-      `Hola, soy ${user?.name ?? 'un vendedor'} y quiero contratar el Plan ${planName}. Adjunto mi comprobante de pago.`
+      `Hola, soy ${user?.name ?? 'un vendedor'} y quiero contratar el Plan ${planName}. Realicé el pago por ${metodo}. Adjunto mi comprobante.`
     );
     const url = `https://wa.me/${cleanPhone.replace('+', '')}?text=${msg}`;
     Linking.openURL(url).catch(() => {
@@ -76,18 +101,19 @@ export default function PaymentInfoScreen() {
   };
 
   const openEmail = () => {
-    const email = paymentInfo?.contactoEmail ?? '';
-    if (!email) return;
+    if (!currentEmail) return;
+    const metodo = activeTab === 'transferencia' ? 'transferencia bancaria' : 'Pago Móvil';
     const subject = encodeURIComponent(`Comprobante de Pago - Plan ${planName}`);
     const body = encodeURIComponent(
-      `Hola,\n\nSoy ${user?.name ?? 'un vendedor'} y he realizado la transferencia para el Plan ${planName}.\n\nAdjunto el comprobante de pago.\n\nSaludos.`
+      `Hola,\n\nSoy ${user?.name ?? 'un vendedor'} y he realizado el pago por ${metodo} para el Plan ${planName}.\n\nAdjunto el comprobante de pago.\n\nSaludos.`
     );
-    Linking.openURL(`mailto:${email}?subject=${subject}&body=${body}`).catch(() => {
+    Linking.openURL(`mailto:${currentEmail}?subject=${subject}&body=${body}`).catch(() => {
       Alert.alert('Error', 'No se pudo abrir el correo');
     });
   };
 
   const planColor = planSlug === 'pro' ? '#2196F3' : planSlug === 'premium' ? '#7C3AED' : colors.primary;
+  const hasBothMethods = !!transferencia && !!pagoMovil;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -104,7 +130,7 @@ export default function PaymentInfoScreen() {
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      ) : !paymentInfo ? (
+      ) : !transferencia && !pagoMovil ? (
         <View style={styles.center}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.textSecondary} />
           <Text style={styles.emptyText}>Información de pago no disponible. Contacta al soporte.</Text>
@@ -126,51 +152,75 @@ export default function PaymentInfoScreen() {
             </View>
           </View>
 
-          {/* Bank info */}
-          <Text style={styles.sectionTitle}>Datos Bancarios</Text>
-          <View style={styles.bankCard}>
-            <BankRow
-              label="Banco"
-              value={paymentInfo?.banco ?? ''}
-              onCopy={() => copyToClipboard(paymentInfo?.banco ?? '', 'banco')}
-              copied={copiedField === 'banco'}
-              styles={styles}
-              colors={colors}
-            />
-            <BankRow
-              label="Tipo de Cuenta"
-              value={paymentInfo?.tipoCuenta ?? ''}
-              onCopy={() => copyToClipboard(paymentInfo?.tipoCuenta ?? '', 'tipo')}
-              copied={copiedField === 'tipo'}
-              styles={styles}
-              colors={colors}
-            />
-            <BankRow
-              label="Número de Cuenta"
-              value={paymentInfo?.numeroCuenta ?? ''}
-              onCopy={() => copyToClipboard(paymentInfo?.numeroCuenta ?? '', 'cuenta')}
-              copied={copiedField === 'cuenta'}
-              styles={styles}
-              colors={colors}
-            />
-            <BankRow
-              label="Titular"
-              value={paymentInfo?.titular ?? ''}
-              onCopy={() => copyToClipboard(paymentInfo?.titular ?? '', 'titular')}
-              copied={copiedField === 'titular'}
-              styles={styles}
-              colors={colors}
-            />
-            <BankRow
-              label="RIF"
-              value={paymentInfo?.rif ?? ''}
-              onCopy={() => copyToClipboard(paymentInfo?.rif ?? '', 'rif')}
-              copied={copiedField === 'rif'}
-              styles={styles}
-              colors={colors}
-              isLast
-            />
-          </View>
+          {/* Payment method tabs */}
+          {hasBothMethods && (
+            <View style={styles.tabContainer}>
+              <Pressable
+                onPress={() => { setActiveTab('transferencia'); setCopiedField(null); }}
+                style={[
+                  styles.tab,
+                  activeTab === 'transferencia' && [styles.tabActive, { borderBottomColor: planColor }],
+                ]}
+              >
+                <Ionicons
+                  name="business-outline"
+                  size={18}
+                  color={activeTab === 'transferencia' ? planColor : colors.textSecondary}
+                />
+                <Text style={[
+                  styles.tabText,
+                  activeTab === 'transferencia' && { color: planColor, fontWeight: '700' },
+                ]}>
+                  Transferencia
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { setActiveTab('pagoMovil'); setCopiedField(null); }}
+                style={[
+                  styles.tab,
+                  activeTab === 'pagoMovil' && [styles.tabActive, { borderBottomColor: planColor }],
+                ]}
+              >
+                <Ionicons
+                  name="phone-portrait-outline"
+                  size={18}
+                  color={activeTab === 'pagoMovil' ? planColor : colors.textSecondary}
+                />
+                <Text style={[
+                  styles.tabText,
+                  activeTab === 'pagoMovil' && { color: planColor, fontWeight: '700' },
+                ]}>
+                  Pago Móvil
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
+          {/* ── TRANSFERENCIA BANCARIA ── */}
+          {activeTab === 'transferencia' && transferencia && (
+            <>
+              <Text style={styles.sectionTitle}>Datos Bancarios</Text>
+              <View style={styles.bankCard}>
+                <BankRow label="Banco" value={transferencia?.banco ?? ''} fieldKey="banco" copiedField={copiedField} onCopy={copyToClipboard} styles={styles} colors={colors} />
+                <BankRow label="Tipo de Cuenta" value={transferencia?.tipoCuenta ?? ''} fieldKey="tipo" copiedField={copiedField} onCopy={copyToClipboard} styles={styles} colors={colors} />
+                <BankRow label="Número de Cuenta" value={transferencia?.numeroCuenta ?? ''} fieldKey="cuenta" copiedField={copiedField} onCopy={copyToClipboard} styles={styles} colors={colors} />
+                <BankRow label="Titular" value={transferencia?.titular ?? ''} fieldKey="titular" copiedField={copiedField} onCopy={copyToClipboard} styles={styles} colors={colors} />
+                <BankRow label="RIF" value={transferencia?.rif ?? ''} fieldKey="rif" copiedField={copiedField} onCopy={copyToClipboard} styles={styles} colors={colors} isLast />
+              </View>
+            </>
+          )}
+
+          {/* ── PAGO MÓVIL ── */}
+          {activeTab === 'pagoMovil' && pagoMovil && (
+            <>
+              <Text style={styles.sectionTitle}>Datos Pago Móvil</Text>
+              <View style={styles.bankCard}>
+                <BankRow label="Teléfono" value={pagoMovil?.telefono ?? ''} fieldKey="pm-tel" copiedField={copiedField} onCopy={copyToClipboard} styles={styles} colors={colors} />
+                <BankRow label="Cédula / RIF" value={pagoMovil?.rif ?? ''} fieldKey="pm-rif" copiedField={copiedField} onCopy={copyToClipboard} styles={styles} colors={colors} />
+                <BankRow label="Banco" value={pagoMovil?.banco ?? ''} fieldKey="pm-banco" copiedField={copiedField} onCopy={copyToClipboard} styles={styles} colors={colors} isLast />
+              </View>
+            </>
+          )}
 
           {/* Concepto */}
           <Text style={styles.sectionTitle}>Concepto</Text>
@@ -194,8 +244,8 @@ export default function PaymentInfoScreen() {
           {/* Instructions */}
           <Text style={styles.sectionTitle}>Instrucciones</Text>
           <View style={styles.instructionsCard}>
-            {(paymentInfo?.instrucciones ?? '').split('\n').filter(Boolean).map((line, i) => (
-              <View key={i} style={styles.instructionRow}>
+            {currentInstrucciones.split('\n').filter(Boolean).map((line, i) => (
+              <View key={`${activeTab}-${i}`} style={styles.instructionRow}>
                 <View style={[styles.stepCircle, { backgroundColor: planColor }]}>
                   <Text style={styles.stepNumber}>{i + 1}</Text>
                 </View>
@@ -239,17 +289,19 @@ export default function PaymentInfoScreen() {
   );
 }
 
-function BankRow({ label, value, onCopy, copied, styles, colors, isLast = false }: {
+function BankRow({ label, value, fieldKey, copiedField, onCopy, styles, colors, isLast = false }: {
   label: string;
   value: string;
-  onCopy: () => void;
-  copied: boolean;
+  fieldKey: string;
+  copiedField: string | null;
+  onCopy: (text: string, field: string) => void;
   styles: any;
   colors: ThemeColors;
   isLast?: boolean;
 }) {
+  const copied = copiedField === fieldKey;
   return (
-    <Pressable onPress={onCopy} style={[styles.bankRow, !isLast && styles.bankRowBorder]}>
+    <Pressable onPress={() => onCopy(value, fieldKey)} style={[styles.bankRow, !isLast && styles.bankRowBorder]}>
       <View style={styles.bankRowLeft}>
         <Text style={styles.bankLabel}>{label}</Text>
         <Text style={styles.bankValue}>{value}</Text>
@@ -299,6 +351,35 @@ const createStyles = (c: ThemeColors, isDark: boolean) => StyleSheet.create({
   summaryPriceRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 4 },
   summaryPrice: { fontSize: 18, fontWeight: '700', color: c.textPrimary },
   summaryAnnual: { fontSize: 13, color: c.textSecondary },
+
+  // Tabs
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: c.cardBg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: c.border,
+    marginBottom: Spacing.lg,
+    overflow: 'hidden',
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 6,
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: {
+    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: c.textSecondary,
+  },
 
   // Section
   sectionTitle: {
