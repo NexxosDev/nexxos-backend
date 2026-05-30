@@ -16,11 +16,13 @@ import { ClientPointsModule } from './client-points/client-points.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { LegalModule } from './legal/legal.module';
 import { SuggestionsModule } from './suggestions/suggestions.module';
+import { AppConfigModule } from './app-config/app-config.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    AppConfigModule,
     AuthModule,
     UsersModule,
     CatalogModule,

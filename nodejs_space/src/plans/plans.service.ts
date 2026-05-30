@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ConfigService } from '@nestjs/config';
+import { AppConfigService } from '../app-config/app-config.service';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { CreatePlanDto } from './dto/create-plan.dto';
 
@@ -18,6 +19,7 @@ export class PlansService {
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
     private readonly configService: ConfigService,
+    private readonly appConfigService: AppConfigService,
   ) {}
 
   // ── Helper: add legacy fields for admin panel v1 compatibility ──
@@ -88,8 +90,18 @@ export class PlansService {
 
   // ── List visible plans (app) ──
   async listVisiblePlans() {
+    const plansMode = await this.appConfigService.get('PLANS_MODE');
+
+    const where: any = { visibleEnApp: true, isActive: true };
+
+    if (plansMode === 'free') {
+      // In free mode, only show plans with zero price
+      where.precioMensual = 0;
+      where.precioAnual = 0;
+    }
+
     return this.prisma.plan.findMany({
-      where: { visibleEnApp: true, isActive: true },
+      where,
       orderBy: { prioridad: 'asc' },
     });
   }
