@@ -65,6 +65,7 @@ export class RequestsService {
         partCategoryId: dto.partCategoryId,
         partSubcategoryId: dto.partSubcategoryId || null,
         freeDescription: dto.freeDescription,
+        vehicleYear: dto.vehicleYear ?? null,
         lastMessageAt: now,
         originalRadiusKm: isRadiusMode ? dto.searchRadiusKm : null,
       },
@@ -274,15 +275,16 @@ export class RequestsService {
         id: r.id,
         vehicleBrand: r.vehicleBrand.name,
         vehicleModel: r.vehicleModel.name,
+        vehicleYear: r.vehicleYear ?? null,
         partCategory: r.partCategory.name,
         partSubcategory: r.partSubcategory?.name ?? null,
         status: r.status,
         responseCount: r._count.requestResponses,
         hasRating: r.status === 'CERRADA'
-          ? true  // closed requests always have RequestRating → "Calificada"
+          ? true
           : r._count.requestResponses > 0
-            ? false  // open/in-process with responses → "Sin calificar"
-            : null,  // no responses → no badge
+            ? false
+            : null,
         state: r.state?.name ?? null,
         municipality: r.municipality?.name ?? null,
         lastMessageAt: r.lastMessageAt?.toISOString?.() ?? null,
@@ -322,6 +324,7 @@ export class RequestsService {
       id: request.id,
       vehicleBrand: { id: request.vehicleBrand.id, name: request.vehicleBrand.name },
       vehicleModel: { id: request.vehicleModel.id, name: request.vehicleModel.name },
+      vehicleYear: request.vehicleYear ?? null,
       partCategory: { id: request.partCategory.id, name: request.partCategory.name },
       partSubcategory: request.partSubcategory
         ? { id: request.partSubcategory.id, name: request.partSubcategory.name }
@@ -715,6 +718,7 @@ export class RequestsService {
           id: m.request.id,
           vehicleBrand: m.request.vehicleBrand.name,
           vehicleModel: m.request.vehicleModel.name,
+          vehicleYear: m.request.vehicleYear ?? null,
           partCategory: m.request.partCategory.name,
           partSubcategory: m.request.partSubcategory?.name ?? null,
           freeDescription: m.request.freeDescription,
@@ -765,6 +769,7 @@ export class RequestsService {
         id: match.request.id,
         vehicleBrand: match.request.vehicleBrand.name,
         vehicleModel: match.request.vehicleModel.name,
+        vehicleYear: match.request.vehicleYear ?? null,
         partCategory: match.request.partCategory.name,
         partSubcategory: match.request.partSubcategory?.name ?? null,
         freeDescription: match.request.freeDescription,

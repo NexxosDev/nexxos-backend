@@ -43,6 +43,7 @@ export default function CreateRequestScreen() {
   const [categoryId, setCategoryId] = useState('');
   const [subcategoryId, setSubcategoryId] = useState('');
   const [description, setDescription] = useState('');
+  const [vehicleYear, setVehicleYear] = useState<number | undefined>(undefined);
   const [vinInput, setVinInput] = useState('');
   const [vinLoading, setVinLoading] = useState(false);
   const [vinResult, setVinResult] = useState<VinDecodeResult | null>(null);
@@ -60,6 +61,15 @@ export default function CreateRequestScreen() {
     if (categoryId) { catalog?.loadSubcategories?.(categoryId)?.then?.((items) => setSubcategories(items ?? [])); }
     else { setSubcategories([]); setSubcategoryId(''); }
   }, [categoryId]);
+
+  const yearOptions = useMemo(() => {
+    const maxYear = new Date().getFullYear() + 1;
+    const items: CatalogItem[] = [];
+    for (let y = maxYear; y >= 1980; y--) {
+      items.push({ id: String(y), name: String(y) });
+    }
+    return items;
+  }, []);
 
   const renderBrandIcon = useCallback((item: CatalogItem) => (
     <BrandLogo brandName={item?.name ?? ''} size={24} />
@@ -89,12 +99,16 @@ export default function CreateRequestScreen() {
       setVinResult(result);
       if (result?.matched?.brandId) {
         setBrandId(result.matched.brandId);
-        // Load models for the matched brand, then set model if matched
         const loadedModels = await catalog?.loadModels?.(result.matched.brandId) ?? [];
         setModels(loadedModels);
         if (result?.matched?.modelId) {
           setModelId(result.matched.modelId);
         }
+      }
+      // Auto-set year from VIN decode
+      if (result?.nhtsa?.year) {
+        const yr = Number(result.nhtsa.year);
+        if (yr >= 1980 && yr <= new Date().getFullYear() + 1) setVehicleYear(yr);
       }
     } catch (err) {
       setVinResult({
@@ -157,6 +171,7 @@ export default function CreateRequestScreen() {
         longitude: locationData.longitude ?? undefined,
         vehicleBrandId: brandId,
         vehicleModelId: modelId,
+        vehicleYear: vehicleYear ?? undefined,
         partCategoryId: categoryId,
         partSubcategoryId: subcategoryId || undefined,
         freeDescription: description?.trim?.() ?? '',
@@ -236,6 +251,7 @@ export default function CreateRequestScreen() {
 
             <SelectInput label="Marca" items={catalog?.brands ?? []} selectedId={brandId} onSelect={(i) => { setBrandId(i?.id ?? ''); setModelId(''); setVinResult(null); }} searchable renderItemIcon={renderBrandIcon} />
             <SelectInput label="Modelo" items={models} selectedId={modelId} onSelect={(i) => { setModelId(i?.id ?? ''); }} searchable />
+            <SelectInput label="Año (opcional)" items={yearOptions} selectedId={vehicleYear ? String(vehicleYear) : ''} onSelect={(i) => { setVehicleYear(i?.id ? Number(i.id) : undefined); }} searchable placeholder="Selecciona el año" />
           </View>
         );
       case 3:
@@ -270,7 +286,7 @@ export default function CreateRequestScreen() {
             <Text style={styles.stepTitle}>Confirma tu solicitud</Text>
             <View style={styles.summaryCard}>
               <SummaryRow label="Ubicación" value={getLocationSummary()} onEdit={() => setStep(1)} c={colors} />
-              <SummaryRow label="Vehículo" value={`${getBrandName()} ${getModelName()}`} onEdit={() => setStep(2)} c={colors} />
+              <SummaryRow label="Vehículo" value={`${getBrandName()} ${getModelName()}${vehicleYear ? ` ${vehicleYear}` : ''}`} onEdit={() => setStep(2)} c={colors} />
               <SummaryRow label="Repuesto" value={`${getCatName()}${getSubName() ? ` - ${getSubName()}` : ''}`} onEdit={() => setStep(3)} c={colors} />
               <SummaryRow label="Descripción" value={description ?? ''} onEdit={() => setStep(3)} c={colors} />
             </View>

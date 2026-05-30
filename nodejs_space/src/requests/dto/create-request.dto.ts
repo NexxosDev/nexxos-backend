@@ -12,5 +12,6 @@ export class CreateRequestDto {
   @ApiProperty() @IsUUID() vehicleModelId: string;
   @ApiProperty() @IsUUID() partCategoryId: string;
   @ApiPropertyOptional() @IsOptional() @IsUUID() partSubcategoryId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1980) @Max(new Date().getFullYear() + 1) vehicleYear?: number;
   @ApiProperty() @IsNotEmpty() @IsString() freeDescription: string;
 }

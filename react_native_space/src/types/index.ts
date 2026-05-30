@@ -35,6 +35,7 @@ export interface RequestListItem {
   id: string;
   vehicleBrand: string;
   vehicleModel: string;
+  vehicleYear: number | null;
   partCategory: string;
   partSubcategory: string | null;
   status: string;
@@ -50,6 +51,7 @@ export interface RequestDetail {
   id: string;
   vehicleBrand: { id: string; name: string };
   vehicleModel: { id: string; name: string };
+  vehicleYear: number | null;
   partCategory: { id: string; name: string };
   partSubcategory: { id: string; name: string } | null;
   state: { id: string; name: string } | null;
@@ -90,6 +92,7 @@ export interface VendorRequestListItem {
     id: string;
     vehicleBrand: string;
     vehicleModel: string;
+    vehicleYear: number | null;
     partCategory: string;
     partSubcategory: string | null;
     freeDescription: string;
@@ -113,6 +116,7 @@ export interface VendorRequestDetailType {
     id: string;
     vehicleBrand: string;
     vehicleModel: string;
+    vehicleYear: number | null;
     partCategory: string;
     partSubcategory: string | null;
     freeDescription: string;

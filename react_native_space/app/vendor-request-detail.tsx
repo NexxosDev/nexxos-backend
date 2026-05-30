@@ -112,7 +112,7 @@ export default function VendorRequestDetailScreen() {
             <BrandLogo brandName={req?.vehicleBrand ?? ''} size={20} />
             <View style={iStyles.col}>
               <Text style={iStyles.label}>Vehículo</Text>
-              <Text style={iStyles.value}>{`${req?.vehicleBrand ?? ''} ${req?.vehicleModel ?? ''}`}</Text>
+              <Text style={iStyles.value}>{`${req?.vehicleBrand ?? ''} ${req?.vehicleModel ?? ''}${req?.vehicleYear ? ` ${req.vehicleYear}` : ''}`}</Text>
             </View>
           </View>
           <InfoRow icon="construct-outline" label="Repuesto" value={`${req?.partCategory ?? ''}${req?.partSubcategory ? ` - ${req.partSubcategory}` : ''}`} c={colors} />

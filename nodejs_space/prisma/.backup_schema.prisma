@@ -263,6 +263,7 @@ model Request {
   expansionCount       Int                  @default(0) @map("expansion_count")
   lastExpansionAt      DateTime?            @map("last_expansion_at")
   originalRadiusKm     Int?                 @map("original_radius_km")
+  vehicleYear          Int?                 @map("vehicle_year")
   chats                Chat[]
   clientPointLogs      ClientPointLog[]
   requestRating        RequestRating?

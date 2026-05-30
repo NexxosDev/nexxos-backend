@@ -150,7 +150,7 @@ export default function RequestDetailScreen() {
             <BrandLogo brandName={detail?.vehicleBrand?.name ?? ''} size={20} />
             <View style={iStyles.col}>
               <Text style={iStyles.label}>Vehículo</Text>
-              <Text style={iStyles.value}>{`${detail?.vehicleBrand?.name ?? ''} ${detail?.vehicleModel?.name ?? ''}`}</Text>
+              <Text style={iStyles.value}>{`${detail?.vehicleBrand?.name ?? ''} ${detail?.vehicleModel?.name ?? ''}${detail?.vehicleYear ? ` ${detail.vehicleYear}` : ''}`}</Text>
             </View>
           </View>
           <InfoRow icon="construct-outline" label="Repuesto" value={`${detail?.partCategory?.name ?? ''}${detail?.partSubcategory?.name ? ` - ${detail.partSubcategory.name}` : ''}`} c={colors} />

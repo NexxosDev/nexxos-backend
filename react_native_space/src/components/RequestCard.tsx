@@ -12,6 +12,7 @@ import type { ClientLevel } from '../types';
 interface RequestCardProps {
   vehicleBrand: string;
   vehicleModel: string;
+  vehicleYear?: number | null;
   partCategory: string;
   status: string;
   responseCount?: number;
@@ -28,7 +29,7 @@ interface RequestCardProps {
 }
 
 export default function RequestCard({
-  vehicleBrand, vehicleModel, partCategory, status,
+  vehicleBrand, vehicleModel, vehicleYear, partCategory, status,
   responseCount, hasRating, municipality, state, createdAt, timeLabel, timeLabelColor, unreadCount, clientName, clientLevel, onPress,
 }: RequestCardProps) {
   const { colors } = useTheme();
@@ -56,7 +57,7 @@ export default function RequestCard({
             <BrandLogo brandName={vehicleBrand ?? ''} size={28} />
           </View>
           <View style={styles.content}>
-            <Text style={styles.title} numberOfLines={1}>{vehicleBrand ?? ''} {vehicleModel ?? ''}</Text>
+            <Text style={styles.title} numberOfLines={1}>{vehicleBrand ?? ''} {vehicleModel ?? ''}{vehicleYear ? ` ${vehicleYear}` : ''}</Text>
             <Text style={styles.subtitle} numberOfLines={1}>{partCategory ?? ''}</Text>
             {(municipality || state) ? (
               <Text style={styles.location} numberOfLines={1}>

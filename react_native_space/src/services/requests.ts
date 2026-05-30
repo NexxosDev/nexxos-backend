@@ -12,6 +12,7 @@ export async function createRequest(data: {
   vehicleModelId: string;
   partCategoryId: string;
   partSubcategoryId?: string;
+  vehicleYear?: number;
   freeDescription: string;
 }): Promise<{ id: string; status: string; matchedVendorsCount: number; createdAt: string }> {
   const res = await api.post('/requests', data);
