@@ -414,6 +414,7 @@ model Plan {
   precioAnual          Float                @default(0) @map("precio_anual")
   comisionPorcentaje   Float                @default(0) @map("comision_porcentaje")
   visibleEnApp         Boolean              @default(true) @map("visible_en_app")
+  beneficios           String?              @db.Text
   createdAt            DateTime             @default(now()) @map("created_at")
   updatedAt            DateTime             @updatedAt @map("updated_at")
   vendorSubscriptions  VendorSubscription[]

@@ -28,34 +28,17 @@ const PLAN_COLORS: Record<string, string> = {
   premium: '#7C3AED',
 };
 
-const PLAN_FEATURES: Record<string, string[]> = {
-  gratuito: [
-    'Hasta 5 solicitudes/mes',
-    'Chat con clientes',
-    'Perfil de negocio',
-  ],
-  beta: [
-    'Solicitudes ilimitadas',
-    'Chat con clientes',
-    'Perfil de negocio',
-    'Acceso anticipado',
-  ],
-  pro: [
-    'Hasta 500 solicitudes/mes',
-    'Chat con clientes',
-    'Perfil de negocio',
-    'Prioridad en matching',
-    'Soporte prioritario',
-  ],
-  premium: [
-    'Solicitudes ilimitadas',
-    'Chat con clientes',
-    'Perfil de negocio',
-    'Máxima prioridad',
-    'Soporte dedicado',
-    'Estadísticas avanzadas',
-  ],
-};
+/** Parse beneficios JSON string from API, fallback to description */
+function parseBeneficios(plan: PlanListItem): string[] {
+  if (plan?.beneficios) {
+    try {
+      const parsed = JSON.parse(plan.beneficios);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch { /* fallback */ }
+  }
+  // Fallback: show description if no beneficios set
+  return plan?.description ? [plan.description] : [];
+}
 
 export default function PlansScreen() {
   const router = useRouter();
@@ -142,7 +125,7 @@ export default function PlansScreen() {
             const isUnlimited = (plan?.solicitudesMensuales ?? 0) === -1;
             const color = PLAN_COLORS[slug] ?? colors.primary;
             const icon = PLAN_ICONS[slug] ?? 'pricetag-outline';
-            const features = PLAN_FEATURES[slug] ?? [plan?.description ?? ''];
+            const features = parseBeneficios(plan);
 
             return (
               <View

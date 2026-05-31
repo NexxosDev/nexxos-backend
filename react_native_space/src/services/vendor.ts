@@ -96,6 +96,7 @@ export interface PlanListItem {
   comisionPorcentaje: number;
   visibleEnApp: boolean;
   isActive: boolean;
+  beneficios: string | null;
 }
 
 export interface PaymentMethodField {
