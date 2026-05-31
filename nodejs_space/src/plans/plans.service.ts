@@ -88,16 +88,30 @@ export class PlansService {
     return plans.map((p: any) => this.withLegacyFields(p));
   }
 
-  // ── List visible plans (app) ──
-  async listVisiblePlans() {
+  // ── List visible plans (app) — filters by vendor's current plan priority ──
+  async listVisiblePlans(userId?: string) {
     const plansMode = await this.appConfigService.get('PLANS_MODE');
 
     const where: any = { visibleEnApp: true, isActive: true };
 
     if (plansMode === 'free') {
-      // In free mode, only show plans with zero price
       where.precioMensual = 0;
       where.precioAnual = 0;
+    }
+
+    // If the user is a vendor with an active subscription, only show plans >= current priority
+    if (userId) {
+      try {
+        const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
+        if (vendor) {
+          const activeSub = await this.getVendorActivePlan(vendor.id);
+          if (activeSub?.plan?.prioridad != null) {
+            where.prioridad = { gte: activeSub.plan.prioridad };
+          }
+        }
+      } catch (err) {
+        this.logger.warn(`Could not check vendor plan for userId ${userId}: ${err}`);
+      }
     }
 
     return this.prisma.plan.findMany({
@@ -156,6 +170,10 @@ export class PlansService {
       ? Math.max(1, Math.ceil((sub.fechaExpiracion.getTime() - sub.fechaAsignacion.getTime()) / (1000 * 60 * 60 * 24)))
       : null;
 
+    // Renewal warning: show when ≤ 5 days remaining and plan is paid
+    const isPaid = (sub.plan.precioMensual ?? 0) > 0 || (sub.plan.precioAnual ?? 0) > 0;
+    const showRenewalWarning = isPaid && daysRemaining != null && daysRemaining <= 5 && daysRemaining >= 0 && sub.estado === 'ACTIVE';
+
     return {
       plan: {
         id: sub.plan.id,
@@ -176,6 +194,7 @@ export class PlansService {
         fechaGracia: sub.fechaGracia?.toISOString() ?? null,
         daysRemaining,
         totalDays,
+        showRenewalWarning,
       },
       monthlyRequests: {
         count: monthly?.count ?? 0,
@@ -343,8 +362,8 @@ export class PlansService {
       this.logger.log(`Vendor ${sub.vendor.businessName} downgraded to Gratuito`);
     }
 
-    // 3. Send warning notifications (15, 7, 1 day before expiration)
-    for (const daysBeforeExpiry of [15, 7, 1]) {
+    // 3. Send warning notifications (15, 7, 5, 1 day before expiration)
+    for (const daysBeforeExpiry of [15, 7, 5, 1]) {
       const targetDate = new Date(now);
       targetDate.setDate(targetDate.getDate() + daysBeforeExpiry);
       const dayStart = new Date(targetDate);
@@ -360,16 +379,18 @@ export class PlansService {
         include: { vendor: { select: { userId: true } }, plan: true },
       });
 
-      const emoji = daysBeforeExpiry === 1 ? '🚨' : daysBeforeExpiry === 7 ? '⚠️' : '⏳';
+      const emoji = daysBeforeExpiry === 1 ? '🚨' : daysBeforeExpiry <= 5 ? '⚠️' : '⏳';
       const dayText = daysBeforeExpiry === 1 ? 'mañana' : `en ${daysBeforeExpiry} días`;
 
       for (const sub of expiringSoon) {
+        const body = daysBeforeExpiry <= 5
+          ? `Tu Plan ${sub.plan.name} vence ${dayText}. ¡Renueva ahora para no perder tus beneficios!`
+          : `Tu Plan ${sub.plan.name} vence ${dayText}. Pronto te informaremos sobre los planes disponibles.`;
+
         this.notificationService.sendToUser(
           sub.vendor.userId,
           `${emoji} Tu Plan ${sub.plan.name} vence ${dayText}`,
-          daysBeforeExpiry <= 7
-            ? `Tu Plan ${sub.plan.name} vence ${dayText}.`
-            : `Tu Plan ${sub.plan.name} vence ${dayText}. Pronto te informaremos sobre los planes disponibles.`,
+          body,
           { type: 'PLAN_EXPIRING_SOON', daysRemaining: daysBeforeExpiry },
         ).catch((err) => this.logger.error(`Push error (${daysBeforeExpiry}d warning)`, err));
       }

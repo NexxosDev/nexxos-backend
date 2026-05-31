@@ -240,6 +240,7 @@ export interface VendorPlanInfo {
     fechaGracia: string | null;
     daysRemaining: number | null;
     totalDays: number | null;
+    showRenewalWarning?: boolean;
   } | null;
   monthlyRequests: {
     count: number;

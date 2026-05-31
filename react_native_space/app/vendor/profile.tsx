@@ -13,6 +13,7 @@ import StarRating from '../../src/components/StarRating';
 import LoadingSpinner from '../../src/components/LoadingSpinner';
 import BrandLogo from '../../src/components/BrandLogo';
 import VendorPlanCard from '../../src/components/VendorPlanCard';
+import RenewalBanner from '../../src/components/RenewalBanner';
 
 import ProfileActionButton from '../../src/components/ProfileActionButton';
 import type { VendorProfile as VPType, VendorPlanInfo } from '../../src/types';
@@ -155,6 +156,7 @@ export default function VendorProfileScreen() {
           ) : null}
         </View>
 
+        <RenewalBanner planInfo={planInfo} />
         <VendorPlanCard planInfo={planInfo} />
 
         <View style={styles.section}>

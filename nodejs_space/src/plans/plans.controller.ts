@@ -24,11 +24,13 @@ export class PlansController {
     return this.plansService.getMyPlan(req.user.id);
   }
 
-  // ── Public: list visible plans ──
+  // ── List visible plans (optionally filter by vendor's current plan) ──
   @Get('plans')
-  @ApiOperation({ summary: 'List plans visible in app' })
-  async listVisiblePlans() {
-    return this.plansService.listVisiblePlans();
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({ summary: 'List plans visible in app (filters out lower-priority plans if vendor has active subscription)' })
+  async listVisiblePlans(@Req() req: any) {
+    return this.plansService.listVisiblePlans(req.user?.id);
   }
 
   // ── Admin: list all plans ──

@@ -15,6 +15,7 @@ import StarRating from '../../src/components/StarRating';
 import EmptyState from '../../src/components/EmptyState';
 import LoadingSpinner from '../../src/components/LoadingSpinner';
 import UnreadBell from '../../src/components/UnreadBell';
+import RenewalBanner from '../../src/components/RenewalBanner';
 import { useUnread } from '../../src/contexts/UnreadContext';
 import type { VendorDashboard, VendorResponseMetrics, VendorPlanInfo } from '../../src/types';
 
@@ -186,6 +187,9 @@ export default function VendorHome() {
           </Text>
         </View>
       ) : null}
+
+      {/* Renewal warning banner (≤5 days for paid plans) */}
+      <RenewalBanner planInfo={planInfo} />
 
       {/* Monthly limit reached banner */}
       {planInfo?.monthlyRequests && (planInfo?.monthlyRequests?.limit ?? -1) !== -1 && (planInfo?.monthlyRequests?.count ?? 0) >= (planInfo?.monthlyRequests?.limit ?? 0) && (planInfo?.monthlyRequests?.limit ?? 0) > 0 ? (

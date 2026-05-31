@@ -114,9 +114,20 @@ export default function PlansScreen() {
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.subtitle}>
-            Elige el plan que mejor se adapte a tu negocio
-          </Text>
+          {/* Check if vendor already has the best plan (only their current plan is shown) */}
+          {plans?.length === 1 && currentSlug && plans[0]?.slug === currentSlug ? (
+            <View style={styles.bestPlanCard}>
+              <Ionicons name="trophy" size={36} color="#F59E0B" />
+              <Text style={styles.bestPlanTitle}>¡Ya tienes el mejor plan!</Text>
+              <Text style={styles.bestPlanSubtitle}>
+                No hay planes superiores disponibles. Disfruta de todos los beneficios de tu Plan {plans[0]?.name ?? ''}.
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.subtitle}>
+              Elige el plan que mejor se adapte a tu negocio
+            </Text>
+          )}
 
           {(plans ?? []).map((plan) => {
             const slug = plan?.slug ?? '';
@@ -246,6 +257,28 @@ const createStyles = (c: ThemeColors, isDark: boolean) => StyleSheet.create({
     color: c.textSecondary,
     textAlign: 'center',
     marginBottom: Spacing.lg,
+  },
+  bestPlanCard: {
+    backgroundColor: c.cardBg,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: '#F59E0B40',
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    alignItems: 'center',
+  },
+  bestPlanTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: c.textPrimary,
+    marginTop: 10,
+  },
+  bestPlanSubtitle: {
+    fontSize: 14,
+    color: c.textSecondary,
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 20,
   },
   planCard: {
     backgroundColor: c.cardBg,
