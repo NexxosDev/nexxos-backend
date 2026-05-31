@@ -95,7 +95,8 @@ export default function PaymentInfoScreen() {
   const resolveConcepto = (method: PaymentMethod) => {
     return (method?.concepto ?? '')
       .replace('{planName}', planName)
-      .replace('{businessName}', businessName || user?.name || '');
+      .replace('{businessName}', businessName || user?.name || '')
+      .replace('{storeName}', businessName || user?.name || '');
   };
 
   const openWhatsApp = (method: PaymentMethod, metodoLabel: string) => {

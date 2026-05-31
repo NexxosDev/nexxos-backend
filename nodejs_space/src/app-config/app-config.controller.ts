@@ -17,7 +17,7 @@ class UpdateConfigDto {
   value: string;
 }
 
-const ALLOWED_KEYS = ['PLANS_MODE', 'PAYMENT_INFO', 'PAGO_MOVIL_INFO', 'PAYMENT_METHODS'];
+const ALLOWED_KEYS = ['PLANS_MODE', 'PAYMENT_INFO', 'PAGO_MOVIL_INFO', 'ZELLE_INFO', 'PAYMENT_METHODS'];
 
 @ApiTags('App Config')
 @Controller('api')
@@ -53,19 +53,44 @@ export class AppConfigController {
   @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: 'Get active payment methods for plan purchases (authenticated users)' })
   async getPaymentInfo() {
-    const raw = await this.configService.get('PAYMENT_METHODS');
-    try {
-      const allMethods = JSON.parse(raw) as Record<string, { isActive?: boolean; [k: string]: unknown }>;
-      // Filter to only active methods
-      const activeMethods: Record<string, unknown> = {};
-      for (const [key, method] of Object.entries(allMethods ?? {})) {
-        if (method?.isActive) {
-          activeMethods[key] = method;
+    // Read each payment method key from app_config (set by admin panel)
+    const METHOD_KEYS: { configKey: string; methodKey: string; label: string; icon: string }[] = [
+      { configKey: 'PAYMENT_INFO', methodKey: 'transferencia', label: 'Transferencia Bancaria', icon: 'business-outline' },
+      { configKey: 'PAGO_MOVIL_INFO', methodKey: 'pagoMovil', label: 'Pago Móvil', icon: 'phone-portrait-outline' },
+      { configKey: 'ZELLE_INFO', methodKey: 'zelle', label: 'Zelle', icon: 'card-outline' },
+    ];
+
+    const rawValues = await Promise.all(
+      METHOD_KEYS.map((m) => this.configService.get(m.configKey)),
+    );
+
+    const activeMethods: Record<string, unknown> = {};
+
+    for (let i = 0; i < METHOD_KEYS.length; i++) {
+      const raw = rawValues[i];
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        // Only include methods where activo === true
+        if (parsed?.activo === true) {
+          // Build a normalized response with fields map for the frontend
+          const { activo, concepto, contactoWhatsApp, contactoEmail, instrucciones, ...fields } = parsed as any;
+          activeMethods[METHOD_KEYS[i].methodKey] = {
+            isActive: true,
+            label: METHOD_KEYS[i].label,
+            icon: METHOD_KEYS[i].icon,
+            fields,
+            concepto: concepto ?? '',
+            contactoWhatsApp: contactoWhatsApp ?? '',
+            contactoEmail: contactoEmail ?? '',
+            instrucciones: instrucciones ?? '',
+          };
         }
+      } catch {
+        this.logger.warn(`Failed to parse ${METHOD_KEYS[i].configKey}`);
       }
-      return { methods: activeMethods };
-    } catch {
-      return { methods: {} };
     }
+
+    return { methods: activeMethods };
   }
 }
