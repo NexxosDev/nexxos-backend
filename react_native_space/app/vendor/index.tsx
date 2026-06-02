@@ -49,6 +49,7 @@ export default function VendorHome() {
   const [refreshing, setRefreshing] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [focused, setFocused] = useState(false);
+  const [metricsExpanded, setMetricsExpanded] = useState(false);
 
   const getTimeInfo = useCallback((item: VendorDashboard['recentRequests'][number]): { label: string; color: string } => {
     const delivered = item?.deliveredAt ? new Date(item.deliveredAt).getTime() : 0;
@@ -207,68 +208,88 @@ export default function VendorHome() {
 
       <Text style={styles.greeting}>¡Hola, {dashboard?.businessName ?? 'Vendedor'}!</Text>
 
-      {/* Marketing promo banner */}
-      <PromoBanner banner={banner} />
-
+      {/* Inline availability toggle (slim, no card frame) */}
       <View style={styles.availRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.availLabel}>Disponible para recibir solicitudes</Text>
-        </View>
+        <Text style={styles.availLabel}>Disponible para solicitudes</Text>
         <Switch
           value={dashboard?.isAvailable ?? false}
           onValueChange={handleToggle}
           disabled={toggling}
           trackColor={{ false: colors.border, true: colors.success }}
           thumbColor={colors.white}
+          style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] } : undefined}
         />
       </View>
 
+      {/* Compact metrics row + inline rating */}
       <View style={styles.metricsRow}>
         <MetricCard label="Recibidas" value={metrics?.totalRequestsReceived ?? 0} icon="mail-outline" />
-        <View style={{ width: Spacing.sm }} />
+        <View style={{ width: 8 }} />
         <MetricCard label="Respondidas" value={metrics?.totalRequestsAnswered ?? 0} icon="checkmark-circle-outline" color={colors.success} />
+        {typeof metrics?.avgRating === 'number' ? (
+          <View style={{ width: 8 }} />
+        ) : null}
+        {typeof metrics?.avgRating === 'number' ? (
+          <View style={styles.ratingCard}>
+            <StarRating rating={Math.round(metrics.avgRating)} readonly size={14} />
+            <Text style={styles.ratingValue}>{metrics?.avgRating?.toFixed?.(1) ?? '0'}</Text>
+            <Text style={styles.ratingCount}>({metrics?.totalRatings ?? 0})</Text>
+          </View>
+        ) : null}
       </View>
 
-      {typeof metrics?.avgRating === 'number' ? (
-        <View style={styles.ratingContainer}>
-          <StarRating rating={Math.round(metrics.avgRating)} readonly size={20} />
-          <Text style={styles.ratingText}>{metrics?.avgRating?.toFixed?.(1) ?? '0'} ({metrics?.totalRatings ?? 0} calificaciones)</Text>
+      {/* Collapsible response times accordion */}
+      {responseMetrics ? (
+        <View style={styles.responseMetricsCard}>
+          <Pressable
+            onPress={() => setMetricsExpanded((v) => !v)}
+            style={styles.rmHeader}
+          >
+            <Ionicons name="speedometer-outline" size={16} color={colors.primary} />
+            <Text style={styles.rmTitle}>Tiempos de Respuesta</Text>
+            <View style={{ flex: 1 }} />
+            <Text style={styles.rmQuickStat}>{responseMetrics?.responseRate ?? 0}%</Text>
+            <Ionicons
+              name={metricsExpanded ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color={colors.textSecondary}
+              style={{ marginLeft: 4 }}
+            />
+          </Pressable>
+          {metricsExpanded ? (
+            <>
+              <View style={styles.rmGrid}>
+                <View style={styles.rmItem}>
+                  <Text style={styles.rmValue}>{responseMetrics?.avgResponseTimeMs != null ? formatDuration(responseMetrics.avgResponseTimeMs) : '—'}</Text>
+                  <Text style={styles.rmLabel}>Promedio</Text>
+                </View>
+                <View style={styles.rmDivider} />
+                <View style={styles.rmItem}>
+                  <Text style={styles.rmValue}>{responseMetrics?.medianResponseTimeMs != null ? formatDuration(responseMetrics.medianResponseTimeMs) : '—'}</Text>
+                  <Text style={styles.rmLabel}>Mediana</Text>
+                </View>
+                <View style={styles.rmDivider} />
+                <View style={styles.rmItem}>
+                  <Text style={styles.rmValue}>{responseMetrics?.fastestResponseTimeMs != null ? formatDuration(responseMetrics.fastestResponseTimeMs) : '—'}</Text>
+                  <Text style={styles.rmLabel}>Más rápida</Text>
+                </View>
+              </View>
+              <View style={styles.rmFooter}>
+                <View style={styles.rmFooterItem}>
+                  <Ionicons name="trending-up-outline" size={14} color={colors.success} />
+                  <Text style={styles.rmFooterText}>
+                    Tasa de respuesta: <Text style={{ fontWeight: '700', color: colors.success }}>{responseMetrics?.responseRate ?? 0}%</Text>
+                  </Text>
+                </View>
+                <Text style={styles.rmFooterSub}>{responseMetrics?.totalResponded ?? 0} de {responseMetrics?.totalReceived ?? 0} solicitudes</Text>
+              </View>
+            </>
+          ) : null}
         </View>
       ) : null}
 
-      {responseMetrics ? (
-        <View style={styles.responseMetricsCard}>
-          <View style={styles.rmHeader}>
-            <Ionicons name="speedometer-outline" size={18} color={colors.primary} />
-            <Text style={styles.rmTitle}>Tiempos de Respuesta</Text>
-          </View>
-          <View style={styles.rmGrid}>
-            <View style={styles.rmItem}>
-              <Text style={styles.rmValue}>{responseMetrics?.avgResponseTimeMs != null ? formatDuration(responseMetrics.avgResponseTimeMs) : '—'}</Text>
-              <Text style={styles.rmLabel}>Promedio</Text>
-            </View>
-            <View style={styles.rmDivider} />
-            <View style={styles.rmItem}>
-              <Text style={styles.rmValue}>{responseMetrics?.medianResponseTimeMs != null ? formatDuration(responseMetrics.medianResponseTimeMs) : '—'}</Text>
-              <Text style={styles.rmLabel}>Mediana</Text>
-            </View>
-            <View style={styles.rmDivider} />
-            <View style={styles.rmItem}>
-              <Text style={styles.rmValue}>{responseMetrics?.fastestResponseTimeMs != null ? formatDuration(responseMetrics.fastestResponseTimeMs) : '—'}</Text>
-              <Text style={styles.rmLabel}>Más rápida</Text>
-            </View>
-          </View>
-          <View style={styles.rmFooter}>
-            <View style={styles.rmFooterItem}>
-              <Ionicons name="trending-up-outline" size={14} color={colors.success} />
-              <Text style={styles.rmFooterText}>
-                Tasa de respuesta: <Text style={{ fontWeight: '700', color: colors.success }}>{responseMetrics?.responseRate ?? 0}%</Text>
-              </Text>
-            </View>
-            <Text style={styles.rmFooterSub}>{responseMetrics?.totalResponded ?? 0} de {responseMetrics?.totalReceived ?? 0} solicitudes</Text>
-          </View>
-        </View>
-      ) : null}
+      {/* Marketing promo banner (after metrics, before solicitudes) */}
+      <PromoBanner banner={banner} />
 
       <Text style={styles.sectionTitle}>Solicitudes Recientes</Text>
     </View>
@@ -310,54 +331,68 @@ export default function VendorHome() {
   );
 }
 
+const SP = 10; // compact spacing between sections
+
 const createStyles = (c: ThemeColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.background },
   list: { padding: Spacing.md, paddingBottom: 100 },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SP },
   topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   logo: { fontSize: 22, fontWeight: '800', color: c.primary, letterSpacing: 2 },
   verifyBanner: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: c.warningBg,
     borderLeftWidth: 4, borderLeftColor: c.warning, borderRadius: BorderRadius.sm,
-    padding: Spacing.md, marginBottom: Spacing.md,
+    padding: Spacing.sm, marginBottom: SP,
   },
   verifyBannerTitle: { fontSize: 14, fontWeight: '600', color: c.warningBoxText, marginBottom: 2 },
   verifyBannerText: { fontSize: 13, color: c.warningBoxText },
-  greeting: { fontSize: 22, fontWeight: '700', color: c.textPrimary, marginBottom: Spacing.md },
+  greeting: { fontSize: 20, fontWeight: '700', color: c.textPrimary, marginBottom: 6 },
+  // Slim inline availability toggle — no card/border
   availRow: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: c.cardBg,
-    borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.md,
-    borderWidth: 1, borderColor: c.border,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: SP,
   },
-  availLabel: { fontSize: 14, color: c.textPrimary, fontWeight: '500' },
-  metricsRow: { flexDirection: 'row', marginBottom: Spacing.md },
-  ratingContainer: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.lg },
-  ratingText: { fontSize: 14, color: c.textSecondary },
-  sectionTitle: { fontSize: 17, fontWeight: '600', color: c.textPrimary, marginBottom: Spacing.md },
+  availLabel: { fontSize: 13, color: c.textSecondary, fontWeight: '500' },
+  // Metrics row with inline rating
+  metricsRow: { flexDirection: 'row', marginBottom: SP, alignItems: 'stretch' },
+  ratingCard: {
+    flex: 0.8,
+    backgroundColor: c.cardBg,
+    borderRadius: BorderRadius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: c.border,
+  },
+  ratingValue: { fontSize: 16, fontWeight: '700', color: c.textPrimary, marginTop: 2 },
+  ratingCount: { fontSize: 10, color: c.textSecondary },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: c.textPrimary, marginBottom: 8 },
+  // Collapsible response metrics
   responseMetricsCard: {
     backgroundColor: c.cardBg, borderRadius: BorderRadius.md,
-    borderWidth: 1, borderColor: c.border, marginBottom: Spacing.md, overflow: 'hidden',
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3 },
-      android: { elevation: 1 },
-      default: {},
-    }),
+    borderWidth: 1, borderColor: c.border, marginBottom: SP, overflow: 'hidden',
   },
-  rmHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm },
-  rmTitle: { fontSize: 14, fontWeight: '600', color: c.textPrimary, marginLeft: Spacing.sm },
-  rmGrid: { flexDirection: 'row', paddingHorizontal: Spacing.md, paddingBottom: Spacing.md },
+  rmHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 12, paddingVertical: 10,
+  },
+  rmTitle: { fontSize: 13, fontWeight: '600', color: c.textPrimary, marginLeft: 6 },
+  rmQuickStat: { fontSize: 13, fontWeight: '700', color: c.success },
+  rmGrid: { flexDirection: 'row', paddingHorizontal: 12, paddingBottom: 10 },
   rmItem: { flex: 1, alignItems: 'center' },
   rmDivider: { width: 1, backgroundColor: c.border, marginVertical: 2 },
-  rmValue: { fontSize: 18, fontWeight: '700', color: c.textPrimary, marginBottom: 2 },
-  rmLabel: { fontSize: 11, color: c.textSecondary },
+  rmValue: { fontSize: 16, fontWeight: '700', color: c.textPrimary, marginBottom: 2 },
+  rmLabel: { fontSize: 10, color: c.textSecondary },
   rmFooter: {
-    borderTopWidth: 1, borderTopColor: c.border, paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm, backgroundColor: c.backgroundSection,
+    borderTopWidth: 1, borderTopColor: c.border, paddingHorizontal: 12,
+    paddingVertical: 6, backgroundColor: c.backgroundSection,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
   rmFooterItem: { flexDirection: 'row', alignItems: 'center' },
-  rmFooterText: { fontSize: 13, color: c.textPrimary, marginLeft: 4 },
-  rmFooterSub: { fontSize: 11, color: c.textSecondary },
+  rmFooterText: { fontSize: 12, color: c.textPrimary, marginLeft: 4 },
+  rmFooterSub: { fontSize: 10, color: c.textSecondary },
   loadMoreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 8, marginTop: 4, borderRadius: BorderRadius.md, backgroundColor: c.surface },
   loadMoreText: { fontSize: 14, fontWeight: '600', color: c.textPrimary },
   planBanner: {
@@ -365,8 +400,8 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: c.warning,
     borderRadius: BorderRadius.sm,
-    padding: Spacing.md,
-    marginBottom: Spacing.md,
+    padding: Spacing.sm,
+    marginBottom: SP,
   },
   planBannerText: {
     fontSize: 13,

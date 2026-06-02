@@ -20,7 +20,7 @@ export default function MetricCard({ label, value, icon, color }: MetricCardProp
   return (
     <View style={styles.card}>
       <View style={[styles.iconBg, { backgroundColor: `${c}20` }]}>
-        <Ionicons name={icon} size={24} color={c} />
+        <Ionicons name={icon} size={20} color={c} />
       </View>
       <Text style={styles.value}>{value ?? 0}</Text>
       <Text style={styles.label} numberOfLines={2}>{label ?? ''}</Text>
@@ -33,7 +33,8 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
     flex: 1,
     backgroundColor: c.cardBg,
     borderRadius: BorderRadius.md,
-    padding: Spacing.md,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.sm,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: c.border,
@@ -43,7 +44,7 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
       default: {},
     }),
   },
-  iconBg: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: Spacing.sm },
-  value: { fontSize: 24, fontWeight: '700', color: c.textPrimary, marginBottom: 2 },
-  label: { fontSize: 12, color: c.textSecondary, textAlign: 'center' },
+  iconBg: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
+  value: { fontSize: 20, fontWeight: '700', color: c.textPrimary, marginBottom: 1 },
+  label: { fontSize: 11, color: c.textSecondary, textAlign: 'center' },
 });
