@@ -157,3 +157,17 @@ export async function getExchangeRateLatest(): Promise<ExchangeRateInfo> {
   const res = await api.get('/exchange-rates/latest');
   return res?.data ?? { available: false };
 }
+
+// ── Marketing Banner ──────────────────────────────────
+
+export interface MarketingBanner {
+  visible: boolean;
+  imageUrl?: string;
+  linkUrl?: string;
+  altText?: string;
+}
+
+export async function getMarketingBanner(): Promise<MarketingBanner> {
+  const res = await api.get('/marketing/banner');
+  return res?.data ?? { visible: false };
+}

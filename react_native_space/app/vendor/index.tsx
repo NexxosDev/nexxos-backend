@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, FlatList, Switch, Pressable, RefreshControl, Pl
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { getVendorDashboard, updateVendorAvailability, getVendorResponseMetrics, getVendorPlan } from '../../src/services/vendor';
+import { getVendorDashboard, updateVendorAvailability, getVendorResponseMetrics, getVendorPlan, getMarketingBanner } from '../../src/services/vendor';
+import type { MarketingBanner } from '../../src/services/vendor';
 import { useReactiveList } from '../../src/hooks/useReactiveList';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
@@ -16,6 +17,7 @@ import EmptyState from '../../src/components/EmptyState';
 import LoadingSpinner from '../../src/components/LoadingSpinner';
 import UnreadBell from '../../src/components/UnreadBell';
 import RenewalBanner from '../../src/components/RenewalBanner';
+import PromoBanner from '../../src/components/PromoBanner';
 import { useUnread } from '../../src/contexts/UnreadContext';
 import type { VendorDashboard, VendorResponseMetrics, VendorPlanInfo } from '../../src/types';
 
@@ -42,6 +44,7 @@ export default function VendorHome() {
   const [dashboard, setDashboard] = useState<VendorDashboard | null>(null);
   const [responseMetrics, setResponseMetrics] = useState<VendorResponseMetrics | null>(null);
   const [planInfo, setPlanInfo] = useState<VendorPlanInfo | null>(null);
+  const [banner, setBanner] = useState<MarketingBanner | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [toggling, setToggling] = useState(false);
@@ -87,14 +90,16 @@ export default function VendorHome() {
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      const [dashData, metricsData, planData] = await Promise.all([
+      const [dashData, metricsData, planData, bannerData] = await Promise.all([
         getVendorDashboard(),
         getVendorResponseMetrics().catch(() => null),
         getVendorPlan().catch(() => null),
+        getMarketingBanner().catch(() => null),
       ]);
       setDashboard(dashData ?? null);
       setResponseMetrics(metricsData ?? null);
       setPlanInfo(planData ?? null);
+      setBanner(bannerData ?? null);
     } catch { }
     if (isRefresh) setRefreshing(false); else setLoading(false);
   }, []);
@@ -201,6 +206,9 @@ export default function VendorHome() {
       ) : null}
 
       <Text style={styles.greeting}>¡Hola, {dashboard?.businessName ?? 'Vendedor'}!</Text>
+
+      {/* Marketing promo banner */}
+      <PromoBanner banner={banner} />
 
       <View style={styles.availRow}>
         <View style={{ flex: 1 }}>
