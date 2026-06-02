@@ -12,7 +12,6 @@ import { Spacing, BorderRadius } from '../../src/theme/colors';
 import type { ThemeColors } from '../../src/theme/colors';
 import MetricCard from '../../src/components/MetricCard';
 import RequestCard from '../../src/components/RequestCard';
-import StarRating from '../../src/components/StarRating';
 import EmptyState from '../../src/components/EmptyState';
 import LoadingSpinner from '../../src/components/LoadingSpinner';
 import UnreadBell from '../../src/components/UnreadBell';
@@ -227,14 +226,14 @@ export default function VendorHome() {
         <View style={{ width: 8 }} />
         <MetricCard label="Respondidas" value={metrics?.totalRequestsAnswered ?? 0} icon="checkmark-circle-outline" color={colors.success} />
         {typeof metrics?.avgRating === 'number' ? (
-          <View style={{ width: 8 }} />
-        ) : null}
-        {typeof metrics?.avgRating === 'number' ? (
-          <View style={styles.ratingCard}>
-            <StarRating rating={Math.round(metrics.avgRating)} readonly size={14} />
-            <Text style={styles.ratingValue}>{metrics?.avgRating?.toFixed?.(1) ?? '0'}</Text>
-            <Text style={styles.ratingCount}>({metrics?.totalRatings ?? 0})</Text>
-          </View>
+          <>
+            <View style={{ width: 8 }} />
+            <View style={styles.ratingCard}>
+              <Ionicons name="star" size={18} color="#F59E0B" />
+              <Text style={styles.ratingValue}>{metrics?.avgRating?.toFixed?.(1) ?? '0'}</Text>
+              <Text style={styles.ratingCount}>({metrics?.totalRatings ?? 0})</Text>
+            </View>
+          </>
         ) : null}
       </View>
 
