@@ -17,7 +17,7 @@ class UpdateConfigDto {
   value: string;
 }
 
-const ALLOWED_KEYS = ['PLANS_MODE', 'PAYMENT_INFO', 'PAGO_MOVIL_INFO', 'ZELLE_INFO', 'PAYMENT_METHODS', 'EXCHANGE_RATE_MODE', 'IVA_RATE', 'MARKETING_BANNER'];
+const ALLOWED_KEYS = ['PLANS_MODE', 'PAYMENT_INFO', 'PAGO_MOVIL_INFO', 'ZELLE_INFO', 'PAYMENT_METHODS', 'EXCHANGE_RATE_MODE', 'IVA_RATE', 'MARKETING_BANNER', 'MARKETING_CLIENT_BANNER'];
 
 @ApiTags('App Config')
 @Controller('api')
@@ -144,6 +144,50 @@ export class AppConfigController {
       };
     } catch {
       this.logger.warn('Failed to parse MARKETING_BANNER config');
+      return { visible: false };
+    }
+  }
+
+  @Get('marketing/client-banner')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({ summary: 'Get active marketing banner for client home screen (if any)' })
+  async getClientBanner() {
+    const raw = await this.configService.get('MARKETING_CLIENT_BANNER');
+    if (!raw) return { visible: false };
+
+    try {
+      const banner = JSON.parse(raw) as {
+        activo?: boolean;
+        imageUrl?: string;
+        linkUrl?: string;
+        altText?: string;
+        fechaInicio?: string;
+        fechaFin?: string;
+      };
+
+      if (!banner?.activo || !banner?.imageUrl) {
+        return { visible: false };
+      }
+
+      const now = new Date();
+      if (banner.fechaInicio) {
+        const start = new Date(banner.fechaInicio);
+        if (now < start) return { visible: false };
+      }
+      if (banner.fechaFin) {
+        const end = new Date(banner.fechaFin + 'T23:59:59');
+        if (now > end) return { visible: false };
+      }
+
+      return {
+        visible: true,
+        imageUrl: banner.imageUrl,
+        linkUrl: banner.linkUrl ?? '',
+        altText: banner.altText ?? '',
+      };
+    } catch {
+      this.logger.warn('Failed to parse MARKETING_CLIENT_BANNER config');
       return { visible: false };
     }
   }

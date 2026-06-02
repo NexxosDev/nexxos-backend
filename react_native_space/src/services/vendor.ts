@@ -171,3 +171,8 @@ export async function getMarketingBanner(): Promise<MarketingBanner> {
   const res = await api.get('/marketing/banner');
   return res?.data ?? { visible: false };
 }
+
+export async function getClientBanner(): Promise<MarketingBanner> {
+  const res = await api.get('/marketing/client-banner');
+  return res?.data ?? { visible: false };
+}
