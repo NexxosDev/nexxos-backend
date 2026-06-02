@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ConfigService } from '@nestjs/config';
 import { AppConfigService } from '../app-config/app-config.service';
+import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { CreatePlanDto } from './dto/create-plan.dto';
 
@@ -20,6 +21,7 @@ export class PlansService {
     private readonly notificationService: NotificationService,
     private readonly configService: ConfigService,
     private readonly appConfigService: AppConfigService,
+    private readonly exchangeRatesService: ExchangeRatesService,
   ) {}
 
   // ── Helper: add legacy fields for admin panel v1 compatibility ──
@@ -114,10 +116,51 @@ export class PlansService {
       }
     }
 
-    return this.prisma.plan.findMany({
+    const plans = await this.prisma.plan.findMany({
       where,
       orderBy: { prioridad: 'asc' },
     });
+
+    // Attach conversion data (USD → Bs) if exchange rate is available
+    try {
+      const latest = await this.exchangeRatesService.getLatest();
+      if (latest) {
+        return plans.map((plan: any) => {
+          const mensualConv = (plan.precioMensual ?? 0) > 0
+            ? this.buildConversion(plan.precioMensual, latest.rate, latest.ivaRate)
+            : null;
+          const anualConv = (plan.precioAnual ?? 0) > 0
+            ? this.buildConversion(plan.precioAnual, latest.rate, latest.ivaRate)
+            : null;
+          return {
+            ...plan,
+            conversion: {
+              tasaBcv: latest.rate,
+              fechaTasa: latest.date,
+              source: latest.source,
+              ivaRate: latest.ivaRate,
+              mensual: mensualConv,
+              anual: anualConv,
+            },
+          };
+        });
+      }
+    } catch (err) {
+      this.logger.warn(`Could not attach conversion data: ${err}`);
+    }
+
+    return plans;
+  }
+
+  private buildConversion(amountUsd: number, rate: number, ivaRate: number) {
+    const subtotalBs = amountUsd * rate;
+    const ivaBs = subtotalBs * (ivaRate / 100);
+    const totalBs = subtotalBs + ivaBs;
+    return {
+      subtotalBs: Math.round(subtotalBs * 100) / 100,
+      ivaBs: Math.round(ivaBs * 100) / 100,
+      totalBs: Math.round(totalBs * 100) / 100,
+    };
   }
 
   // ── Update plan (admin) ──

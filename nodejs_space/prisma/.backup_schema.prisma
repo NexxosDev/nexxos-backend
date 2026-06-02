@@ -598,3 +598,16 @@ model QuickReply {
   @@index([vendorId])
   @@map("quick_replies")
 }
+
+model ExchangeRate {
+  id           String   @id @default(uuid()) @db.Uuid
+  currencyPair String   @map("currency_pair") // e.g. "USD_VES"
+  rate         Float    // e.g. 61.56
+  source       String   @default("BCV") // "BCV" | "MANUAL"
+  date         DateTime @db.Date // the date this rate applies to
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([currencyPair, date])
+  @@index([currencyPair, date])
+  @@map("exchange_rates")
+}

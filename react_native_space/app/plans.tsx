@@ -11,8 +11,17 @@ import { useTheme } from '../src/contexts/ThemeContext';
 import { Spacing, BorderRadius } from '../src/theme/colors';
 import type { ThemeColors } from '../src/theme/colors';
 import { getVisiblePlans, getVendorPlan } from '../src/services/vendor';
-import type { PlanListItem } from '../src/services/vendor';
+import type { PlanListItem, PlanConversion } from '../src/services/vendor';
 import type { VendorPlanInfo } from '../src/types';
+
+/** Format number in Venezuelan style: 1.427,10 */
+function formatBs(n: number | null | undefined): string {
+  if (n == null || isNaN(n)) return '0,00';
+  const fixed = n.toFixed(2);
+  const [intPart, decPart] = fixed.split('.');
+  const withDots = (intPart ?? '0').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${withDots},${decPart ?? '00'}`;
+}
 
 const PLAN_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   gratuito: 'leaf-outline',
@@ -77,6 +86,7 @@ export default function PlansScreen() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync?.(Haptics.ImpactFeedbackStyle.Light)?.catch?.(() => {});
     }
+    const conv = plan?.conversion;
     router.push({
       pathname: '/payment-info',
       params: {
@@ -85,6 +95,15 @@ export default function PlansScreen() {
         planSlug: plan?.slug ?? '',
         precioMensual: String(plan?.precioMensual ?? 0),
         precioAnual: String(plan?.precioAnual ?? 0),
+        tasaBcv: String(conv?.tasaBcv ?? ''),
+        fechaTasa: conv?.fechaTasa ?? '',
+        ivaRate: String(conv?.ivaRate ?? ''),
+        subtotalBsMensual: String(conv?.mensual?.subtotalBs ?? ''),
+        ivaBsMensual: String(conv?.mensual?.ivaBs ?? ''),
+        totalBsMensual: String(conv?.mensual?.totalBs ?? ''),
+        subtotalBsAnual: String(conv?.anual?.subtotalBs ?? ''),
+        ivaBsAnual: String(conv?.anual?.ivaBs ?? ''),
+        totalBsAnual: String(conv?.anual?.totalBs ?? ''),
       },
     });
   };
@@ -182,6 +201,25 @@ export default function PlansScreen() {
                     <Text style={styles.priceAmount}>Gratis</Text>
                   )}
                 </View>
+
+                {/* Bs desglose (only for paid plans with conversion data) */}
+                {isPaid && plan?.conversion?.mensual ? (
+                  <View style={[styles.bsDesgloseCard, { borderColor: color + '30' }]}>
+                    <View style={styles.bsRow}>
+                      <Text style={styles.bsLabel}>Subtotal Bs</Text>
+                      <Text style={styles.bsValue}>Bs {formatBs(plan.conversion.mensual.subtotalBs)}</Text>
+                    </View>
+                    <View style={styles.bsRow}>
+                      <Text style={styles.bsLabel}>IVA ({plan.conversion.ivaRate ?? 16}%)</Text>
+                      <Text style={styles.bsValue}>Bs {formatBs(plan.conversion.mensual.ivaBs)}</Text>
+                    </View>
+                    <View style={[styles.bsRow, styles.bsTotalRow]}>
+                      <Text style={[styles.bsLabel, styles.bsTotalLabel]}>Total Bs</Text>
+                      <Text style={[styles.bsValue, styles.bsTotalValue, { color }]}>Bs {formatBs(plan.conversion.mensual.totalBs)}</Text>
+                    </View>
+                    <Text style={styles.bsTasa}>Tasa BCV: Bs {formatBs(plan.conversion.tasaBcv)}/$  •  {plan.conversion.fechaTasa ?? ''}</Text>
+                  </View>
+                ) : null}
 
                 {/* Features */}
                 <View style={styles.featuresList}>
@@ -341,6 +379,50 @@ const createStyles = (c: ThemeColors, isDark: boolean) => StyleSheet.create({
     fontSize: 13,
     color: c.textSecondary,
     marginLeft: 8,
+  },
+  // Bs desglose
+  bsDesgloseCard: {
+    backgroundColor: c.background,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 14,
+  },
+  bsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 3,
+  },
+  bsLabel: {
+    fontSize: 13,
+    color: c.textSecondary,
+  },
+  bsValue: {
+    fontSize: 13,
+    color: c.textPrimary,
+    fontWeight: '500',
+  },
+  bsTotalRow: {
+    borderTopWidth: 1,
+    borderTopColor: c.border,
+    marginTop: 4,
+    paddingTop: 6,
+  },
+  bsTotalLabel: {
+    fontWeight: '700',
+    color: c.textPrimary,
+  },
+  bsTotalValue: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  bsTasa: {
+    fontSize: 11,
+    color: c.textSecondary,
+    textAlign: 'center',
+    marginTop: 6,
+    fontStyle: 'italic',
   },
   featuresList: { marginBottom: 16 },
   featureRow: {

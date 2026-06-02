@@ -17,12 +17,14 @@ import { VehiclesModule } from './vehicles/vehicles.module';
 import { LegalModule } from './legal/legal.module';
 import { SuggestionsModule } from './suggestions/suggestions.module';
 import { AppConfigModule } from './app-config/app-config.module';
+import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AppConfigModule,
+    ExchangeRatesModule,
     AuthModule,
     UsersModule,
     CatalogModule,

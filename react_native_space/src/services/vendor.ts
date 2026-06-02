@@ -84,6 +84,21 @@ export async function reorderQuickReplies(items: { id: string; order: number }[]
 
 // ── Plans ──────────────────────────────────────────────
 
+export interface PlanConversionDetail {
+  subtotalBs: number;
+  ivaBs: number;
+  totalBs: number;
+}
+
+export interface PlanConversion {
+  tasaBcv: number;
+  fechaTasa: string;
+  source: string;
+  ivaRate: number;
+  mensual: PlanConversionDetail | null;
+  anual: PlanConversionDetail | null;
+}
+
 export interface PlanListItem {
   id: string;
   name: string;
@@ -97,6 +112,15 @@ export interface PlanListItem {
   visibleEnApp: boolean;
   isActive: boolean;
   beneficios: string | null;
+  conversion?: PlanConversion | null;
+}
+
+export interface ExchangeRateInfo {
+  available: boolean;
+  rate?: number;
+  date?: string;
+  source?: string;
+  ivaRate?: number;
 }
 
 export interface PaymentMethodField {
@@ -127,4 +151,9 @@ export async function getVisiblePlans(): Promise<PlanListItem[]> {
 export async function getPaymentInfo(): Promise<PaymentMethodsResponse> {
   const res = await api.get('/config/payment-info');
   return res?.data ?? { methods: {} };
+}
+
+export async function getExchangeRateLatest(): Promise<ExchangeRateInfo> {
+  const res = await api.get('/exchange-rates/latest');
+  return res?.data ?? { available: false };
 }

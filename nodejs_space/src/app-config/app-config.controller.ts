@@ -17,7 +17,7 @@ class UpdateConfigDto {
   value: string;
 }
 
-const ALLOWED_KEYS = ['PLANS_MODE', 'PAYMENT_INFO', 'PAGO_MOVIL_INFO', 'ZELLE_INFO', 'PAYMENT_METHODS'];
+const ALLOWED_KEYS = ['PLANS_MODE', 'PAYMENT_INFO', 'PAGO_MOVIL_INFO', 'ZELLE_INFO', 'PAYMENT_METHODS', 'EXCHANGE_RATE_MODE', 'IVA_RATE'];
 
 @ApiTags('App Config')
 @Controller('api')
@@ -44,6 +44,15 @@ export class AppConfigController {
     }
     if (dto.key === 'PLANS_MODE' && !['free', 'production'].includes(dto.value)) {
       return { error: 'PLANS_MODE debe ser "free" o "production"' };
+    }
+    if (dto.key === 'EXCHANGE_RATE_MODE' && !['auto', 'manual'].includes(dto.value)) {
+      return { error: 'EXCHANGE_RATE_MODE debe ser "auto" o "manual"' };
+    }
+    if (dto.key === 'IVA_RATE') {
+      const num = parseFloat(dto.value);
+      if (isNaN(num) || num < 0 || num > 100) {
+        return { error: 'IVA_RATE debe ser un número entre 0 y 100' };
+      }
     }
     return this.configService.set(dto.key, dto.value);
   }

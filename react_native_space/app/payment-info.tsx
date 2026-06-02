@@ -13,8 +13,17 @@ import { useTheme } from '../src/contexts/ThemeContext';
 import { useAuth } from '../src/contexts/AuthContext';
 import { Spacing, BorderRadius } from '../src/theme/colors';
 import type { ThemeColors } from '../src/theme/colors';
-import { getPaymentInfo, getVendorProfile } from '../src/services/vendor';
-import type { PaymentMethod } from '../src/services/vendor';
+import { getPaymentInfo, getVendorProfile, getExchangeRateLatest } from '../src/services/vendor';
+import type { PaymentMethod, ExchangeRateInfo } from '../src/services/vendor';
+
+/** Format number in Venezuelan style: 1.427,10 */
+function formatBs(n: number | null | undefined): string {
+  if (n == null || isNaN(n)) return '0,00';
+  const fixed = n.toFixed(2);
+  const [intPart, decPart] = fixed.split('.');
+  const withDots = (intPart ?? '0').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${withDots},${decPart ?? '00'}`;
+}
 
 /* Human-readable labels for field keys */
 const FIELD_LABELS: Record<string, string> = {
@@ -39,6 +48,15 @@ export default function PaymentInfoScreen() {
   const planSlug = (params?.planSlug as string) ?? '';
   const precioMensual = parseFloat((params?.precioMensual as string) ?? '0') || 0;
   const precioAnual = parseFloat((params?.precioAnual as string) ?? '0') || 0;
+
+  // Bs conversion data from plans screen
+  const tasaBcv = parseFloat((params?.tasaBcv as string) ?? '') || 0;
+  const fechaTasa = (params?.fechaTasa as string) ?? '';
+  const ivaRate = parseFloat((params?.ivaRate as string) ?? '') || 0;
+  const subtotalBsMensual = parseFloat((params?.subtotalBsMensual as string) ?? '') || 0;
+  const ivaBsMensual = parseFloat((params?.ivaBsMensual as string) ?? '') || 0;
+  const totalBsMensual = parseFloat((params?.totalBsMensual as string) ?? '') || 0;
+  const hasBsConversion = tasaBcv > 0 && totalBsMensual > 0;
 
   const [methods, setMethods] = useState<Record<string, PaymentMethod>>({});
   const [loading, setLoading] = useState(true);
@@ -168,6 +186,33 @@ export default function PaymentInfoScreen() {
               ) : null}
             </View>
           </View>
+
+          {/* Bs Desglose card */}
+          {hasBsConversion ? (
+            <View style={[styles.desgloseCard, { borderColor: planColor + '40' }]}>
+              <View style={styles.desgloseHeader}>
+                <Ionicons name="calculator-outline" size={18} color={planColor} />
+                <Text style={[styles.desgloseTitleText, { color: planColor }]}>Desglose en Bolívares</Text>
+              </View>
+              <View style={styles.desgloseRow}>
+                <Text style={styles.desgloseLabel}>Precio USD</Text>
+                <Text style={styles.desgloseValue}>${precioMensual?.toFixed?.(2) ?? '0.00'}</Text>
+              </View>
+              <View style={styles.desgloseRow}>
+                <Text style={styles.desgloseLabel}>Subtotal Bs</Text>
+                <Text style={styles.desgloseValue}>Bs {formatBs(subtotalBsMensual)}</Text>
+              </View>
+              <View style={styles.desgloseRow}>
+                <Text style={styles.desgloseLabel}>IVA ({ivaRate}%)</Text>
+                <Text style={styles.desgloseValue}>Bs {formatBs(ivaBsMensual)}</Text>
+              </View>
+              <View style={[styles.desgloseRow, styles.desgloseTotalRow]}>
+                <Text style={[styles.desgloseLabel, styles.desgloseTotalLabel]}>Total a pagar</Text>
+                <Text style={[styles.desgloseValue, styles.desgloseTotalValue, { color: planColor }]}>Bs {formatBs(totalBsMensual)}</Text>
+              </View>
+              <Text style={styles.desgloseTasa}>Tasa BCV: Bs {formatBs(tasaBcv)}/$ • {fechaTasa}</Text>
+            </View>
+          ) : null}
 
           {/* Method selector label */}
           <Text style={styles.sectionTitle}>
@@ -366,6 +411,62 @@ const createStyles = (c: ThemeColors, isDark: boolean) => StyleSheet.create({
   summaryPriceRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 4 },
   summaryPrice: { fontSize: 18, fontWeight: '700', color: c.textPrimary },
   summaryAnnual: { fontSize: 13, color: c.textSecondary },
+
+  // Bs Desglose
+  desgloseCard: {
+    backgroundColor: c.cardBg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  desgloseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  desgloseTitleText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  desgloseRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  desgloseLabel: {
+    fontSize: 14,
+    color: c.textSecondary,
+  },
+  desgloseValue: {
+    fontSize: 14,
+    color: c.textPrimary,
+    fontWeight: '500',
+  },
+  desgloseTotalRow: {
+    borderTopWidth: 1,
+    borderTopColor: c.border,
+    marginTop: 6,
+    paddingTop: 8,
+  },
+  desgloseTotalLabel: {
+    fontWeight: '700',
+    fontSize: 15,
+    color: c.textPrimary,
+  },
+  desgloseTotalValue: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  desgloseTasa: {
+    fontSize: 11,
+    color: c.textSecondary,
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
 
   // Section
   sectionTitle: {
