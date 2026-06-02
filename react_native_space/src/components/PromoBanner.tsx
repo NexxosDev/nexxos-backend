@@ -10,9 +10,9 @@ interface PromoBannerProps {
 }
 
 export default function PromoBanner({ banner }: PromoBannerProps) {
-  if (!banner?.visible || !banner?.imageUrl) return null;
-
   const { colors } = useTheme();
+
+  if (!banner?.visible || !banner?.imageUrl) return null;
 
   const handlePress = () => {
     const url = banner?.linkUrl;
