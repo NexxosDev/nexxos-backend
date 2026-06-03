@@ -1,7 +1,7 @@
 import api from './api';
 import { getToken } from './token';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fad9d6698.na102.preview.abacusai.app/';
+const BASE_URL = process.env.EXPO_PUBLIC_CUSTOM_API_URL || process.env.EXPO_PUBLIC_API_URL || 'https://fad9d6698.na102.preview.abacusai.app/';
 
 export async function getPresignedUrl(fileName: string, contentType: string, isPublic: boolean): Promise<{ uploadUrl: string; cloud_storage_path: string }> {
   const res = await api.post('/upload/presigned', { fileName, contentType, isPublic });

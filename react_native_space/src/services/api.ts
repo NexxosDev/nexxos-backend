@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getToken, removeToken } from './token';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fad9d6698.na102.preview.abacusai.app/';
+const BASE_URL = process.env.EXPO_PUBLIC_CUSTOM_API_URL || process.env.EXPO_PUBLIC_API_URL || 'https://fad9d6698.na102.preview.abacusai.app/';
 
 const api = axios.create({
   baseURL: new URL('/api', BASE_URL).toString(),

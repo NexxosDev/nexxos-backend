@@ -1,6 +1,6 @@
 import api from './api';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || '';
+const BASE_URL = process.env.EXPO_PUBLIC_CUSTOM_API_URL || process.env.EXPO_PUBLIC_API_URL || '';
 
 /** Upload a file using the public registration endpoints (no auth needed) */
 export async function uploadRegistrationFile(
