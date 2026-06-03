@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { Spacing, BorderRadius } from '../theme/colors';
@@ -10,20 +10,40 @@ interface MetricCardProps {
   value: number | string;
   icon: keyof typeof Ionicons.glyphMap;
   color?: string;
+  onPress?: () => void;
 }
 
-export default function MetricCard({ label, value, icon, color }: MetricCardProps) {
+export default function MetricCard({ label, value, icon, color, onPress }: MetricCardProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const c = color ?? colors.primary;
 
-  return (
-    <View style={styles.card}>
+  const content = (
+    <>
       <View style={[styles.iconBg, { backgroundColor: `${c}20` }]}>
         <Ionicons name={icon} size={20} color={c} />
       </View>
       <Text style={styles.value}>{value ?? 0}</Text>
       <Text style={styles.label} numberOfLines={2}>{label ?? ''}</Text>
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable
+        style={({ pressed }) => [styles.card, pressed && { opacity: 0.7, transform: [{ scale: 0.97 }] }]}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${value}`}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={styles.card}>
+      {content}
     </View>
   );
 }

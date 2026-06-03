@@ -325,6 +325,27 @@ export class VendorService {
     };
   }
 
+  // ── Metrics Breakdown ──────────────────────────────────
+
+  async getMetricsBreakdown(userId: string) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
+    if (!vendor) throw new NotFoundException('Vendor profile not found');
+
+    const totalReceived = await this.prisma.requestVendorMatch.count({
+      where: { vendorId: vendor.id },
+    });
+    const accepted = await this.prisma.requestVendorMatch.count({
+      where: { vendorId: vendor.id, responded: true },
+    });
+    const declined = await this.prisma.requestVendorMatch.count({
+      where: { vendorId: vendor.id, declined: true },
+    });
+    const unanswered = totalReceived - accepted - declined;
+    const acceptanceRate = totalReceived > 0 ? Math.round((accepted / totalReceived) * 100) : 0;
+
+    return { totalReceived, accepted, declined, unanswered, acceptanceRate };
+  }
+
   // ── Quick Replies ──────────────────────────────────────
 
   private readonly DEFAULT_QUICK_REPLIES = [

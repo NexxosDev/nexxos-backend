@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, Switch, Pressable, RefreshControl, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Switch, Pressable, RefreshControl, Platform, Modal } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { getVendorDashboard, updateVendorAvailability, getVendorResponseMetrics, getVendorPlan, getMarketingBanner } from '../../src/services/vendor';
-import type { MarketingBanner } from '../../src/services/vendor';
+import { getVendorDashboard, updateVendorAvailability, getVendorResponseMetrics, getVendorPlan, getMarketingBanner, getMetricsBreakdown } from '../../src/services/vendor';
+import type { MarketingBanner, MetricsBreakdown } from '../../src/services/vendor';
 import { useReactiveList } from '../../src/hooks/useReactiveList';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
@@ -48,6 +48,8 @@ export default function VendorHome() {
   const [refreshing, setRefreshing] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [focused, setFocused] = useState(false);
+  const [breakdown, setBreakdown] = useState<MetricsBreakdown | null>(null);
+  const [breakdownModal, setBreakdownModal] = useState<'recibidas' | 'respondidas' | null>(null);
   const [metricsExpanded, setMetricsExpanded] = useState(false);
 
   const getTimeInfo = useCallback((item: VendorDashboard['recentRequests'][number]): { label: string; color: string } => {
@@ -126,6 +128,16 @@ export default function VendorHome() {
     }
     prevUnreadRef.current = key;
   }, [byRequestId]);
+
+  const handleOpenBreakdown = useCallback(async (type: 'recibidas' | 'respondidas') => {
+    setBreakdownModal(type);
+    try {
+      const data = await getMetricsBreakdown();
+      setBreakdown(data);
+    } catch {
+      setBreakdown(null);
+    }
+  }, []);
 
   const handleToggle = async (val: boolean) => {
     setToggling(true);
@@ -222,9 +234,9 @@ export default function VendorHome() {
 
       {/* Compact metrics row + inline rating */}
       <View style={styles.metricsRow}>
-        <MetricCard label="Recibidas" value={metrics?.totalRequestsReceived ?? 0} icon="mail-outline" />
+        <MetricCard label="Recibidas" value={metrics?.totalRequestsReceived ?? 0} icon="mail-outline" onPress={() => handleOpenBreakdown('recibidas')} />
         <View style={{ width: 8 }} />
-        <MetricCard label="Respondidas" value={metrics?.totalRequestsAnswered ?? 0} icon="checkmark-circle-outline" color={colors.success} />
+        <MetricCard label="Respondidas" value={metrics?.totalRequestsAnswered ?? 0} icon="checkmark-circle-outline" color={colors.success} onPress={() => handleOpenBreakdown('respondidas')} />
         {typeof metrics?.avgRating === 'number' ? (
           <>
             <View style={{ width: 8 }} />
@@ -326,6 +338,72 @@ export default function VendorHome() {
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={colors.primary} />}
       />
+      {/* Breakdown Modal */}
+      <Modal
+        visible={breakdownModal !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setBreakdownModal(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setBreakdownModal(null)}>
+          <Pressable style={styles.modalSheet} onPress={() => {}}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>
+              {breakdownModal === 'recibidas' ? 'Desglose de Recibidas' : 'Desglose de Respondidas'}
+            </Text>
+
+            {!breakdown ? (
+              <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                <Text style={styles.modalSubtext}>Cargando...</Text>
+              </View>
+            ) : (
+              <>
+                {/* Breakdown rows */}
+                <View style={styles.breakdownRow}>
+                  <View style={[styles.breakdownDot, { backgroundColor: colors.success }]} />
+                  <Text style={styles.breakdownLabel}>Aceptadas</Text>
+                  <Text style={styles.breakdownValue}>{breakdown?.accepted ?? 0}</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                  <View style={[styles.breakdownDot, { backgroundColor: colors.error }]} />
+                  <Text style={styles.breakdownLabel}>Declinadas</Text>
+                  <Text style={styles.breakdownValue}>{breakdown?.declined ?? 0}</Text>
+                </View>
+                {breakdownModal === 'recibidas' ? (
+                  <View style={styles.breakdownRow}>
+                    <View style={[styles.breakdownDot, { backgroundColor: colors.textSecondary }]} />
+                    <Text style={styles.breakdownLabel}>Sin responder</Text>
+                    <Text style={styles.breakdownValue}>{breakdown?.unanswered ?? 0}</Text>
+                  </View>
+                ) : null}
+
+                {/* Acceptance rate bar */}
+                <View style={styles.rateSection}>
+                  <Text style={styles.rateLabel}>Tasa de aceptación</Text>
+                  <View style={styles.rateBarBg}>
+                    <View
+                      style={[
+                        styles.rateBarFill,
+                        {
+                          width: `${Math.min(breakdown?.acceptanceRate ?? 0, 100)}%`,
+                          backgroundColor: (breakdown?.acceptanceRate ?? 0) >= 70 ? colors.success : (breakdown?.acceptanceRate ?? 0) >= 40 ? colors.warning : colors.error,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.rateValue, {
+                    color: (breakdown?.acceptanceRate ?? 0) >= 70 ? colors.success : (breakdown?.acceptanceRate ?? 0) >= 40 ? colors.warning : colors.error,
+                  }]}>{breakdown?.acceptanceRate ?? 0}%</Text>
+                </View>
+              </>
+            )}
+
+            <Pressable style={styles.modalCloseBtn} onPress={() => setBreakdownModal(null)}>
+              <Text style={styles.modalCloseBtnText}>Cerrar</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -407,4 +485,38 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
     color: c.warningBoxText,
     lineHeight: 19,
   },
+  // Breakdown Modal
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: c.cardBg, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 32,
+  },
+  modalHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: c.border, alignSelf: 'center', marginBottom: 16,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: c.textPrimary, marginBottom: 20 },
+  modalSubtext: { fontSize: 14, color: c.textSecondary },
+  breakdownRow: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: c.border,
+  },
+  breakdownDot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
+  breakdownLabel: { flex: 1, fontSize: 15, color: c.textPrimary },
+  breakdownValue: { fontSize: 18, fontWeight: '700', color: c.textPrimary },
+  rateSection: { marginTop: 20 },
+  rateLabel: { fontSize: 13, color: c.textSecondary, marginBottom: 8 },
+  rateBarBg: {
+    height: 10, borderRadius: 5, backgroundColor: c.border, overflow: 'hidden',
+  },
+  rateBarFill: { height: '100%', borderRadius: 5 },
+  rateValue: { fontSize: 20, fontWeight: '800', marginTop: 8 },
+  modalCloseBtn: {
+    marginTop: 24, paddingVertical: 14, borderRadius: BorderRadius.md,
+    backgroundColor: c.primary, alignItems: 'center',
+  },
+  modalCloseBtnText: { fontSize: 15, fontWeight: '600', color: c.accent },
 });

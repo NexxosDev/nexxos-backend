@@ -50,6 +50,19 @@ export async function getVendorResponseMetrics(): Promise<VendorResponseMetrics>
   return res?.data;
 }
 
+export interface MetricsBreakdown {
+  totalReceived: number;
+  accepted: number;
+  declined: number;
+  unanswered: number;
+  acceptanceRate: number;
+}
+
+export async function getMetricsBreakdown(): Promise<MetricsBreakdown> {
+  const res = await api.get('/vendor/metrics/breakdown');
+  return res?.data ?? { totalReceived: 0, accepted: 0, declined: 0, unanswered: 0, acceptanceRate: 0 };
+}
+
 export async function getVendorPlan(): Promise<VendorPlanInfo> {
   const res = await api.get('/vendors/my-plan');
   return res?.data;

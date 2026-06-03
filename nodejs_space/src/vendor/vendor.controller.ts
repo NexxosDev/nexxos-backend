@@ -51,6 +51,13 @@ export class VendorController {
     return this.vendorService.getResponseTimeMetrics(userId);
   }
 
+  @Get('metrics/breakdown')
+  @Roles('VENDEDOR')
+  @ApiOperation({ summary: 'Get breakdown of requests by status (accepted, declined, unanswered)' })
+  getMetricsBreakdown(@CurrentUser('id') userId: string) {
+    return this.vendorService.getMetricsBreakdown(userId);
+  }
+
   // ── Quick Replies ──────────────────────────────────────
 
   @Get('quick-replies')
