@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    aspectRatio: 4, // 800x200 = 4:1
+    aspectRatio: 2, // 800x400 = 2:1
     backgroundColor: '#E0E0E0',
   },
 });
