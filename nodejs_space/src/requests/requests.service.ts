@@ -895,6 +895,13 @@ export class RequestsService {
       data: { declined: true, declinedAt: new Date() },
     });
 
+    // Update vendor metrics (decline counts as "answered")
+    await this.prisma.vendorMetrics.upsert({
+      where: { vendorId: vendor.id },
+      update: { totalRequestsAnswered: { increment: 1 }, lastActivityAt: new Date() },
+      create: { vendorId: vendor.id, totalRequestsAnswered: 1, lastActivityAt: new Date() },
+    });
+
     return { success: true };
   }
 
