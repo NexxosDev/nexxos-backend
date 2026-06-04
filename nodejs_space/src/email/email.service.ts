@@ -1,51 +1,68 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { getConfig } from '../lib/config-helper';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private transporter: nodemailer.Transporter;
+  private transporter: nodemailer.Transporter | null = null;
+  private lastTransporterConfig = '';
 
-  constructor(private configService: ConfigService) {
-    this.initializeTransporter();
-  }
+  constructor(
+    private configService: ConfigService,
+    private prisma: PrismaService,
+  ) {}
 
-  private initializeTransporter() {
-    const emailUser = this.configService.get<string>('EMAIL_USER');
-    const emailPassword = this.configService.get<string>('EMAIL_PASSWORD');
-    const emailHost = this.configService.get<string>('EMAIL_HOST', 'smtp.gmail.com');
-    const emailPort = this.configService.get<number>('EMAIL_PORT', 587);
+  /** Build (or rebuild) the transporter using DB-first config */
+  private async ensureTransporter(): Promise<nodemailer.Transporter | null> {
+    const host = await getConfig('API_EMAIL_HOST', this.prisma) || 'smtp.gmail.com';
+    const port = parseInt(await getConfig('API_EMAIL_PORT', this.prisma) || '587', 10);
+    const user = await getConfig('API_EMAIL_USER', this.prisma);
+    const pass = await getConfig('API_EMAIL_PASS', this.prisma);
 
-    if (!emailUser || !emailPassword) {
+    if (!user || !pass) {
       this.logger.warn('Email credentials not configured. Email functionality will be disabled.');
-      return;
+      return null;
+    }
+
+    // Only rebuild if config changed
+    const configFingerprint = `${host}:${port}:${user}:${pass}`;
+    if (this.transporter && this.lastTransporterConfig === configFingerprint) {
+      return this.transporter;
     }
 
     this.transporter = nodemailer.createTransport({
-      host: emailHost,
-      port: emailPort,
-      secure: emailPort === 465,
-      auth: {
-        user: emailUser,
-        pass: emailPassword,
-      },
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
     });
+    this.lastTransporterConfig = configFingerprint;
+    this.logger.log('Email transporter initialized/refreshed');
+    return this.transporter;
+  }
 
-    this.logger.log('Email transporter initialized successfully');
+  private async getFromAddress(): Promise<string> {
+    const fromAddr = await getConfig('API_EMAIL_FROM', this.prisma);
+    if (fromAddr) return fromAddr;
+    return await getConfig('API_EMAIL_USER', this.prisma);
   }
 
   async sendVerificationEmail(email: string, token: string, firstName: string): Promise<void> {
-    if (!this.transporter) {
+    const transport = await this.ensureTransporter();
+    if (!transport) {
       this.logger.warn('Email transporter not configured. Skipping email send.');
       return;
     }
 
     const appOrigin = this.configService.get<string>('APP_ORIGIN', 'http://localhost:3000');
     const verificationLink = `${appOrigin}verify-email?token=${token}`;
+    const from = await this.getFromAddress();
 
     const mailOptions = {
-      from: this.configService.get<string>('EMAIL_USER'),
+      from,
       to: email,
       subject: 'Verifica tu correo electrónico - NEXXOS',
       html: `
@@ -99,7 +116,7 @@ export class EmailService {
     };
 
     try {
-      await this.transporter.sendMail(mailOptions);
+      await transport.sendMail(mailOptions);
       this.logger.log(`Verification email sent to ${email}`);
     } catch (error) {
       this.logger.error(`Failed to send verification email to ${email}:`, error);
@@ -108,13 +125,16 @@ export class EmailService {
   }
 
   async sendPasswordResetEmail(email: string, firstName: string, resetLink: string): Promise<void> {
-    if (!this.transporter) {
+    const transport = await this.ensureTransporter();
+    if (!transport) {
       this.logger.warn('Email transporter not configured. Skipping password reset email send.');
       return;
     }
 
+    const from = await this.getFromAddress();
+
     const mailOptions = {
-      from: this.configService.get<string>('EMAIL_USER'),
+      from,
       to: email,
       subject: 'Recupera tu contraseña - NEXXOS',
       html: `
@@ -169,7 +189,7 @@ export class EmailService {
     };
 
     try {
-      await this.transporter.sendMail(mailOptions);
+      await transport.sendMail(mailOptions);
       this.logger.log(`Password reset email sent to ${email}`);
     } catch (error) {
       this.logger.error(`Failed to send password reset email to ${email}:`, error);

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { clearConfigCache } from '../lib/config-helper';
 
 /** Default values for app_config keys */
 const DEFAULTS: Record<string, string> = {
@@ -18,14 +19,15 @@ export class AppConfigService {
     return row?.value ?? DEFAULTS[key] ?? '';
   }
 
-  /** Set a single config value (upsert) */
+  /** Set a single config value (upsert) — also clears getConfig() cache for this key */
   async set(key: string, value: string) {
     const row = await this.prisma.appConfig.upsert({
       where: { key },
       update: { value },
       create: { key, value },
     });
-    this.logger.log(`Config updated: ${key} = ${value}`);
+    clearConfigCache(key);
+    this.logger.log(`Config updated: ${key}`);
     return row;
   }
 

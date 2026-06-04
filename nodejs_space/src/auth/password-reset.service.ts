@@ -3,23 +3,30 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { Resend } from 'resend';
 import * as bcrypt from 'bcryptjs';
+import { getConfig } from '../lib/config-helper';
 
 @Injectable()
 export class PasswordResetService {
   private readonly logger = new Logger(PasswordResetService.name);
   private resend: Resend | null = null;
+  private lastResendKey = '';
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
-  ) {
-    const apiKey = this.configService.get<string>('RESEND_API_KEY');
-    if (apiKey) {
-      this.resend = new Resend(apiKey);
-      this.logger.log('Resend initialized for password reset');
-    } else {
+  ) {}
+
+  private async ensureResend(): Promise<Resend | null> {
+    const apiKey = await getConfig('API_RESEND_KEY', this.prisma);
+    if (!apiKey) {
       this.logger.warn('RESEND_API_KEY not configured. Password reset emails disabled.');
+      return null;
     }
+    if (this.resend && this.lastResendKey === apiKey) return this.resend;
+    this.resend = new Resend(apiKey);
+    this.lastResendKey = apiKey;
+    this.logger.log('Resend initialized/refreshed for password reset');
+    return this.resend;
   }
 
   async sendResetCode(email: string): Promise<{ success: boolean; expiresIn: number }> {
@@ -56,10 +63,12 @@ export class PasswordResetService {
     });
 
     // Send email via Resend
-    if (this.resend) {
+    const resend = await this.ensureResend();
+    if (resend) {
       try {
-        await this.resend.emails.send({
-          from: 'NEXXOS <verificacion@nexxos.app>',
+        const fromAddr = await getConfig('API_EMAIL_FROM', this.prisma) || 'NEXXOS <verificacion@nexxos.app>';
+        await resend.emails.send({
+          from: fromAddr,
           to: [normalizedEmail],
           subject: 'Código de recuperación de contraseña - NEXXOS',
           html: this.buildEmailHtml(code, user.firstName ?? 'Usuario'),
