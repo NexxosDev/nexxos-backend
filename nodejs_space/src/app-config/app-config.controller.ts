@@ -4,6 +4,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { AppConfigService } from './app-config.service';
 import { IsString, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { getConfig } from '../lib/config-helper';
+import { PrismaService } from '../prisma/prisma.service';
 
 class UpdateConfigDto {
   @ApiProperty({ example: 'PLANS_MODE' })
@@ -24,7 +26,10 @@ const ALLOWED_KEYS = ['PLANS_MODE', 'PAYMENT_INFO', 'PAGO_MOVIL_INFO', 'ZELLE_IN
 export class AppConfigController {
   private readonly logger = new Logger(AppConfigController.name);
 
-  constructor(private readonly configService: AppConfigService) {}
+  constructor(
+    private readonly configService: AppConfigService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Get('admin/config')
   @ApiBearerAuth()
@@ -146,6 +151,17 @@ export class AppConfigController {
       this.logger.warn('Failed to parse MARKETING_BANNER config');
       return { visible: false };
     }
+  }
+
+  @Get('config/public-keys')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({ summary: 'Get public API keys for client apps (Google Maps, etc.)' })
+  async getPublicKeys() {
+    const googleMapsKey = await getConfig('API_GOOGLE_MAPS_KEY', this.prisma);
+    return {
+      googleMapsKey: googleMapsKey || '',
+    };
   }
 
   @Get('marketing/client-banner')

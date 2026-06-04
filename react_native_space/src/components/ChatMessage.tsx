@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Modal, Dimensions, Platform, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Spacing, BorderRadius } from '../theme/colors';
 import type { ThemeColors } from '../theme/colors';
 import type { ChatMessageReplyTo } from '../types';
+import { getGoogleMapsKey } from '../services/publicKeys';
 import VoiceNotePlayer from './VoiceNotePlayer';
 
 interface ChatMessageProps {
@@ -87,12 +88,20 @@ export default function ChatMessage({
     Linking.openURL(url).catch(() => {});
   }, [latitude, longitude]);
 
+  const [mapsKey, setMapsKey] = useState('');
+
+  useEffect(() => {
+    if (latitude != null && longitude != null) {
+      getGoogleMapsKey().then((k) => setMapsKey(k ?? '')).catch(() => {});
+    }
+  }, [latitude, longitude]);
+
   const staticMapUrl = useMemo(() => {
-    if (latitude == null || longitude == null) return '';
+    if (latitude == null || longitude == null || !mapsKey) return '';
     const lat = latitude;
     const lng = longitude;
-    return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x300&markers=color:red%7C${lat},${lng}&key=AIzaSyBt0bUnhx5dz8uqiNgB3NKEoANQ-264j_M`;
-  }, [latitude, longitude]);
+    return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x300&markers=color:red%7C${lat},${lng}&key=${mapsKey}`;
+  }, [latitude, longitude, mapsKey]);
 
   const replySnippet = (replyTo?.messageText ?? '').length > 60
     ? (replyTo?.messageText ?? '').substring(0, 57) + '...'
