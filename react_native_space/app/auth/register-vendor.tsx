@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable, Alert, Modal, ActivityIndicator, Linking } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -224,6 +225,26 @@ export default function RegisterVendorScreen() {
     }
   }, [subcategoriesMap, catalog]);
 
+  // Copy picked image to cache dir so content:// URIs don't lose permissions on Android
+  const persistImageUri = async (uri: string): Promise<string> => {
+    if (Platform.OS !== 'android' || !uri?.startsWith?.('content://')) return uri;
+    try {
+      const dest = `${FileSystem.cacheDirectory}picked_${Date.now()}.jpg`;
+      await FileSystem.copyAsync({ from: uri, to: dest });
+      return dest;
+    } catch {
+      return uri; // fallback to original
+    }
+  };
+
+  const applyPickedImage = async (uri: string, type: 'doc' | 'logo' | 'personalDoc' | 'facade') => {
+    const safeUri = await persistImageUri(uri);
+    if (type === 'personalDoc') { setPersonalDocUri(safeUri); setIdentityVerified(false); setVerifyError(''); }
+    else if (type === 'doc') setBusiness((p) => ({ ...(p ?? {}), docImageUri: safeUri }));
+    else if (type === 'facade') setBusiness((p) => ({ ...(p ?? {}), facadeUri: safeUri }));
+    else setBusiness((p) => ({ ...(p ?? {}), logoUri: safeUri }));
+  };
+
   const pickImageFromLibrary = async (type: 'doc' | 'logo' | 'personalDoc' | 'facade') => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -233,10 +254,7 @@ export default function RegisterVendorScreen() {
         aspect: type === 'logo' ? [1, 1] : [4, 3],
       });
       if (!result?.canceled && result?.assets?.[0]?.uri) {
-        if (type === 'personalDoc') { setPersonalDocUri(result.assets[0].uri); setIdentityVerified(false); setVerifyError(''); }
-        else if (type === 'doc') setBusiness((p) => ({ ...(p ?? {}), docImageUri: result.assets[0].uri }));
-        else if (type === 'facade') setBusiness((p) => ({ ...(p ?? {}), facadeUri: result.assets[0].uri }));
-        else setBusiness((p) => ({ ...(p ?? {}), logoUri: result.assets[0].uri }));
+        await applyPickedImage(result.assets[0].uri, type);
       }
     } catch { }
   };
@@ -254,10 +272,7 @@ export default function RegisterVendorScreen() {
         aspect: type === 'logo' ? [1, 1] : [4, 3],
       });
       if (!result?.canceled && result?.assets?.[0]?.uri) {
-        if (type === 'personalDoc') { setPersonalDocUri(result.assets[0].uri); setIdentityVerified(false); setVerifyError(''); }
-        else if (type === 'doc') setBusiness((p) => ({ ...(p ?? {}), docImageUri: result.assets[0].uri }));
-        else if (type === 'facade') setBusiness((p) => ({ ...(p ?? {}), facadeUri: result.assets[0].uri }));
-        else setBusiness((p) => ({ ...(p ?? {}), logoUri: result.assets[0].uri }));
+        await applyPickedImage(result.assets[0].uri, type);
       }
     } catch { }
   };
