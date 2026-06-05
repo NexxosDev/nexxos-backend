@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { getConfig } from '../lib/config-helper';
 
 @Injectable()
 export class IdentityService {
@@ -8,7 +8,6 @@ export class IdentityService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService,
   ) {}
 
   async verifyIdentity(
@@ -17,8 +16,10 @@ export class IdentityService {
     selfieSmileUrl: string,
     selfieTurnUrl: string,
   ) {
-    const apiKey = this.config.get<string>('ABACUSAI_API_KEY');
+    const apiKey = await getConfig('API_LLM_KEY', this.prisma);
     if (!apiKey) throw new BadRequestException('LLM API not configured');
+
+    const llmEndpoint = (await getConfig('API_LLM_ENDPOINT', this.prisma)) || undefined;
 
     // Step 1: Liveness check — verify the 3 selfies show a real person performing actions
     const livenessResult = await this.callLLM(apiKey, [
@@ -31,7 +32,7 @@ export class IdentityService {
           { type: 'image_url', image_url: { url: selfieTurnUrl } },
         ],
       },
-    ]);
+    ], llmEndpoint);
 
     this.logger.log(`Liveness result: ${JSON.stringify(livenessResult)}`);
 
@@ -54,7 +55,7 @@ export class IdentityService {
           { type: 'image_url', image_url: { url: selfieNeutralUrl } },
         ],
       },
-    ]);
+    ], llmEndpoint);
 
     this.logger.log(`Match result: ${JSON.stringify(matchResult)}`);
 
@@ -68,9 +69,10 @@ export class IdentityService {
     };
   }
 
-  private async callLLM(apiKey: string, messages: any[]): Promise<any> {
+  private async callLLM(apiKey: string, messages: any[], endpoint?: string): Promise<any> {
+    const baseUrl = endpoint || 'https://apps.abacus.ai/v1/chat/completions';
     try {
-      const res = await fetch('https://apps.abacus.ai/v1/chat/completions', {
+      const res = await fetch(baseUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

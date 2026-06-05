@@ -183,7 +183,7 @@ export class AuthService {
       try {
         const { getFileUrl } = await import('../lib/s3.js');
         const isPublic = user.profileImageUrl.includes('/public/');
-        profileImageUrl = await getFileUrl(user.profileImageUrl, isPublic);
+        profileImageUrl = await getFileUrl(user.profileImageUrl, isPublic, this.prisma);
       } catch { }
     }
     return {

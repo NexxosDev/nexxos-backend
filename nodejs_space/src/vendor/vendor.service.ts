@@ -26,11 +26,11 @@ export class VendorService {
 
     let logoUrl: string | null = null;
     if (vendor.logoUrl) {
-      try { logoUrl = await getFileUrl(vendor.logoUrl, true); } catch { logoUrl = null; }
+      try { logoUrl = await getFileUrl(vendor.logoUrl, true, this.prisma); } catch { logoUrl = null; }
     }
     let facadeImageUrl: string | null = null;
     if (vendor.facadeImageUrl) {
-      try { facadeImageUrl = await getFileUrl(vendor.facadeImageUrl, true); } catch { facadeImageUrl = null; }
+      try { facadeImageUrl = await getFileUrl(vendor.facadeImageUrl, true, this.prisma); } catch { facadeImageUrl = null; }
     }
 
     return {
@@ -83,11 +83,11 @@ export class VendorService {
     if (!vendor) throw new NotFoundException('Vendor not found');
     let logoUrl: string | null = null;
     if (vendor.logoUrl) {
-      try { logoUrl = await getFileUrl(vendor.logoUrl, true); } catch { logoUrl = null; }
+      try { logoUrl = await getFileUrl(vendor.logoUrl, true, this.prisma); } catch { logoUrl = null; }
     }
     let facadeImageUrl: string | null = null;
     if (vendor.facadeImageUrl) {
-      try { facadeImageUrl = await getFileUrl(vendor.facadeImageUrl, true); } catch { facadeImageUrl = null; }
+      try { facadeImageUrl = await getFileUrl(vendor.facadeImageUrl, true, this.prisma); } catch { facadeImageUrl = null; }
     }
     return {
       id: vendor.id,
@@ -153,11 +153,11 @@ export class VendorService {
 
     let logoUrl: string | null = null;
     if (updated.logoUrl) {
-      try { logoUrl = await getFileUrl(updated.logoUrl, true); } catch { logoUrl = null; }
+      try { logoUrl = await getFileUrl(updated.logoUrl, true, this.prisma); } catch { logoUrl = null; }
     }
     let facadeImageUrl: string | null = null;
     if (updated.facadeImageUrl) {
-      try { facadeImageUrl = await getFileUrl(updated.facadeImageUrl, true); } catch { facadeImageUrl = null; }
+      try { facadeImageUrl = await getFileUrl(updated.facadeImageUrl, true, this.prisma); } catch { facadeImageUrl = null; }
     }
 
     return {

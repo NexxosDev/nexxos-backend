@@ -365,11 +365,11 @@ export class RequestsService {
       responses.map(async (r: any) => {
         let logoUrl: string | null = null;
         if (r.vendor.logoUrl) {
-          try { logoUrl = await getFileUrl(r.vendor.logoUrl, true); } catch { logoUrl = null; }
+          try { logoUrl = await getFileUrl(r.vendor.logoUrl, true, this.prisma); } catch { logoUrl = null; }
         }
         let facadeImageUrl: string | null = null;
         if (r.vendor.facadeImageUrl) {
-          try { facadeImageUrl = await getFileUrl(r.vendor.facadeImageUrl, true); } catch { facadeImageUrl = null; }
+          try { facadeImageUrl = await getFileUrl(r.vendor.facadeImageUrl, true, this.prisma); } catch { facadeImageUrl = null; }
         }
         const chat = await this.prisma.chat.findFirst({
           where: { requestId, vendorId: r.vendorId },
@@ -641,7 +641,7 @@ export class RequestsService {
           (r.requestResponses ?? []).map(async (resp: any) => {
             let logoUrl: string | null = null;
             if (resp?.vendor?.logoUrl) {
-              try { logoUrl = await getFileUrl(resp.vendor.logoUrl, true); } catch { logoUrl = null; }
+              try { logoUrl = await getFileUrl(resp.vendor.logoUrl, true, this.prisma); } catch { logoUrl = null; }
             }
             return {
               id: resp?.vendor?.id,

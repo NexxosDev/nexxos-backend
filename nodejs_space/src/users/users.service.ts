@@ -16,7 +16,7 @@ export class UsersService {
     let profileImageUrl: string | null = null;
     if (user.profileImageUrl) {
       const isPublic = user.profileImageUrl.includes('/public/');
-      profileImageUrl = await getFileUrl(user.profileImageUrl, isPublic);
+      profileImageUrl = await getFileUrl(user.profileImageUrl, isPublic, this.prisma);
     }
     return {
       id: user.id,
@@ -44,7 +44,7 @@ export class UsersService {
     let profileImageUrl: string | null = null;
     if (user.profileImageUrl) {
       const isPublic = user.profileImageUrl.includes('/public/');
-      profileImageUrl = await getFileUrl(user.profileImageUrl, isPublic);
+      profileImageUrl = await getFileUrl(user.profileImageUrl, isPublic, this.prisma);
     }
     return {
       id: user.id,
