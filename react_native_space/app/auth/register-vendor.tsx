@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable, Alert, Image, Modal, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable, Alert, Modal, ActivityIndicator, Linking } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -498,7 +499,7 @@ export default function RegisterVendorScreen() {
               </Text>
               {personalDocUri ? (
                 <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(personalDocUri)}>
-                  <Image source={{ uri: personalDocUri }} style={styles.imagePreviewFull} />
+                  <ExpoImage source={{ uri: personalDocUri }} style={styles.imagePreviewFull} contentFit="cover" />
                   <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                   <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('personalDoc')}>
                     <Ionicons name="camera-outline" size={20} color={colors.white} />
@@ -519,18 +520,18 @@ export default function RegisterVendorScreen() {
               {selfies?.neutral ? (
                 <View style={styles.selfiePreviewRow}>
                   <Pressable style={styles.selfieThumb} onPress={() => setPreviewImageUri(selfies?.neutral ?? null)}>
-                    <Image source={{ uri: selfies.neutral }} style={styles.selfieThumbImg} />
+                    <ExpoImage source={{ uri: selfies.neutral }} style={styles.selfieThumbImg} contentFit="cover" />
                     <Text style={styles.selfieThumbLabel}>Neutra</Text>
                   </Pressable>
                   {selfies?.smile ? (
                     <Pressable style={styles.selfieThumb} onPress={() => setPreviewImageUri(selfies?.smile ?? null)}>
-                      <Image source={{ uri: selfies.smile }} style={styles.selfieThumbImg} />
+                      <ExpoImage source={{ uri: selfies.smile }} style={styles.selfieThumbImg} contentFit="cover" />
                       <Text style={styles.selfieThumbLabel}>Sonrisa</Text>
                     </Pressable>
                   ) : null}
                   {selfies?.turn ? (
                     <Pressable style={styles.selfieThumb} onPress={() => setPreviewImageUri(selfies?.turn ?? null)}>
-                      <Image source={{ uri: selfies.turn }} style={styles.selfieThumbImg} />
+                      <ExpoImage source={{ uri: selfies.turn }} style={styles.selfieThumbImg} contentFit="cover" />
                       <Text style={styles.selfieThumbLabel}>Girada</Text>
                     </Pressable>
                   ) : null}
@@ -601,7 +602,7 @@ export default function RegisterVendorScreen() {
             </Text>
             {business?.docImageUri ? (
               <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(business.docImageUri)}>
-                <Image source={{ uri: business.docImageUri }} style={styles.imagePreviewFull} />
+                <ExpoImage source={{ uri: business.docImageUri }} style={styles.imagePreviewFull} contentFit="cover" />
                 <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                 <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('doc')}>
                   <Ionicons name="camera-outline" size={20} color={colors.white} />
@@ -621,7 +622,7 @@ export default function RegisterVendorScreen() {
             </Text>
             {business?.logoUri ? (
               <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(business.logoUri)}>
-                <Image source={{ uri: business.logoUri }} style={styles.imagePreviewFull} />
+                <ExpoImage source={{ uri: business.logoUri }} style={styles.imagePreviewFull} contentFit="cover" />
                 <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                 <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('logo')}>
                   <Ionicons name="image-outline" size={20} color={colors.white} />
@@ -644,7 +645,7 @@ export default function RegisterVendorScreen() {
             </Text>
             {business?.facadeUri ? (
               <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(business.facadeUri)}>
-                <Image source={{ uri: business.facadeUri }} style={styles.imagePreviewFull} />
+                <ExpoImage source={{ uri: business.facadeUri }} style={styles.imagePreviewFull} contentFit="cover" />
                 <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                 <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('facade')}>
                   <Ionicons name="business-outline" size={20} color={colors.white} />
@@ -885,7 +886,6 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   imagePreviewFull: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
   zoomHint: {
     position: 'absolute',
