@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable, Alert, Modal, ActivityIndicator, Linking } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
-import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -225,38 +224,33 @@ export default function RegisterVendorScreen() {
     }
   }, [subcategoriesMap, catalog]);
 
-  // Convert a local image URI to a base64 data URI — works reliably on all platforms
-  const toDisplayUri = async (uri: string): Promise<string> => {
-    try {
-      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-      return `data:image/jpeg;base64,${base64}`;
-    } catch {
-      return uri; // fallback to original
-    }
-  };
-
-  // Keep original file URIs for uploads (S3 needs file://, not data:)
+  // Keep original file URIs for S3 uploads (data: URIs can't be fetched as blob)
   const [personalDocFileUri, setPersonalDocFileUri] = useState('');
   const [docFileUri, setDocFileUri] = useState('');
   const [logoFileUri, setLogoFileUri] = useState('');
   const [facadeFileUri, setFacadeFileUri] = useState('');
 
-  const applyPickedImage = async (uri: string, type: 'doc' | 'logo' | 'personalDoc' | 'facade') => {
-    const displayUri = Platform.OS === 'android' ? await toDisplayUri(uri) : uri;
+  const applyPickedResult = (asset: ImagePicker.ImagePickerAsset, type: 'doc' | 'logo' | 'personalDoc' | 'facade') => {
+    const fileUri = asset.uri ?? '';
+    // On Android, use base64 data URI for display (file:// and content:// are unreliable in Expo Go)
+    const displayUri = (Platform.OS === 'android' && asset.base64)
+      ? `data:image/jpeg;base64,${asset.base64}`
+      : fileUri;
+
     if (type === 'personalDoc') {
       setPersonalDocUri(displayUri);
-      setPersonalDocFileUri(uri);
+      setPersonalDocFileUri(fileUri);
       setIdentityVerified(false);
       setVerifyError('');
     } else if (type === 'doc') {
       setBusiness((p) => ({ ...(p ?? {}), docImageUri: displayUri }));
-      setDocFileUri(uri);
+      setDocFileUri(fileUri);
     } else if (type === 'facade') {
       setBusiness((p) => ({ ...(p ?? {}), facadeUri: displayUri }));
-      setFacadeFileUri(uri);
+      setFacadeFileUri(fileUri);
     } else {
       setBusiness((p) => ({ ...(p ?? {}), logoUri: displayUri }));
-      setLogoFileUri(uri);
+      setLogoFileUri(fileUri);
     }
   };
 
@@ -267,9 +261,10 @@ export default function RegisterVendorScreen() {
         quality: 0.8,
         allowsEditing: true,
         aspect: type === 'logo' ? [1, 1] : [4, 3],
+        base64: Platform.OS === 'android',
       });
-      if (!result?.canceled && result?.assets?.[0]?.uri) {
-        await applyPickedImage(result.assets[0].uri, type);
+      if (!result?.canceled && result?.assets?.[0]) {
+        applyPickedResult(result.assets[0], type);
       }
     } catch { }
   };
@@ -285,9 +280,10 @@ export default function RegisterVendorScreen() {
         quality: 0.8,
         allowsEditing: true,
         aspect: type === 'logo' ? [1, 1] : [4, 3],
+        base64: Platform.OS === 'android',
       });
-      if (!result?.canceled && result?.assets?.[0]?.uri) {
-        await applyPickedImage(result.assets[0].uri, type);
+      if (!result?.canceled && result?.assets?.[0]) {
+        applyPickedResult(result.assets[0], type);
       }
     } catch { }
   };
