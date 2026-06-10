@@ -1,6 +1,13 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { AppState, Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+
+// expo-notifications crashes Expo Go on SDK 53+; only import in dev builds / standalone
+const isExpoGo = Constants.appOwnership === 'expo';
+let Notifications: typeof import('expo-notifications') | null = null;
+if (!isExpoGo && Platform.OS !== 'web') {
+  try { Notifications = require('expo-notifications'); } catch { }
+}
 
 interface UseReactiveListOptions {
   /** Function to call when a refresh is needed */
@@ -63,9 +70,9 @@ export function useReactiveList({
 
   // Push notification listener (foreground)
   useEffect(() => {
-    if (!enabled || Platform.OS === 'web' || (notificationTypes?.length ?? 0) === 0) return;
+    if (!enabled || Platform.OS === 'web' || !Notifications || (notificationTypes?.length ?? 0) === 0) return;
 
-    const sub = Notifications.addNotificationReceivedListener((notification) => {
+    const sub = Notifications.addNotificationReceivedListener((notification: any) => {
       const data = notification?.request?.content?.data;
       const type = data?.type as string | undefined;
       if (type && (notificationTypes ?? []).includes(type)) {

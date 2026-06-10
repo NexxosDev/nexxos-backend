@@ -6,7 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Font from 'expo-font';
-import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { AuthProvider } from '../src/contexts/AuthContext';
 import { CatalogProvider } from '../src/contexts/CatalogContext';
 import { ThemeProvider, useTheme } from '../src/contexts/ThemeContext';
@@ -15,16 +15,27 @@ import { NetworkProvider } from '../src/contexts/NetworkContext';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import AnimatedSplash from '../src/components/AnimatedSplash';
 
+// expo-notifications crashes Expo Go on SDK 53+; only import in dev builds / standalone
+const isExpoGo = Constants.appOwnership === 'expo';
+let Notifications: typeof import('expo-notifications') | null = null;
+if (!isExpoGo && Platform.OS !== 'web') {
+  try {
+    Notifications = require('expo-notifications');
+  } catch {
+    // silently ignore — notifications unavailable
+  }
+}
+
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function NotificationNavigator() {
   const router = useRouter();
-  const responseListener = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<any>(null);
 
   useEffect(() => {
-    if (Platform.OS === 'web') return;
+    if (Platform.OS === 'web' || !Notifications) return;
 
-    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+    responseListener.current = Notifications.addNotificationResponseReceivedListener((response: any) => {
       const data = response?.notification?.request?.content?.data;
       if (!data?.type) return;
 
@@ -57,7 +68,7 @@ function NotificationNavigator() {
 
     return () => {
       if (responseListener.current) {
-        responseListener.current.remove();
+        responseListener.current?.remove?.();
       }
     };
   }, [router]);

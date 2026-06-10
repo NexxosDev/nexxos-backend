@@ -1,8 +1,14 @@
 import { Platform, AppState } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import api from './api';
+
+// expo-notifications crashes Expo Go on SDK 53+; conditionally import
+const isExpoGo = Constants.appOwnership === 'expo';
+let Notifications: typeof import('expo-notifications') | null = null;
+if (!isExpoGo && Platform.OS !== 'web') {
+  try { Notifications = require('expo-notifications'); } catch { }
+}
 
 // ── Active chat suppression (WhatsApp-style) ──
 let _activeChatId: string | null = null;
@@ -14,12 +20,9 @@ AppState.addEventListener('change', (state) => {
   _appIsActive = state === 'active';
 
   if (!_appIsActive && wasActive && _activeChatId) {
-    // App went to background — clear presence on backend so push resumes
     _reportPresenceToBackend(null).catch(() => {});
   } else if (_appIsActive && !wasActive && _activeChatId) {
-    // App returned to foreground with chat still open — re-report presence
     _reportPresenceToBackend(_activeChatId).catch(() => {});
-    // Also dismiss any notifications that arrived while backgrounded
     dismissNotificationsForContext({ chatId: _activeChatId }).catch(() => {});
   }
 });
@@ -40,67 +43,62 @@ async function _reportPresenceToBackend(chatId: string | null) {
 /** Call when the user opens a specific chat screen */
 export function setActiveChatId(chatId: string) {
   _activeChatId = chatId;
-  // Dismiss existing tray notifications for this chat immediately
   dismissNotificationsForContext({ chatId }).catch(() => {});
-  // Tell backend to suppress push for this chat
   _reportPresenceToBackend(chatId).catch(() => {});
 }
 
 /** Call when the user leaves the chat screen */
 export function clearActiveChatId() {
   _activeChatId = null;
-  // Tell backend to resume sending push
   _reportPresenceToBackend(null).catch(() => {});
 }
 
 /** Check if a specific chat is currently active */
 export function getActiveChatId(): string | null { return _activeChatId; }
 
-// Configurar handler para notificaciones en foreground
-Notifications.setNotificationHandler({
-  handleNotification: async (notification) => {
-    const data = notification?.request?.content?.data as Record<string, any> | undefined;
-    const incomingChatId = data?.chatId;
-    const notifType = data?.type;
+// Configurar handler para notificaciones en foreground (only when Notifications available)
+if (Notifications) {
+  Notifications.setNotificationHandler({
+    handleNotification: async (notification: any) => {
+      const data = notification?.request?.content?.data as Record<string, any> | undefined;
+      const incomingChatId = data?.chatId;
+      const notifType = data?.type;
 
-    // Suppress banner/sound/badge if user is viewing this exact chat AND app is in foreground
-    if (
-      _appIsActive &&
-      _activeChatId &&
-      incomingChatId &&
-      incomingChatId === _activeChatId &&
-      notifType === 'NEW_MESSAGE'
-    ) {
+      if (
+        _appIsActive &&
+        _activeChatId &&
+        incomingChatId &&
+        incomingChatId === _activeChatId &&
+        notifType === 'NEW_MESSAGE'
+      ) {
+        return {
+          shouldShowAlert: false,
+          shouldPlaySound: false,
+          shouldSetBadge: false,
+          shouldShowBanner: false,
+          shouldShowList: false,
+        };
+      }
+
       return {
-        shouldShowAlert: false,
-        shouldPlaySound: false,
-        shouldSetBadge: false,
-        shouldShowBanner: false,
-        shouldShowList: false,
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
       };
-    }
-
-    // Default: show everything
-    return {
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    };
-  },
-});
+    },
+  });
+}
 
 export async function registerForPushNotifications(): Promise<string | null> {
-  // Solo funciona en dispositivos físicos, no en web ni simuladores
-  if (Platform.OS === 'web') return null;
+  if (Platform.OS === 'web' || !Notifications) return null;
   if (!Device.isDevice) {
     console.log('Push notifications requieren un dispositivo físico');
     return null;
   }
 
   try {
-    // Configurar canales de Android
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'General',
@@ -130,7 +128,6 @@ export async function registerForPushNotifications(): Promise<string | null> {
       });
     }
 
-    // Verificar/solicitar permisos
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
 
@@ -144,7 +141,6 @@ export async function registerForPushNotifications(): Promise<string | null> {
       return null;
     }
 
-    // Obtener Expo Push Token
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
     const tokenData = await Notifications.getExpoPushTokenAsync({
       projectId,
@@ -153,7 +149,6 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
     if (!token) return null;
 
-    // Enviar token al backend
     await api.post('/push-tokens', {
       token,
       platform: Platform.OS,
@@ -169,13 +164,12 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
 /**
  * Dismiss system-tray notifications matching a specific context (like WhatsApp).
- * Only removes notifications for the exact chatId or requestId opened.
  */
 export async function dismissNotificationsForContext(filter: {
   requestId?: string;
   chatId?: string;
 }) {
-  if (Platform.OS === 'web') return;
+  if (Platform.OS === 'web' || !Notifications) return;
   try {
     const presented = await Notifications.getPresentedNotificationsAsync();
     for (const notif of presented) {
@@ -187,7 +181,6 @@ export async function dismissNotificationsForContext(filter: {
         await Notifications.dismissNotificationAsync(notif.request.identifier);
       }
     }
-    // Update badge to reflect remaining notifications
     const remaining = await Notifications.getPresentedNotificationsAsync();
     await Notifications.setBadgeCountAsync(remaining?.length ?? 0);
   } catch (err) {
