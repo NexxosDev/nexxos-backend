@@ -227,9 +227,12 @@ export default function RegisterVendorScreen() {
 
   // Copy picked image to cache dir so content:// URIs don't lose permissions on Android
   const persistImageUri = async (uri: string): Promise<string> => {
-    if (Platform.OS !== 'android' || !uri?.startsWith?.('content://')) return uri;
+    if (Platform.OS !== 'android') return uri;
     try {
-      const dest = `${FileSystem.cacheDirectory}picked_${Date.now()}.jpg`;
+      // Always copy to cache on Android — both content:// and file:// URIs can lose
+      // permissions or become inaccessible when the originating picker activity closes.
+      const ext = uri?.split?.('.')?.pop?.()?.toLowerCase?.() ?? 'jpg';
+      const dest = `${FileSystem.cacheDirectory}picked_${Date.now()}.${ext}`;
       await FileSystem.copyAsync({ from: uri, to: dest });
       return dest;
     } catch {
@@ -522,7 +525,7 @@ export default function RegisterVendorScreen() {
               </Text>
               {personalDocUri ? (
                 <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(personalDocUri)}>
-                  <ExpoImage source={{ uri: personalDocUri }} style={styles.imagePreviewFull} contentFit="cover" />
+                  <ExpoImage key={personalDocUri} source={{ uri: personalDocUri }} style={styles.imagePreviewFull} contentFit="cover" cachePolicy="none" />
                   <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                   <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('personalDoc')}>
                     <Ionicons name="camera-outline" size={20} color={colors.white} />
@@ -625,7 +628,7 @@ export default function RegisterVendorScreen() {
             </Text>
             {business?.docImageUri ? (
               <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(business.docImageUri)}>
-                <ExpoImage source={{ uri: business.docImageUri }} style={styles.imagePreviewFull} contentFit="cover" />
+                <ExpoImage key={business.docImageUri} source={{ uri: business.docImageUri }} style={styles.imagePreviewFull} contentFit="cover" cachePolicy="none" />
                 <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                 <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('doc')}>
                   <Ionicons name="camera-outline" size={20} color={colors.white} />
@@ -645,7 +648,7 @@ export default function RegisterVendorScreen() {
             </Text>
             {business?.logoUri ? (
               <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(business.logoUri)}>
-                <ExpoImage source={{ uri: business.logoUri }} style={styles.imagePreviewFull} contentFit="cover" />
+                <ExpoImage key={business.logoUri} source={{ uri: business.logoUri }} style={styles.imagePreviewFull} contentFit="cover" cachePolicy="none" />
                 <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                 <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('logo')}>
                   <Ionicons name="image-outline" size={20} color={colors.white} />
@@ -668,7 +671,7 @@ export default function RegisterVendorScreen() {
             </Text>
             {business?.facadeUri ? (
               <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(business.facadeUri)}>
-                <ExpoImage source={{ uri: business.facadeUri }} style={styles.imagePreviewFull} contentFit="cover" />
+                <ExpoImage key={business.facadeUri} source={{ uri: business.facadeUri }} style={styles.imagePreviewFull} contentFit="cover" cachePolicy="none" />
                 <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                 <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('facade')}>
                   <Ionicons name="business-outline" size={20} color={colors.white} />
