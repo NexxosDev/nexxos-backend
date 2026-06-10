@@ -2,19 +2,19 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty } from 'class-validator';
 
 export class VerifyIdentityDto {
-  @ApiProperty({ description: 'Public URL of the personal ID document image' })
+  @ApiProperty({ description: 'Base64-encoded personal ID document image (data:image/jpeg;base64,... or raw base64)' })
   @IsString() @IsNotEmpty()
-  documentImageUrl: string;
+  documentImageBase64: string;
 
-  @ApiProperty({ description: 'Public URL of the selfie (neutral face)' })
+  @ApiProperty({ description: 'Base64-encoded selfie neutral face (data:image/jpeg;base64,... or raw base64)' })
   @IsString() @IsNotEmpty()
-  selfieNeutralUrl: string;
+  selfieNeutralBase64: string;
 
-  @ApiProperty({ description: 'Public URL of the selfie (smiling)' })
+  @ApiProperty({ description: 'Base64-encoded selfie smiling (data:image/jpeg;base64,... or raw base64)' })
   @IsString() @IsNotEmpty()
-  selfieSmileUrl: string;
+  selfieSmileBase64: string;
 
-  @ApiProperty({ description: 'Public URL of the selfie (head turned)' })
+  @ApiProperty({ description: 'Base64-encoded selfie head turned (data:image/jpeg;base64,... or raw base64)' })
   @IsString() @IsNotEmpty()
-  selfieTurnUrl: string;
+  selfieTurnBase64: string;
 }

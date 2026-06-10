@@ -9,13 +9,13 @@ export class IdentityController {
   constructor(private readonly identityService: IdentityService) {}
 
   @Post('verify')
-  @ApiOperation({ summary: 'Verify identity: liveness check + face match with document (no auth, used during registration)' })
+  @ApiOperation({ summary: 'Verify identity: liveness check + face match with document (no auth, used during registration). Accepts base64-encoded images.' })
   verify(@Body() dto: VerifyIdentityDto) {
     return this.identityService.verifyIdentity(
-      dto.documentImageUrl,
-      dto.selfieNeutralUrl,
-      dto.selfieSmileUrl,
-      dto.selfieTurnUrl,
+      dto.documentImageBase64,
+      dto.selfieNeutralBase64,
+      dto.selfieSmileBase64,
+      dto.selfieTurnBase64,
     );
   }
 }

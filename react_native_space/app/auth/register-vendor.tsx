@@ -12,7 +12,7 @@ import { useCatalog } from '../../src/contexts/CatalogContext';
 import { getErrorMessage } from '../../src/services/api';
 import { uploadFile } from '../../src/services/upload';
 import { updateVendorProfile } from '../../src/services/vendor';
-import { uploadRegistrationFile, verifyIdentity } from '../../src/services/identity';
+import { uploadRegistrationFile, verifyIdentity, fileToBase64 } from '../../src/services/identity';
 import { upgradeToVendorApi } from '../../src/services/auth';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { formatCedula, validateCedula } from '../../src/utils/cedula';
@@ -304,21 +304,29 @@ export default function RegisterVendorScreen() {
     setVerifying(true);
     setVerifyError('');
     try {
-      const docResult = await uploadRegistrationFile(personalDocUri, `personal_doc_${Date.now()}.jpg`, 'image/jpeg');
+      // Upload files to S3 in parallel (for storage) AND convert to base64 (for verification)
+      const [docResult, neutralRes, smileRes, turnRes, docB64, neutralB64, smileB64, turnB64] = await Promise.all([
+        uploadRegistrationFile(personalDocUri, `personal_doc_${Date.now()}.jpg`, 'image/jpeg'),
+        uploadRegistrationFile(selfies.neutral, `selfie_neutral_${Date.now()}.jpg`, 'image/jpeg'),
+        uploadRegistrationFile(selfies.smile, `selfie_smile_${Date.now()}.jpg`, 'image/jpeg'),
+        uploadRegistrationFile(selfies.turn, `selfie_turn_${Date.now()}.jpg`, 'image/jpeg'),
+        fileToBase64(personalDocUri),
+        fileToBase64(selfies.neutral),
+        fileToBase64(selfies.smile),
+        fileToBase64(selfies.turn),
+      ]);
+
       setPersonalDocUrl(docResult?.url ?? '');
       setPersonalDocPath(docResult?.storagePath ?? '');
-
-      const neutralRes = await uploadRegistrationFile(selfies.neutral, `selfie_neutral_${Date.now()}.jpg`, 'image/jpeg');
-      const smileRes = await uploadRegistrationFile(selfies.smile, `selfie_smile_${Date.now()}.jpg`, 'image/jpeg');
-      const turnRes = await uploadRegistrationFile(selfies.turn, `selfie_turn_${Date.now()}.jpg`, 'image/jpeg');
       setSelfieUrls({ neutral: neutralRes?.url, smile: smileRes?.url, turn: turnRes?.url });
       setSelfiePath(neutralRes?.storagePath ?? '');
 
+      // Verify identity using base64 images (no S3 download needed on backend)
       const verifyResult = await verifyIdentity({
-        documentImageUrl: docResult?.url ?? '',
-        selfieNeutralUrl: neutralRes?.url ?? '',
-        selfieSmileUrl: smileRes?.url ?? '',
-        selfieTurnUrl: turnRes?.url ?? '',
+        documentImageBase64: docB64,
+        selfieNeutralBase64: neutralB64,
+        selfieSmileBase64: smileB64,
+        selfieTurnBase64: turnB64,
       });
 
       if (verifyResult?.match && verifyResult?.liveness) {

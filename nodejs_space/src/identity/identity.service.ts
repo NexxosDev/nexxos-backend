@@ -1,9 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getConfig } from '../lib/config-helper';
-import { GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { createS3Client, getBucketConfig } from '../lib/aws-config';
 
 @Injectable()
 export class IdentityService {
@@ -14,77 +11,33 @@ export class IdentityService {
   ) {}
 
   /**
-   * Extract S3 key from a public S3 URL or presigned URL.
+   * Ensure a base64 string is in data URL format.
+   * Accepts both raw base64 and data:image/...;base64,... formats.
    */
-  private extractS3Key(url: string): string | null {
-    try {
-      const parsed = new URL(url);
-      return decodeURIComponent(parsed.pathname?.replace?.(/^\//, '') ?? '');
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Download an image from S3 and return as data:image/jpeg;base64,...
-   * Strategy: generate a presigned GET URL (local signing — always works),
-   * then HTTP-fetch via that signed URL. This avoids direct S3 API calls
-   * which can fail in hosted environments where the IAM credential chain
-   * doesn't resolve for direct SDK operations.
-   */
-  private async toBase64DataUrl(imageUrl: string): Promise<string> {
-    try {
-      const s3Key = this.extractS3Key(imageUrl);
-      if (!s3Key) throw new Error(`Could not extract S3 key from URL: ${imageUrl}`);
-
-      this.logger.log(`Downloading S3 object: ${s3Key}`);
-
-      const { bucketName } = await getBucketConfig(this.prisma);
-      const client = await createS3Client(this.prisma);
-
-      // Generate a presigned GET URL (local operation, no AWS API call)
-      const command = new GetObjectCommand({ Bucket: bucketName, Key: s3Key });
-      const signedUrl = await getSignedUrl(client, command, { expiresIn: 300 });
-
-      // Fetch the image via the signed URL
-      const res = await fetch(signedUrl);
-      if (!res.ok) {
-        const errBody = await res.text().catch(() => '');
-        throw new Error(`Failed to fetch image via signed URL: ${res.status} ${errBody?.substring?.(0, 200)}`);
-      }
-
-      const buffer = Buffer.from(await res.arrayBuffer());
-      const contentType = res.headers?.get?.('content-type') || 'image/jpeg';
-      this.logger.log(`Image downloaded OK: ${s3Key} (${buffer.length} bytes)`);
-      return `data:${contentType};base64,${buffer.toString('base64')}`;
-    } catch (err) {
-      this.logger.error(`Failed to convert image to base64: ${(err as Error)?.message}`);
-      throw new BadRequestException('No se pudo descargar una de las imágenes para verificación.');
-    }
+  private ensureDataUrl(base64Input: string): string {
+    if (base64Input?.startsWith?.('data:')) return base64Input;
+    return `data:image/jpeg;base64,${base64Input}`;
   }
 
   async verifyIdentity(
-    documentImageUrl: string,
-    selfieNeutralUrl: string,
-    selfieSmileUrl: string,
-    selfieTurnUrl: string,
+    documentImageBase64: string,
+    selfieNeutralBase64: string,
+    selfieSmileBase64: string,
+    selfieTurnBase64: string,
   ) {
     const apiKey = await getConfig('API_LLM_KEY', this.prisma);
     if (!apiKey) throw new BadRequestException('LLM API not configured');
 
     const llmEndpoint = (await getConfig('API_LLM_ENDPOINT', this.prisma)) || undefined;
 
-    this.logger.log(`Verifying identity — converting images to base64...`);
+    this.logger.log(`Verifying identity — images received as base64`);
 
-    // Convert all images to base64 data URLs (Abacus AI API requires this format)
-    const [docB64, neutralB64, smileB64, turnB64] = await Promise.all([
-      this.toBase64DataUrl(documentImageUrl),
-      this.toBase64DataUrl(selfieNeutralUrl),
-      this.toBase64DataUrl(selfieSmileUrl),
-      this.toBase64DataUrl(selfieTurnUrl),
-    ]);
+    const docB64 = this.ensureDataUrl(documentImageBase64);
+    const neutralB64 = this.ensureDataUrl(selfieNeutralBase64);
+    const smileB64 = this.ensureDataUrl(selfieSmileBase64);
+    const turnB64 = this.ensureDataUrl(selfieTurnBase64);
 
-    this.logger.log(`Images converted to base64 successfully`);
+    this.logger.log(`Images ready for LLM (doc: ${docB64?.length ?? 0} chars, neutral: ${neutralB64?.length ?? 0} chars)`);
 
     // Step 1: Liveness check — verify the 3 selfies show a real person performing actions
     const livenessResult = await this.callLLM(apiKey, [

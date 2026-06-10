@@ -6,7 +6,13 @@ import { Request, Response, NextFunction } from 'express';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    bodyParser: true,
+  });
+
+  // Increase body size limit to 50MB for base64 image uploads (identity verification)
+  app.use(require('express').json({ limit: '50mb' }));
+  app.use(require('express').urlencoded({ extended: true, limit: '50mb' }));
 
   app.enableCors({ origin: '*' });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));

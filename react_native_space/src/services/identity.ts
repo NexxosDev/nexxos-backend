@@ -44,12 +44,12 @@ export async function uploadRegistrationFile(
   };
 }
 
-/** Verify identity via LLM (public endpoint) */
+/** Verify identity via LLM (public endpoint). Images sent as base64. */
 export async function verifyIdentity(data: {
-  documentImageUrl: string;
-  selfieNeutralUrl: string;
-  selfieSmileUrl: string;
-  selfieTurnUrl: string;
+  documentImageBase64: string;
+  selfieNeutralBase64: string;
+  selfieSmileBase64: string;
+  selfieTurnBase64: string;
 }): Promise<{
   match: boolean;
   liveness: boolean;
@@ -58,4 +58,16 @@ export async function verifyIdentity(data: {
 }> {
   const res = await api.post('/identity/verify', data);
   return res?.data ?? { match: false, liveness: false, confidence: 'n/a', reason: 'Error' };
+}
+
+/** Convert a local file URI to a base64 data URL */
+export async function fileToBase64(uri: string): Promise<string> {
+  const response = await fetch(uri);
+  const blob = await response.blob();
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Failed to read file as base64'));
+    reader.readAsDataURL(blob);
+  });
 }
