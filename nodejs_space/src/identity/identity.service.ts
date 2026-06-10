@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getConfig } from '../lib/config-helper';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createS3Client, getBucketConfig } from '../lib/aws-config';
 
 @Injectable()
@@ -14,37 +15,47 @@ export class IdentityService {
 
   /**
    * Extract S3 key from a public S3 URL or presigned URL.
-   * Handles formats like:
-   *   https://bucket.s3.region.amazonaws.com/prefix/public/uploads/file.jpg
-   *   https://d2908q01vomqb2.cloudfront.net/e1822db470e60d090affd0956d743cb0e7cdf113/2024/03/20/1_architecture.png
    */
   private extractS3Key(url: string): string | null {
     try {
       const parsed = new URL(url);
-      // Remove leading slash from pathname
       return decodeURIComponent(parsed.pathname?.replace?.(/^\//, '') ?? '');
     } catch {
       return null;
     }
   }
 
-  /** Download an image directly from S3 (bypassing public URL) and return as data:image/jpeg;base64,... */
+  /**
+   * Download an image from S3 and return as data:image/jpeg;base64,...
+   * Strategy: generate a presigned GET URL (local signing — always works),
+   * then HTTP-fetch via that signed URL. This avoids direct S3 API calls
+   * which can fail in hosted environments where the IAM credential chain
+   * doesn't resolve for direct SDK operations.
+   */
   private async toBase64DataUrl(imageUrl: string): Promise<string> {
     try {
       const s3Key = this.extractS3Key(imageUrl);
       if (!s3Key) throw new Error(`Could not extract S3 key from URL: ${imageUrl}`);
 
+      this.logger.log(`Downloading S3 object: ${s3Key}`);
+
       const { bucketName } = await getBucketConfig(this.prisma);
       const client = await createS3Client(this.prisma);
 
+      // Generate a presigned GET URL (local operation, no AWS API call)
       const command = new GetObjectCommand({ Bucket: bucketName, Key: s3Key });
-      const response = await client.send(command);
+      const signedUrl = await getSignedUrl(client, command, { expiresIn: 300 });
 
-      const bodyBytes = await response.Body?.transformToByteArray?.();
-      if (!bodyBytes) throw new Error('Empty response body from S3');
+      // Fetch the image via the signed URL
+      const res = await fetch(signedUrl);
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '');
+        throw new Error(`Failed to fetch image via signed URL: ${res.status} ${errBody?.substring?.(0, 200)}`);
+      }
 
-      const buffer = Buffer.from(bodyBytes);
-      const contentType = response.ContentType || 'image/jpeg';
+      const buffer = Buffer.from(await res.arrayBuffer());
+      const contentType = res.headers?.get?.('content-type') || 'image/jpeg';
+      this.logger.log(`Image downloaded OK: ${s3Key} (${buffer.length} bytes)`);
       return `data:${contentType};base64,${buffer.toString('base64')}`;
     } catch (err) {
       this.logger.error(`Failed to convert image to base64: ${(err as Error)?.message}`);
