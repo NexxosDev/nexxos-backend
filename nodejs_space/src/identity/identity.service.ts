@@ -1,6 +1,8 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getConfig } from '../lib/config-helper';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { createS3Client, getBucketConfig } from '../lib/aws-config';
 
 @Injectable()
 export class IdentityService {
@@ -10,13 +12,39 @@ export class IdentityService {
     private readonly prisma: PrismaService,
   ) {}
 
-  /** Download an image from URL and return as data:image/jpeg;base64,... */
+  /**
+   * Extract S3 key from a public S3 URL or presigned URL.
+   * Handles formats like:
+   *   https://bucket.s3.region.amazonaws.com/prefix/public/uploads/file.jpg
+   *   https://d2908q01vomqb2.cloudfront.net/e1822db470e60d090affd0956d743cb0e7cdf113/2024/03/20/1_architecture.png
+   */
+  private extractS3Key(url: string): string | null {
+    try {
+      const parsed = new URL(url);
+      // Remove leading slash from pathname
+      return decodeURIComponent(parsed.pathname?.replace?.(/^\//, '') ?? '');
+    } catch {
+      return null;
+    }
+  }
+
+  /** Download an image directly from S3 (bypassing public URL) and return as data:image/jpeg;base64,... */
   private async toBase64DataUrl(imageUrl: string): Promise<string> {
     try {
-      const res = await fetch(imageUrl);
-      if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
-      const buffer = Buffer.from(await res.arrayBuffer());
-      const contentType = res.headers?.get?.('content-type') || 'image/jpeg';
+      const s3Key = this.extractS3Key(imageUrl);
+      if (!s3Key) throw new Error(`Could not extract S3 key from URL: ${imageUrl}`);
+
+      const { bucketName } = await getBucketConfig(this.prisma);
+      const client = await createS3Client(this.prisma);
+
+      const command = new GetObjectCommand({ Bucket: bucketName, Key: s3Key });
+      const response = await client.send(command);
+
+      const bodyBytes = await response.Body?.transformToByteArray?.();
+      if (!bodyBytes) throw new Error('Empty response body from S3');
+
+      const buffer = Buffer.from(bodyBytes);
+      const contentType = response.ContentType || 'image/jpeg';
       return `data:${contentType};base64,${buffer.toString('base64')}`;
     } catch (err) {
       this.logger.error(`Failed to convert image to base64: ${(err as Error)?.message}`);
