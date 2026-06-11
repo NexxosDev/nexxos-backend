@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable, Alert, Modal, ActivityIndicator, Linking, Image as RNImage } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable, Alert, Modal, ActivityIndicator, Linking, Image as RNImage, Dimensions } from 'react-native';
 
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -35,20 +35,27 @@ const TOTAL_STEPS = 6;
 const DRAFT_KEY = 'nexxos_vendor_registration_draft';
 
 /**
- * Simple image preview using React Native's built-in Image component.
- * Handles file://, content://, and https:// URIs natively on all platforms.
+ * Image preview component that works reliably on Android.
+ * Uses explicit pixel dimensions (not %) and fadeDuration=0 to avoid
+ * known Android rendering bugs with RN Image.
  */
-const PreviewImage = ({ uri, style }: { uri: string; style: any }) => {
+const PreviewImage = ({ uri, style, width, height }: { uri: string; style?: any; width?: number; height?: number }) => {
   if (!uri) return null;
-  console.log('[PreviewImage] rendering, uri:', uri?.substring?.(0, 80), 'length:', uri?.length);
+  const dims = Dimensions.get('window');
+  const w = width ?? dims.width - 32; // full width minus padding
+  const h = height ?? 200;
+  console.log('[PreviewImage] rendering, uri:', uri?.substring?.(0, 80), 'dims:', w, 'x', h);
   return (
     <RNImage
       source={{ uri }}
-      style={[style, { backgroundColor: '#FF00FF' }]}
+      style={[{ width: w, height: h, backgroundColor: '#E0E0E0' }, style]}
       resizeMode="cover"
-      onLoad={() => console.log('[PreviewImage] ✅ onLoad fired for:', uri?.substring?.(0, 50))}
-      onError={(e) => console.log('[PreviewImage] ❌ onError:', JSON.stringify(e?.nativeEvent))}
-      onLoadEnd={() => console.log('[PreviewImage] onLoadEnd fired')}
+      fadeDuration={0}
+      onLoad={(e: any) => {
+        const src = e?.nativeEvent?.source ?? {};
+        console.log('[PreviewImage] ✅ onLoad, source dims:', src?.width, 'x', src?.height, 'uri:', uri?.substring?.(0, 50));
+      }}
+      onError={(e: any) => console.log('[PreviewImage] ❌ onError:', JSON.stringify(e?.nativeEvent))}
     />
   );
 };
