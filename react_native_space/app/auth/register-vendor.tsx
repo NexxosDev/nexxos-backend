@@ -5,6 +5,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useCatalog } from '../../src/contexts/CatalogContext';
@@ -35,29 +36,49 @@ const TOTAL_STEPS = 6;
 const DRAFT_KEY = 'nexxos_vendor_registration_draft';
 
 /**
- * Image preview component that works reliably on Android.
- * Uses explicit pixel dimensions (not %) and fadeDuration=0 to avoid
- * known Android rendering bugs with RN Image.
+ * Image preview using RN Image with explicit pixel dimensions.
+ * On Android, uses manipulated (re-saved) URIs from expo-image-manipulator
+ * to avoid Fresco/Expo Go sandbox issues with ImagePicker temp files.
  */
-const PreviewImage = ({ uri, style, width, height }: { uri: string; style?: any; width?: number; height?: number }) => {
+const PreviewImage = ({ uri, style }: { uri: string; style?: any }) => {
   if (!uri) return null;
   const dims = Dimensions.get('window');
-  const w = width ?? dims.width - 32; // full width minus padding
-  const h = height ?? 200;
-  console.log('[PreviewImage] rendering, uri:', uri?.substring?.(0, 80), 'dims:', w, 'x', h);
+  const w = dims.width - 32;
   return (
     <RNImage
       source={{ uri }}
-      style={[{ width: w, height: h, backgroundColor: '#E0E0E0' }, style]}
+      style={[{ width: w, height: 200, backgroundColor: '#E0E0E0' }, style]}
       resizeMode="cover"
       fadeDuration={0}
-      onLoad={(e: any) => {
-        const src = e?.nativeEvent?.source ?? {};
-        console.log('[PreviewImage] ✅ onLoad, source dims:', src?.width, 'x', src?.height, 'uri:', uri?.substring?.(0, 50));
-      }}
-      onError={(e: any) => console.log('[PreviewImage] ❌ onError:', JSON.stringify(e?.nativeEvent))}
+      onLoad={() => console.log('[PreviewImage] ✅ loaded:', uri?.substring?.(0, 60))}
+      onError={(e: any) => console.log('[PreviewImage] ❌ error:', JSON.stringify(e?.nativeEvent))}
     />
   );
+};
+
+/**
+ * Process a picked image through expo-image-manipulator.
+ * This creates a FRESH file in the app's cache that Fresco can reliably read,
+ * bypassing Expo Go sandbox restrictions on ImagePicker temp files.
+ * Returns { displayUri, uploadUri } where displayUri is the manipulated copy
+ * and uploadUri is the original for S3 upload (higher quality).
+ */
+const processPickedImage = async (asset: ImagePicker.ImagePickerAsset): Promise<{ displayUri: string; uploadUri: string }> => {
+  const originalUri = asset.uri ?? '';
+  try {
+    // Resize to max 800px wide for preview — creates a new file Fresco can read
+    const manipulated = await manipulateAsync(
+      originalUri,
+      [{ resize: { width: 800 } }],
+      { compress: 0.7, format: SaveFormat.JPEG }
+    );
+    console.log('[processPickedImage] original:', originalUri?.substring?.(0, 60));
+    console.log('[processPickedImage] manipulated:', manipulated?.uri?.substring?.(0, 60));
+    return { displayUri: manipulated?.uri ?? originalUri, uploadUri: originalUri };
+  } catch (err) {
+    console.log('[processPickedImage] manipulate failed, using original:', err);
+    return { displayUri: originalUri, uploadUri: originalUri };
+  }
 };
 
 interface RegistrationDraft {
@@ -250,21 +271,27 @@ export default function RegisterVendorScreen() {
     }
   }, [subcategoriesMap, catalog]);
 
-  const applyPickedResult = (asset: ImagePicker.ImagePickerAsset, type: 'doc' | 'logo' | 'personalDoc' | 'facade') => {
-    // Use asset.uri directly — RN <Image> handles file://, content://, etc. natively
-    const uri = asset.uri ?? '';
-    console.log('[applyPickedResult]', type, 'uri:', uri?.substring?.(0, 60), 'length:', uri?.length);
+  // Keep original file URIs for S3 uploads (manipulated URIs are lower quality)
+  const [uploadUris, setUploadUris] = useState<Record<string, string>>({});
 
+  const applyPickedResult = async (asset: ImagePicker.ImagePickerAsset, type: 'doc' | 'logo' | 'personalDoc' | 'facade') => {
+    const { displayUri, uploadUri } = await processPickedImage(asset);
+    console.log('[applyPickedResult]', type, 'display:', displayUri?.substring?.(0, 60), 'upload:', uploadUri?.substring?.(0, 60));
+
+    // Store original URI for S3 upload
+    setUploadUris((prev) => ({ ...(prev ?? {}), [type]: uploadUri }));
+
+    // Use manipulated URI for display (Fresco-friendly)
     if (type === 'personalDoc') {
-      setPersonalDocUri(uri);
+      setPersonalDocUri(displayUri);
       setIdentityVerified(false);
       setVerifyError('');
     } else if (type === 'doc') {
-      setBusiness((p) => ({ ...(p ?? {}), docImageUri: uri }));
+      setBusiness((p) => ({ ...(p ?? {}), docImageUri: displayUri }));
     } else if (type === 'facade') {
-      setBusiness((p) => ({ ...(p ?? {}), facadeUri: uri }));
+      setBusiness((p) => ({ ...(p ?? {}), facadeUri: displayUri }));
     } else {
-      setBusiness((p) => ({ ...(p ?? {}), logoUri: uri }));
+      setBusiness((p) => ({ ...(p ?? {}), logoUri: displayUri }));
     }
   };
 
@@ -277,7 +304,7 @@ export default function RegisterVendorScreen() {
         aspect: type === 'logo' ? [1, 1] : [4, 3],
       });
       if (!result?.canceled && result?.assets?.[0]) {
-        applyPickedResult(result.assets[0], type);
+        await applyPickedResult(result.assets[0], type);
       }
     } catch { }
   };
@@ -295,7 +322,7 @@ export default function RegisterVendorScreen() {
         aspect: type === 'logo' ? [1, 1] : [4, 3],
       });
       if (!result?.canceled && result?.assets?.[0]) {
-        applyPickedResult(result.assets[0], type);
+        await applyPickedResult(result.assets[0], type);
       }
     } catch { }
   };
@@ -327,9 +354,9 @@ export default function RegisterVendorScreen() {
     setVerifying(true);
     setVerifyError('');
     try {
-      // Convert file URIs to base64 for identity verification API
-      const docUploadUri = personalDocUri;
-      const docB64 = await fileToBase64(personalDocUri);
+      // Use original (non-manipulated) URI for upload and base64 conversion
+      const docUploadUri = uploadUris?.['personalDoc'] || personalDocUri;
+      const docB64 = await fileToBase64(docUploadUri);
       const [neutralB64, smileB64, turnB64] = await Promise.all([
         fileToBase64(selfies.neutral),
         fileToBase64(selfies.smile),
@@ -482,14 +509,14 @@ export default function RegisterVendorScreen() {
         let docPath = '';
         let logoPathVal = '';
         if (business?.docImageUri) {
-          docPath = await uploadFile(business.docImageUri, 'doc_id.jpg', 'image/jpeg', false);
+          docPath = await uploadFile(uploadUris?.['doc'] || business.docImageUri, 'doc_id.jpg', 'image/jpeg', false);
         }
         if (business?.logoUri) {
-          logoPathVal = await uploadFile(business.logoUri, 'logo.jpg', 'image/jpeg', true);
+          logoPathVal = await uploadFile(uploadUris?.['logo'] || business.logoUri, 'logo.jpg', 'image/jpeg', true);
         }
         let facadePathVal = '';
         if (business?.facadeUri) {
-          facadePathVal = await uploadFile(business.facadeUri, 'facade.jpg', 'image/jpeg', true);
+          facadePathVal = await uploadFile(uploadUris?.['facade'] || business.facadeUri, 'facade.jpg', 'image/jpeg', true);
         }
         if (docPath || logoPathVal || facadePathVal) {
           const updateData: Record<string, unknown> = {};
