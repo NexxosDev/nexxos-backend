@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform, Alert, ActivityIndicator } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, Pressable, Platform, Alert, ActivityIndicator, Image as RNImage, Dimensions } from 'react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { useTheme } from '../contexts/ThemeContext';
 import { Spacing, BorderRadius } from '../theme/colors';
 import type { ThemeColors } from '../theme/colors';
@@ -17,6 +17,8 @@ const STEPS: { key: LivenessStep; icon: string; title: string; instruction: stri
   { key: 'turn', icon: 'arrow-redo-outline', title: 'Paso 3 de 3', instruction: 'Gira tu cabeza', tip: 'Gira tu cabeza ligeramente hacia la derecha y mira a la cámara.' },
 ];
 
+const { width: SCREEN_W } = Dimensions.get('window');
+
 export default function LivenessSelfieCapture({ onComplete, onCancel }: LivenessSelfieCaptureProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -24,35 +26,53 @@ export default function LivenessSelfieCapture({ onComplete, onCancel }: Liveness
   const [captured, setCaptured] = useState<CapturedSelfies>({});
   const [showPreview, setShowPreview] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
-  const [launching, setLaunching] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const [capturing, setCapturing] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+  const cameraRef = useRef<CameraView>(null);
 
   const stepInfo = STEPS[currentStep] ?? STEPS[0];
   const currentUri = captured?.[stepInfo.key];
 
-  const openNativeCamera = useCallback(async () => {
-    setLaunching(true);
+  const handleCapture = useCallback(async () => {
+    if (!cameraRef.current || capturing) return;
+    setCapturing(true);
     try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (permission?.status !== 'granted') {
-        Alert.alert('Permiso Denegado', 'Necesitamos acceso a la cámara para tomar las selfies de verificación. Ve a Ajustes para habilitarlo.');
-        setLaunching(false);
-        return;
-      }
-      const result = await ImagePicker.launchCameraAsync({
-        cameraType: ImagePicker.CameraType.front,
+      const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
-        allowsEditing: false,
+        skipProcessing: false,
       });
-      if (!result?.canceled && result?.assets?.[0]?.uri) {
-        setCaptured((prev) => ({ ...(prev ?? {}), [stepInfo.key]: result.assets[0].uri }));
+      if (photo?.uri) {
+        // Process through image-manipulator to create a reliable file
+        const manipulated = await manipulateAsync(
+          photo.uri,
+          [{ resize: { width: 800 } }],
+          { compress: 0.8, format: SaveFormat.JPEG }
+        );
+        const finalUri = manipulated?.uri ?? photo.uri;
+        console.log('[LivenessSelfie] captured step:', stepInfo.key, 'uri:', finalUri?.substring?.(0, 60));
+        setCaptured((prev) => ({ ...(prev ?? {}), [stepInfo.key]: finalUri }));
+        setShowCamera(false);
         setShowPreview(true);
       }
     } catch (err) {
-      Alert.alert('Error', 'No se pudo abrir la cámara. Intenta nuevamente.');
+      console.log('[LivenessSelfie] capture error:', err);
+      Alert.alert('Error', 'No se pudo capturar la foto. Intenta nuevamente.');
     } finally {
-      setLaunching(false);
+      setCapturing(false);
     }
-  }, [stepInfo]);
+  }, [stepInfo, capturing]);
+
+  const openCamera = useCallback(async () => {
+    if (!permission?.granted) {
+      const result = await requestPermission();
+      if (!result?.granted) {
+        Alert.alert('Permiso Denegado', 'Necesitamos acceso a la cámara para tomar las selfies de verificación. Ve a Ajustes para habilitarlo.');
+        return;
+      }
+    }
+    setShowCamera(true);
+  }, [permission, requestPermission]);
 
   const confirmAndNext = useCallback(() => {
     setShowPreview(false);
@@ -96,7 +116,7 @@ export default function LivenessSelfieCapture({ onComplete, onCancel }: Liveness
             </View>
             <View style={styles.tipRow}>
               <Ionicons name="checkmark-circle" size={22} color={colors.success} />
-              <Text style={styles.tipText}>Se abrirá la cámara de tu teléfono para cada foto</Text>
+              <Text style={styles.tipText}>Se usará la cámara frontal automáticamente</Text>
             </View>
             <View style={styles.tipRow}>
               <Ionicons name="checkmark-circle" size={22} color={colors.success} />
@@ -122,6 +142,53 @@ export default function LivenessSelfieCapture({ onComplete, onCancel }: Liveness
     );
   }
 
+  // In-app camera view (always front-facing)
+  if (showCamera) {
+    return (
+      <View style={styles.cameraContainer}>
+        <CameraView
+          ref={cameraRef}
+          style={styles.camera}
+          facing="front"
+          mirror={true}
+        />
+
+        {/* Overlay with instruction */}
+        <View style={styles.cameraOverlay}>
+          <View style={styles.cameraTopBar}>
+            <Pressable onPress={() => setShowCamera(false)} hitSlop={10}>
+              <Ionicons name="close" size={28} color="#FFFFFF" />
+            </Pressable>
+            <Text style={styles.cameraStepText}>{stepInfo.instruction}</Text>
+            <View style={{ width: 28 }} />
+          </View>
+
+          {/* Face guide oval */}
+          <View style={styles.faceGuide}>
+            <View style={styles.faceOval} />
+          </View>
+
+          <Text style={styles.cameraTip}>{stepInfo.tip}</Text>
+
+          {/* Capture button */}
+          <View style={styles.cameraBottomBar}>
+            <Pressable
+              style={[styles.shutterButton, capturing && { opacity: 0.5 }]}
+              onPress={handleCapture}
+              disabled={capturing}
+            >
+              {capturing ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <View style={styles.shutterInner} />
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   // Preview screen after capturing a photo
   if (showPreview && currentUri) {
     return (
@@ -134,7 +201,7 @@ export default function LivenessSelfieCapture({ onComplete, onCancel }: Liveness
         <View style={styles.dotsRow}>{STEPS.map((_, i) => <View key={i} style={[styles.dot, i <= currentStep ? styles.dotActive : null]} />)}</View>
 
         <View style={styles.previewContainer}>
-          <Image source={{ uri: currentUri }} style={styles.previewImage} contentFit="cover" transition={200} />
+          <RNImage source={{ uri: currentUri }} style={styles.previewImage} resizeMode="cover" fadeDuration={0} />
         </View>
 
         <Text style={styles.previewLabel}>¿La foto se ve bien?</Text>
@@ -154,7 +221,7 @@ export default function LivenessSelfieCapture({ onComplete, onCancel }: Liveness
     );
   }
 
-  // Instruction screen before opening native camera
+  // Instruction screen before opening camera
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -173,22 +240,17 @@ export default function LivenessSelfieCapture({ onComplete, onCancel }: Liveness
 
         <View style={styles.reminderBox}>
           <Ionicons name="bulb-outline" size={18} color={colors.primary} />
-          <Text style={styles.reminderText}>Se abrirá la cámara frontal de tu teléfono. Usa el botón de captura y confirma la foto.</Text>
+          <Text style={styles.reminderText}>Se abrirá la cámara frontal dentro de la app. Presiona el botón circular para capturar.</Text>
         </View>
       </View>
 
       <View style={styles.captureFooter}>
         <Pressable
-          style={[styles.captureButton, launching && { opacity: 0.6 }]}
-          onPress={openNativeCamera}
-          disabled={launching}
+          style={styles.captureButton}
+          onPress={openCamera}
         >
-          {launching ? (
-            <ActivityIndicator size="small" color="#000" />
-          ) : (
-            <Ionicons name="camera" size={24} color="#000" />
-          )}
-          <Text style={styles.captureButtonText}>{launching ? 'Abriendo cámara...' : 'Tomar Foto'}</Text>
+          <Ionicons name="camera" size={24} color="#000" />
+          <Text style={styles.captureButtonText}>Abrir Cámara</Text>
         </Pressable>
       </View>
     </View>
@@ -227,13 +289,53 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   },
   captureButtonText: { fontSize: 17, fontWeight: '700', color: '#000' },
 
+  // In-app camera
+  cameraContainer: { flex: 1, backgroundColor: '#000' },
+  camera: { flex: 1 },
+  cameraOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'space-between',
+  },
+  cameraTopBar: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: Spacing.md, paddingTop: Platform.OS === 'ios' ? 56 : 40,
+  },
+  cameraStepText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+  faceGuide: { alignItems: 'center', justifyContent: 'center', flex: 1 },
+  faceOval: {
+    width: SCREEN_W * 0.55,
+    height: SCREEN_W * 0.75,
+    borderRadius: SCREEN_W * 0.375,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.5)',
+    borderStyle: 'dashed',
+  },
+  cameraTip: {
+    fontSize: 14, color: '#FFFFFF', textAlign: 'center',
+    paddingHorizontal: Spacing.xl, marginBottom: Spacing.md,
+    textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
+  },
+  cameraBottomBar: {
+    alignItems: 'center', paddingBottom: Platform.OS === 'ios' ? 50 : 40,
+  },
+  shutterButton: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 3, borderColor: '#FFFFFF',
+  },
+  shutterInner: {
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: '#FFFFFF',
+  },
+
   // Preview screen
   previewContainer: {
     width: 260, height: 340, borderRadius: 20, overflow: 'hidden',
     backgroundColor: '#1A1A1A', marginTop: Spacing.md,
     borderWidth: 2, borderColor: c.primary,
   },
-  previewImage: { width: '100%', height: '100%' },
+  previewImage: { width: 260, height: 340 },
   previewLabel: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginTop: 20 },
   previewHint: { fontSize: 13, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: 6, paddingHorizontal: Spacing.xl, lineHeight: 18 },
 
