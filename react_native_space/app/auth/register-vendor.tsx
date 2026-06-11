@@ -40,8 +40,17 @@ const DRAFT_KEY = 'nexxos_vendor_registration_draft';
  */
 const PreviewImage = ({ uri, style }: { uri: string; style: any }) => {
   if (!uri) return null;
-  console.log('[PreviewImage] rendering, uri scheme:', uri?.substring?.(0, 30), 'length:', uri?.length);
-  return <RNImage source={{ uri }} style={style} resizeMode="cover" />;
+  console.log('[PreviewImage] rendering, uri:', uri?.substring?.(0, 80), 'length:', uri?.length);
+  return (
+    <RNImage
+      source={{ uri }}
+      style={[style, { backgroundColor: '#FF00FF' }]}
+      resizeMode="cover"
+      onLoad={() => console.log('[PreviewImage] ✅ onLoad fired for:', uri?.substring?.(0, 50))}
+      onError={(e) => console.log('[PreviewImage] ❌ onError:', JSON.stringify(e?.nativeEvent))}
+      onLoadEnd={() => console.log('[PreviewImage] onLoadEnd fired')}
+    />
+  );
 };
 
 interface RegistrationDraft {
