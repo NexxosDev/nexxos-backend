@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable, Alert, Modal, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable, Alert, Modal, ActivityIndicator, Linking, Image as RNImage } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -33,6 +33,17 @@ import type { CatalogItem } from '../../src/types';
 
 const TOTAL_STEPS = 6;
 const DRAFT_KEY = 'nexxos_vendor_registration_draft';
+
+/**
+ * Smart image component: uses RN Image for data: URIs (ExpoImage/Glide fails with large base64 on Android),
+ * and ExpoImage for everything else (better caching for remote URLs).
+ */
+const SmartImage = ({ uri, style }: { uri: string; style: any }) => {
+  if (uri?.startsWith?.('data:')) {
+    return <RNImage source={{ uri }} style={style} resizeMode="cover" />;
+  }
+  return <ExpoImage source={{ uri }} style={style} contentFit="cover" />;
+};
 
 interface RegistrationDraft {
   step: number;
@@ -256,12 +267,13 @@ export default function RegisterVendorScreen() {
 
   const pickImageFromLibrary = async (type: 'doc' | 'logo' | 'personalDoc' | 'facade') => {
     try {
+      const isAndroid = Platform.OS === 'android';
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        quality: 0.8,
+        quality: isAndroid ? 0.5 : 0.8, // Lower quality on Android to keep base64 small
         allowsEditing: true,
         aspect: type === 'logo' ? [1, 1] : [4, 3],
-        base64: Platform.OS === 'android',
+        base64: isAndroid,
       });
       if (!result?.canceled && result?.assets?.[0]) {
         applyPickedResult(result.assets[0], type);
@@ -276,11 +288,12 @@ export default function RegisterVendorScreen() {
         Alert.alert('Permiso Denegado', 'Necesitamos acceso a la cámara para tomar fotos.');
         return;
       }
+      const isAndroid = Platform.OS === 'android';
       const result = await ImagePicker.launchCameraAsync({
-        quality: 0.8,
+        quality: isAndroid ? 0.5 : 0.8,
         allowsEditing: true,
         aspect: type === 'logo' ? [1, 1] : [4, 3],
-        base64: Platform.OS === 'android',
+        base64: isAndroid,
       });
       if (!result?.canceled && result?.assets?.[0]) {
         applyPickedResult(result.assets[0], type);
@@ -538,7 +551,7 @@ export default function RegisterVendorScreen() {
               </Text>
               {personalDocUri ? (
                 <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(personalDocUri)}>
-                  <ExpoImage key={personalDocUri} source={{ uri: personalDocUri }} style={styles.imagePreviewFull} contentFit="cover" />
+                  <SmartImage uri={personalDocUri} style={styles.imagePreviewFull} />
                   <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                   <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('personalDoc')}>
                     <Ionicons name="camera-outline" size={20} color={colors.white} />
@@ -641,7 +654,7 @@ export default function RegisterVendorScreen() {
             </Text>
             {business?.docImageUri ? (
               <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(business.docImageUri)}>
-                <ExpoImage key={business.docImageUri} source={{ uri: business.docImageUri }} style={styles.imagePreviewFull} contentFit="cover" />
+                <SmartImage uri={business.docImageUri} style={styles.imagePreviewFull} />
                 <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                 <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('doc')}>
                   <Ionicons name="camera-outline" size={20} color={colors.white} />
@@ -661,7 +674,7 @@ export default function RegisterVendorScreen() {
             </Text>
             {business?.logoUri ? (
               <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(business.logoUri)}>
-                <ExpoImage key={business.logoUri} source={{ uri: business.logoUri }} style={styles.imagePreviewFull} contentFit="cover" />
+                <SmartImage uri={business.logoUri} style={styles.imagePreviewFull} />
                 <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                 <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('logo')}>
                   <Ionicons name="image-outline" size={20} color={colors.white} />
@@ -684,7 +697,7 @@ export default function RegisterVendorScreen() {
             </Text>
             {business?.facadeUri ? (
               <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(business.facadeUri)}>
-                <ExpoImage key={business.facadeUri} source={{ uri: business.facadeUri }} style={styles.imagePreviewFull} contentFit="cover" />
+                <SmartImage uri={business.facadeUri} style={styles.imagePreviewFull} />
                 <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                 <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('facade')}>
                   <Ionicons name="business-outline" size={20} color={colors.white} />
