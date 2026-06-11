@@ -9,9 +9,9 @@ import {
   Dimensions,
   Platform,
   StatusBar,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -153,8 +153,7 @@ export default function ImagePreviewModal({ visible, imageUri, onClose }: ImageP
           <Image
             source={{ uri: imageUri }}
             style={styles.image}
-            contentFit="contain"
-            transition={200}
+            resizeMode="contain"
           />
         </Animated.View>
 

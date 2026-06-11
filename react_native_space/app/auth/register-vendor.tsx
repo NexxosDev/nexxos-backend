@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable, Alert, Modal, ActivityIndicator, Linking, Image as RNImage } from 'react-native';
-import { Image as ExpoImage } from 'expo-image';
+
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,14 +35,13 @@ const TOTAL_STEPS = 6;
 const DRAFT_KEY = 'nexxos_vendor_registration_draft';
 
 /**
- * Smart image component: uses RN Image for data: URIs (ExpoImage/Glide fails with large base64 on Android),
- * and ExpoImage for everything else (better caching for remote URLs).
+ * Simple image preview using React Native's built-in Image component.
+ * Handles file://, content://, and https:// URIs natively on all platforms.
  */
-const SmartImage = ({ uri, style }: { uri: string; style: any }) => {
-  if (uri?.startsWith?.('data:')) {
-    return <RNImage source={{ uri }} style={style} resizeMode="cover" />;
-  }
-  return <ExpoImage source={{ uri }} style={style} contentFit="cover" />;
+const PreviewImage = ({ uri, style }: { uri: string; style: any }) => {
+  if (!uri) return null;
+  console.log('[PreviewImage] rendering, uri scheme:', uri?.substring?.(0, 30), 'length:', uri?.length);
+  return <RNImage source={{ uri }} style={style} resizeMode="cover" />;
 };
 
 interface RegistrationDraft {
@@ -235,45 +234,31 @@ export default function RegisterVendorScreen() {
     }
   }, [subcategoriesMap, catalog]);
 
-  // Keep original file URIs for S3 uploads (data: URIs can't be fetched as blob)
-  const [personalDocFileUri, setPersonalDocFileUri] = useState('');
-  const [docFileUri, setDocFileUri] = useState('');
-  const [logoFileUri, setLogoFileUri] = useState('');
-  const [facadeFileUri, setFacadeFileUri] = useState('');
-
   const applyPickedResult = (asset: ImagePicker.ImagePickerAsset, type: 'doc' | 'logo' | 'personalDoc' | 'facade') => {
-    const fileUri = asset.uri ?? '';
-    // On Android, use base64 data URI for display (file:// and content:// are unreliable in Expo Go)
-    const displayUri = (Platform.OS === 'android' && asset.base64)
-      ? `data:image/jpeg;base64,${asset.base64}`
-      : fileUri;
+    // Use asset.uri directly — RN <Image> handles file://, content://, etc. natively
+    const uri = asset.uri ?? '';
+    console.log('[applyPickedResult]', type, 'uri:', uri?.substring?.(0, 60), 'length:', uri?.length);
 
     if (type === 'personalDoc') {
-      setPersonalDocUri(displayUri);
-      setPersonalDocFileUri(fileUri);
+      setPersonalDocUri(uri);
       setIdentityVerified(false);
       setVerifyError('');
     } else if (type === 'doc') {
-      setBusiness((p) => ({ ...(p ?? {}), docImageUri: displayUri }));
-      setDocFileUri(fileUri);
+      setBusiness((p) => ({ ...(p ?? {}), docImageUri: uri }));
     } else if (type === 'facade') {
-      setBusiness((p) => ({ ...(p ?? {}), facadeUri: displayUri }));
-      setFacadeFileUri(fileUri);
+      setBusiness((p) => ({ ...(p ?? {}), facadeUri: uri }));
     } else {
-      setBusiness((p) => ({ ...(p ?? {}), logoUri: displayUri }));
-      setLogoFileUri(fileUri);
+      setBusiness((p) => ({ ...(p ?? {}), logoUri: uri }));
     }
   };
 
   const pickImageFromLibrary = async (type: 'doc' | 'logo' | 'personalDoc' | 'facade') => {
     try {
-      const isAndroid = Platform.OS === 'android';
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        quality: isAndroid ? 0.5 : 0.8, // Lower quality on Android to keep base64 small
+        quality: 0.8,
         allowsEditing: true,
         aspect: type === 'logo' ? [1, 1] : [4, 3],
-        base64: isAndroid,
       });
       if (!result?.canceled && result?.assets?.[0]) {
         applyPickedResult(result.assets[0], type);
@@ -288,12 +273,10 @@ export default function RegisterVendorScreen() {
         Alert.alert('Permiso Denegado', 'Necesitamos acceso a la cámara para tomar fotos.');
         return;
       }
-      const isAndroid = Platform.OS === 'android';
       const result = await ImagePicker.launchCameraAsync({
-        quality: isAndroid ? 0.5 : 0.8,
+        quality: 0.8,
         allowsEditing: true,
         aspect: type === 'logo' ? [1, 1] : [4, 3],
-        base64: isAndroid,
       });
       if (!result?.canceled && result?.assets?.[0]) {
         applyPickedResult(result.assets[0], type);
@@ -328,9 +311,9 @@ export default function RegisterVendorScreen() {
     setVerifying(true);
     setVerifyError('');
     try {
-      // Use file URIs for S3 upload, data URIs / file URIs for base64 conversion
-      const docUploadUri = personalDocFileUri || personalDocUri;
-      const docB64 = personalDocUri?.startsWith?.('data:') ? personalDocUri : await fileToBase64(personalDocUri);
+      // Convert file URIs to base64 for identity verification API
+      const docUploadUri = personalDocUri;
+      const docB64 = await fileToBase64(personalDocUri);
       const [neutralB64, smileB64, turnB64] = await Promise.all([
         fileToBase64(selfies.neutral),
         fileToBase64(selfies.smile),
@@ -483,14 +466,14 @@ export default function RegisterVendorScreen() {
         let docPath = '';
         let logoPathVal = '';
         if (business?.docImageUri) {
-          docPath = await uploadFile(docFileUri || business.docImageUri, 'doc_id.jpg', 'image/jpeg', false);
+          docPath = await uploadFile(business.docImageUri, 'doc_id.jpg', 'image/jpeg', false);
         }
         if (business?.logoUri) {
-          logoPathVal = await uploadFile(logoFileUri || business.logoUri, 'logo.jpg', 'image/jpeg', true);
+          logoPathVal = await uploadFile(business.logoUri, 'logo.jpg', 'image/jpeg', true);
         }
         let facadePathVal = '';
         if (business?.facadeUri) {
-          facadePathVal = await uploadFile(facadeFileUri || business.facadeUri, 'facade.jpg', 'image/jpeg', true);
+          facadePathVal = await uploadFile(business.facadeUri, 'facade.jpg', 'image/jpeg', true);
         }
         if (docPath || logoPathVal || facadePathVal) {
           const updateData: Record<string, unknown> = {};
@@ -551,7 +534,7 @@ export default function RegisterVendorScreen() {
               </Text>
               {personalDocUri ? (
                 <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(personalDocUri)}>
-                  <SmartImage uri={personalDocUri} style={styles.imagePreviewFull} />
+                  <PreviewImage uri={personalDocUri} style={styles.imagePreviewFull} />
                   <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                   <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('personalDoc')}>
                     <Ionicons name="camera-outline" size={20} color={colors.white} />
@@ -572,18 +555,18 @@ export default function RegisterVendorScreen() {
               {selfies?.neutral ? (
                 <View style={styles.selfiePreviewRow}>
                   <Pressable style={styles.selfieThumb} onPress={() => setPreviewImageUri(selfies?.neutral ?? null)}>
-                    <ExpoImage source={{ uri: selfies.neutral }} style={styles.selfieThumbImg} contentFit="cover" />
+                    <RNImage source={{ uri: selfies.neutral }} style={styles.selfieThumbImg} resizeMode="cover" />
                     <Text style={styles.selfieThumbLabel}>Neutra</Text>
                   </Pressable>
                   {selfies?.smile ? (
                     <Pressable style={styles.selfieThumb} onPress={() => setPreviewImageUri(selfies?.smile ?? null)}>
-                      <ExpoImage source={{ uri: selfies.smile }} style={styles.selfieThumbImg} contentFit="cover" />
+                      <RNImage source={{ uri: selfies.smile }} style={styles.selfieThumbImg} resizeMode="cover" />
                       <Text style={styles.selfieThumbLabel}>Sonrisa</Text>
                     </Pressable>
                   ) : null}
                   {selfies?.turn ? (
                     <Pressable style={styles.selfieThumb} onPress={() => setPreviewImageUri(selfies?.turn ?? null)}>
-                      <ExpoImage source={{ uri: selfies.turn }} style={styles.selfieThumbImg} contentFit="cover" />
+                      <RNImage source={{ uri: selfies.turn }} style={styles.selfieThumbImg} resizeMode="cover" />
                       <Text style={styles.selfieThumbLabel}>Girada</Text>
                     </Pressable>
                   ) : null}
@@ -654,7 +637,7 @@ export default function RegisterVendorScreen() {
             </Text>
             {business?.docImageUri ? (
               <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(business.docImageUri)}>
-                <SmartImage uri={business.docImageUri} style={styles.imagePreviewFull} />
+                <PreviewImage uri={business.docImageUri} style={styles.imagePreviewFull} />
                 <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                 <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('doc')}>
                   <Ionicons name="camera-outline" size={20} color={colors.white} />
@@ -674,7 +657,7 @@ export default function RegisterVendorScreen() {
             </Text>
             {business?.logoUri ? (
               <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(business.logoUri)}>
-                <SmartImage uri={business.logoUri} style={styles.imagePreviewFull} />
+                <PreviewImage uri={business.logoUri} style={styles.imagePreviewFull} />
                 <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                 <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('logo')}>
                   <Ionicons name="image-outline" size={20} color={colors.white} />
@@ -697,7 +680,7 @@ export default function RegisterVendorScreen() {
             </Text>
             {business?.facadeUri ? (
               <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(business.facadeUri)}>
-                <SmartImage uri={business.facadeUri} style={styles.imagePreviewFull} />
+                <PreviewImage uri={business.facadeUri} style={styles.imagePreviewFull} />
                 <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
                 <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('facade')}>
                   <Ionicons name="business-outline" size={20} color={colors.white} />
