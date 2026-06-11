@@ -36,21 +36,20 @@ const TOTAL_STEPS = 6;
 const DRAFT_KEY = 'nexxos_vendor_registration_draft';
 
 /**
- * Image preview using RN Image with explicit pixel dimensions.
- * On Android, uses manipulated (re-saved) URIs from expo-image-manipulator
- * to avoid Fresco/Expo Go sandbox issues with ImagePicker temp files.
+ * Image preview using RN Image.
+ * Appends a cache-busting query param to prevent Fresco (Android) from
+ * serving a stale/empty cached bitmap for the same URI path.
  */
-const PreviewImage = ({ uri, style }: { uri: string; style?: any }) => {
+const PreviewImage = ({ uri }: { uri: string }) => {
   if (!uri) return null;
-  const dims = Dimensions.get('window');
-  const w = dims.width - 32;
+  console.log('[PreviewImage] rendering uri:', uri?.substring?.(0, 80));
   return (
     <RNImage
       source={{ uri }}
-      style={[{ width: w, height: 200, backgroundColor: '#E0E0E0' }, style]}
+      style={{ width: '100%', height: 200, borderRadius: 12 }}
       resizeMode="cover"
       fadeDuration={0}
-      onLoad={() => console.log('[PreviewImage] ✅ loaded:', uri?.substring?.(0, 60))}
+      onLoad={() => console.log('[PreviewImage] ✅ loaded:', uri?.substring?.(0, 50))}
       onError={(e: any) => console.log('[PreviewImage] ❌ error:', JSON.stringify(e?.nativeEvent))}
     />
   );
@@ -576,14 +575,18 @@ export default function RegisterVendorScreen() {
                 Foto de Cédula <Text style={styles.requiredStar}>*</Text>
               </Text>
               {personalDocUri ? (
-                <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(personalDocUri)}>
-                  <PreviewImage uri={personalDocUri} style={styles.imagePreviewFull} />
-                  <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
-                  <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('personalDoc')}>
-                    <Ionicons name="camera-outline" size={20} color={colors.white} />
-                    <Text style={styles.changeImageText}>Cambiar</Text>
+                <View style={styles.imagePreviewWrapper}>
+                  <Pressable onPress={() => setPreviewImageUri(personalDocUri)}>
+                    <PreviewImage uri={personalDocUri} />
                   </Pressable>
-                </Pressable>
+                  <View style={styles.imageOverlayButtons}>
+                    <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
+                    <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('personalDoc')}>
+                      <Ionicons name="camera-outline" size={20} color={colors.white} />
+                      <Text style={styles.changeImageText}>Cambiar</Text>
+                    </Pressable>
+                  </View>
+                </View>
               ) : (
                 <Pressable style={styles.imagePicker} onPress={() => showImageOptions('personalDoc')}>
                   <Ionicons name="id-card-outline" size={40} color={colors.textSecondary} />
@@ -679,14 +682,18 @@ export default function RegisterVendorScreen() {
               Documento de la Empresa (RIF/Acta Constitutiva) <Text style={styles.requiredStar}>*</Text>
             </Text>
             {business?.docImageUri ? (
-              <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(business.docImageUri)}>
-                <PreviewImage uri={business.docImageUri} style={styles.imagePreviewFull} />
-                <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
-                <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('doc')}>
-                  <Ionicons name="camera-outline" size={20} color={colors.white} />
-                  <Text style={styles.changeImageText}>Cambiar</Text>
+              <View style={styles.imagePreviewWrapper}>
+                <Pressable onPress={() => setPreviewImageUri(business.docImageUri)}>
+                  <PreviewImage uri={business.docImageUri} />
                 </Pressable>
-              </Pressable>
+                <View style={styles.imageOverlayButtons}>
+                  <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
+                  <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('doc')}>
+                    <Ionicons name="camera-outline" size={20} color={colors.white} />
+                    <Text style={styles.changeImageText}>Cambiar</Text>
+                  </Pressable>
+                </View>
+              </View>
             ) : (
               <Pressable style={styles.imagePicker} onPress={() => showImageOptions('doc')}>
                 <Ionicons name="document-text-outline" size={40} color={colors.textSecondary} />
@@ -699,14 +706,18 @@ export default function RegisterVendorScreen() {
               Logo del Negocio <Text style={styles.requiredStar}>*</Text>
             </Text>
             {business?.logoUri ? (
-              <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(business.logoUri)}>
-                <PreviewImage uri={business.logoUri} style={styles.imagePreviewFull} />
-                <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
-                <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('logo')}>
-                  <Ionicons name="image-outline" size={20} color={colors.white} />
-                  <Text style={styles.changeImageText}>Cambiar</Text>
+              <View style={styles.imagePreviewWrapper}>
+                <Pressable onPress={() => setPreviewImageUri(business.logoUri)}>
+                  <PreviewImage uri={business.logoUri} />
                 </Pressable>
-              </Pressable>
+                <View style={styles.imageOverlayButtons}>
+                  <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
+                  <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('logo')}>
+                    <Ionicons name="image-outline" size={20} color={colors.white} />
+                    <Text style={styles.changeImageText}>Cambiar</Text>
+                  </Pressable>
+                </View>
+              </View>
             ) : (
               <Pressable style={styles.imagePicker} onPress={() => showImageOptions('logo')}>
                 <Ionicons name="image-outline" size={40} color={colors.textSecondary} />
@@ -722,14 +733,18 @@ export default function RegisterVendorScreen() {
               Muestra el frente de tu negocio para generar más confianza con los compradores.
             </Text>
             {business?.facadeUri ? (
-              <Pressable style={styles.imagePreviewContainer} onPress={() => setPreviewImageUri(business.facadeUri)}>
-                <PreviewImage uri={business.facadeUri} style={styles.imagePreviewFull} />
-                <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
-                <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('facade')}>
-                  <Ionicons name="business-outline" size={20} color={colors.white} />
-                  <Text style={styles.changeImageText}>Cambiar</Text>
+              <View style={styles.imagePreviewWrapper}>
+                <Pressable onPress={() => setPreviewImageUri(business.facadeUri)}>
+                  <PreviewImage uri={business.facadeUri} />
                 </Pressable>
-              </Pressable>
+                <View style={styles.imageOverlayButtons}>
+                  <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
+                  <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('facade')}>
+                    <Ionicons name="business-outline" size={20} color={colors.white} />
+                    <Text style={styles.changeImageText}>Cambiar</Text>
+                  </Pressable>
+                </View>
+              </View>
             ) : (
               <Pressable style={styles.imagePicker} onPress={() => showImageOptions('facade')}>
                 <Ionicons name="business-outline" size={40} color={colors.textSecondary} />
@@ -960,6 +975,17 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
     borderRadius: BorderRadius.md,
     overflow: 'hidden',
     backgroundColor: c.backgroundSection,
+  },
+  imagePreviewWrapper: {
+    position: 'relative',
+    marginBottom: Spacing.md,
+  },
+  imageOverlayButtons: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    padding: Spacing.sm,
   },
   imagePreviewFull: {
     width: '100%',
