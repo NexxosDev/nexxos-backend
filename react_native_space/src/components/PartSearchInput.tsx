@@ -17,10 +17,11 @@ export default function PartSearchInput({ onSelect }: PartSearchInputProps) {
   const [results, setResults] = useState<PartSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState(false);
+  const [selected, setSelected] = useState<PartSearchResult | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<TextInput>(null);
 
-  const handleChange = useCallback((text: string) => {
-    setQuery(text);
+  const doSearch = useCallback((text: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const trimmed = text?.trim?.() ?? '';
     if (trimmed.length < 2) { setResults([]); setLoading(false); return; }
@@ -34,33 +35,50 @@ export default function PartSearchInput({ onSelect }: PartSearchInputProps) {
     }, 300);
   }, []);
 
+  const handleChange = useCallback((text: string) => {
+    setQuery(text);
+    // If user edits text after a selection, clear the selection so they can pick again
+    if (selected) setSelected(null);
+    doSearch(text);
+  }, [doSearch, selected]);
+
   const handleSelect = useCallback((item: PartSearchResult) => {
-    setQuery('');
+    const label = item?.subcategoryName ?? item?.categoryName ?? '';
+    setQuery(label);
+    setSelected(item);
     setResults([]);
     setFocused(false);
     onSelect?.(item);
   }, [onSelect]);
 
-  const showResults = focused && (query?.trim?.()?.length ?? 0) >= 2 && ((results?.length ?? 0) > 0 || loading);
+  const handleClear = useCallback(() => {
+    setQuery('');
+    setResults([]);
+    setSelected(null);
+    inputRef.current?.focus?.();
+  }, []);
+
+  const showResults = focused && !selected && (query?.trim?.()?.length ?? 0) >= 2 && ((results?.length ?? 0) > 0 || loading);
 
   return (
     <View style={styles.container}>
-      <View style={styles.inputRow}>
-        <Ionicons name="search" size={18} color={colors.textSecondary} style={styles.icon} />
+      <View style={[styles.inputRow, selected ? styles.inputRowSelected : null]}>
+        <Ionicons name="search" size={18} color={selected ? colors.primary : colors.textSecondary} style={styles.icon} />
         <TextInput
+          ref={inputRef}
           style={styles.input}
           value={query}
           onChangeText={handleChange}
           placeholder='Buscar repuesto... (ej: "croche", "tacos", "aceite")'
           placeholderTextColor={colors.textSecondary}
-          onFocus={() => setFocused(true)}
+          onFocus={() => { setFocused(true); if (selected) { /* keep selected shown, user can type to change */ } }}
           onBlur={() => setTimeout(() => setFocused(false), 200)}
           autoCorrect={false}
           autoCapitalize="none"
         />
         {loading ? <ActivityIndicator size="small" color={colors.primary} style={styles.spinner} /> : null}
         {!loading && (query?.length ?? 0) > 0 ? (
-          <Pressable onPress={() => { setQuery(''); setResults([]); }} style={styles.clearBtn}>
+          <Pressable onPress={handleClear} style={styles.clearBtn}>
             <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
           </Pressable>
         ) : null}
@@ -106,6 +124,10 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
     backgroundColor: c.surface, borderRadius: BorderRadius.md,
     borderWidth: 1, borderColor: c.border,
     paddingHorizontal: Spacing.sm,
+  },
+  inputRowSelected: {
+    borderColor: c.primary,
+    backgroundColor: `${c.primary}08`,
   },
   icon: { marginRight: 6 },
   input: { flex: 1, fontSize: 15, color: c.textPrimary, paddingVertical: Platform.OS === 'ios' ? 12 : 10 },
