@@ -40,7 +40,9 @@ export default function PartSearchInput({ onSelect, onClear }: PartSearchInputPr
 
   const handleChange = useCallback((text: string) => {
     setQuery(text);
-    // If user types after a selection, clear the selection flag so dropdown reappears
+    // CRITICAL: always mark focused when user types — onFocus may not fire
+    // if the native input never actually lost focus (Android quirk)
+    setFocused(true);
     if (selectedRef.current) {
       selectedRef.current = false;
       setSelected(false);
@@ -55,6 +57,8 @@ export default function PartSearchInput({ onSelect, onClear }: PartSearchInputPr
     setSelected(true);
     setResults([]);
     setFocused(false);
+    // Blur the native input so next tap triggers onFocus reliably
+    inputRef.current?.blur?.();
     onSelect?.(item);
   }, [onSelect]);
 
@@ -63,6 +67,8 @@ export default function PartSearchInput({ onSelect, onClear }: PartSearchInputPr
     setResults([]);
     selectedRef.current = false;
     setSelected(false);
+    // CRITICAL: set focused immediately — .focus() may not trigger onFocus on Android
+    setFocused(true);
     onClear?.();
     inputRef.current?.focus?.();
   }, [onClear]);
