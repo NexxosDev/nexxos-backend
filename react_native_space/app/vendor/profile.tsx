@@ -139,6 +139,7 @@ export default function VendorProfileScreen() {
                 style={styles.logoImage}
                 contentFit="cover"
                 transition={200}
+                cachePolicy="none"
               />
             ) : (
               <View style={styles.logoFallback}>
@@ -377,14 +378,14 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    overflow: 'hidden',
     backgroundColor: c.backgroundSection,
     borderWidth: 2,
     borderColor: c.primary,
   },
   logoImage: {
-    width: '100%',
-    height: '100%',
+    width: 92,
+    height: 92,
+    borderRadius: 46,
   },
   logoFallback: {
     flex: 1,

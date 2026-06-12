@@ -229,7 +229,7 @@ export default function VendorEditProfileScreen() {
               {(facadeUri || facadeRemoteUrl) ? (
                 <View style={{ marginTop: 6 }}>
                   <Pressable onPress={() => setFacadePreview(true)}>
-                    <Image source={{ uri: facadeUri ?? facadeRemoteUrl ?? '' }} style={{ width: '100%', height: 140, borderRadius: 10 }} contentFit="cover" />
+                    <Image source={{ uri: facadeUri ?? facadeRemoteUrl ?? '' }} style={{ width: '100%', height: 140, borderRadius: 10 }} contentFit="cover" cachePolicy="none" />
                     <View style={{ position: 'absolute', bottom: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, padding: 4 }}>
                       <Ionicons name="expand-outline" size={14} color="#fff" />
                     </View>
@@ -307,7 +307,7 @@ export default function VendorEditProfileScreen() {
       {(facadeUri || facadeRemoteUrl) ? (
         <Modal visible={facadePreview} transparent animationType="fade" onRequestClose={() => setFacadePreview(false)}>
           <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setFacadePreview(false)}>
-            <Image source={{ uri: facadeUri ?? facadeRemoteUrl ?? '' }} style={{ width: 320, height: 240, borderRadius: 12 }} contentFit="contain" />
+            <Image source={{ uri: facadeUri ?? facadeRemoteUrl ?? '' }} style={{ width: 320, height: 240, borderRadius: 12 }} contentFit="contain" cachePolicy="none" />
             <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600', marginTop: 12 }}>Fachada del negocio</Text>
             <Pressable style={{ position: 'absolute', top: Platform.OS === 'ios' ? 56 : 36, right: 20 }} onPress={() => setFacadePreview(false)} hitSlop={12}>
               <Ionicons name="close-circle" size={32} color="#fff" />

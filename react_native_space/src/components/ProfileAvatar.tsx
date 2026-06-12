@@ -61,7 +61,7 @@ export default function ProfileAvatar({ imageUrl, initials, size = 90, onImageUp
     <View style={[styles.container, { width: size, height: size }]}>
       <Pressable onPress={showOptions} style={[styles.avatarWrapper, { width: size, height: size, borderRadius: halfSize }]}>
         {imageUrl ? (
-          <Image source={{ uri: imageUrl }} style={[styles.image, { width: size, height: size, borderRadius: halfSize }]} contentFit="cover" />
+          <Image source={{ uri: imageUrl }} style={[styles.image, { width: size, height: size, borderRadius: halfSize }]} contentFit="cover" cachePolicy="none" />
         ) : (
           <View style={[styles.initialsCircle, { width: size, height: size, borderRadius: halfSize }]}>
             <Text style={[styles.initials, { fontSize: size * 0.35 }]}>{initials}</Text>
@@ -83,7 +83,7 @@ export default function ProfileAvatar({ imageUrl, initials, size = 90, onImageUp
 
 const createStyles = (c: ThemeColors) => StyleSheet.create({
   container: { alignSelf: 'center' },
-  avatarWrapper: { position: 'relative', overflow: 'hidden' },
+  avatarWrapper: { position: 'relative' },
   image: { backgroundColor: c.backgroundSection },
   initialsCircle: { backgroundColor: c.primary, justifyContent: 'center', alignItems: 'center' },
   initials: { fontWeight: '700', color: c.accent },

@@ -140,7 +140,7 @@ export default function ChatMessage({
           <Pressable onPress={openInMaps} style={styles.locationBubble}>
             <View style={styles.locationMapWrapper}>
               {staticMapUrl ? (
-                <Image source={{ uri: staticMapUrl }} style={styles.locationMap} contentFit="cover" transition={200} placeholder={{ color: colors.border } as any} />
+                <Image source={{ uri: staticMapUrl }} style={styles.locationMap} contentFit="cover" transition={200} cachePolicy="none" placeholder={{ color: colors.border } as any} />
               ) : (
                 <View style={[styles.locationMap, styles.locationMapPlaceholder]}>
                   <Ionicons name="location" size={32} color="#E53935" />
@@ -166,7 +166,7 @@ export default function ChatMessage({
           />
         ) : isImage ? (
           <Pressable onPress={() => setPreviewOpen(true)}>
-            <Image source={{ uri: imageUrl ?? '' }} style={styles.image} contentFit="cover" transition={200} placeholder={{ color: colors.border } as any} />
+            <Image source={{ uri: imageUrl ?? '' }} style={styles.image} contentFit="cover" transition={200} cachePolicy="none" placeholder={{ color: colors.border } as any} />
           </Pressable>
         ) : (
           <Text style={[styles.text, shouldBeYellow ? styles.textVendor : styles.textClient]}>{messageText ?? ''}</Text>
@@ -335,7 +335,7 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   deletedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2 },
   deletedText: { fontSize: 14, fontStyle: 'italic', color: c.textSecondary },
   image: { width: IMG_SIZE, height: IMG_SIZE, borderRadius: BorderRadius.md },
-  locationBubble: { width: IMG_SIZE, overflow: 'hidden' as const },
+  locationBubble: { width: IMG_SIZE },
   locationMapWrapper: { position: 'relative' as const },
   locationMap: { width: '100%' as const, height: 150, borderRadius: BorderRadius.md, marginBottom: 6 },
   locationMapPlaceholder: { backgroundColor: c.backgroundSection, justifyContent: 'center' as const, alignItems: 'center' as const },

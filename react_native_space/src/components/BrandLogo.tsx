@@ -42,7 +42,7 @@ export default function BrandLogo({ brandName, size = 28 }: BrandLogoProps) {
 
   return (
     <View style={[styles.container, { width: size + 8, height: size + 8, borderRadius: (size + 8) / 2 }]}>
-      <Image source={{ uri: logoUrl }} style={{ width: size, height: size }} contentFit="contain" transition={150} onError={() => setFailed(true)} />
+      <Image source={{ uri: logoUrl }} style={{ width: size, height: size }} contentFit="contain" transition={150} cachePolicy="none" onError={() => setFailed(true)} />
     </View>
   );
 }

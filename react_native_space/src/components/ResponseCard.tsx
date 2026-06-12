@@ -61,7 +61,7 @@ export default function ResponseCard({ businessName, logoUrl, facadeImageUrl, av
       <View style={styles.header}>
         {hasLogo ? (
           <Pressable onPress={() => setLogoModal(true)}>
-            <Image source={{ uri: logoUrl }} style={styles.avatarImg} contentFit="cover" onError={() => setLogoError(true)} />
+            <Image source={{ uri: logoUrl }} style={styles.avatarImg} contentFit="cover" cachePolicy="none" onError={() => setLogoError(true)} />
           </Pressable>
         ) : (
           <View style={styles.avatar}>
@@ -135,7 +135,7 @@ export default function ResponseCard({ businessName, logoUrl, facadeImageUrl, av
         <Modal visible={facadeModal} transparent animationType="fade" onRequestClose={() => setFacadeModal(false)}>
           <Pressable style={styles.logoModalOverlay} onPress={() => setFacadeModal(false)}>
             <View style={styles.logoModalContent}>
-              <Image source={{ uri: facadeImageUrl! }} style={styles.facadeModalImg} contentFit="contain" />
+              <Image source={{ uri: facadeImageUrl! }} style={styles.facadeModalImg} contentFit="contain" cachePolicy="none" />
               <Text style={styles.logoModalName}>{businessName ?? ''} — Fachada</Text>
             </View>
             <Pressable style={styles.logoModalClose} onPress={() => setFacadeModal(false)} hitSlop={12}>
@@ -149,7 +149,7 @@ export default function ResponseCard({ businessName, logoUrl, facadeImageUrl, av
         <Modal visible={logoModal} transparent animationType="fade" onRequestClose={() => setLogoModal(false)}>
           <Pressable style={styles.logoModalOverlay} onPress={() => setLogoModal(false)}>
             <View style={styles.logoModalContent}>
-              <Image source={{ uri: logoUrl }} style={styles.logoModalImg} contentFit="contain" />
+              <Image source={{ uri: logoUrl }} style={styles.logoModalImg} contentFit="contain" cachePolicy="none" />
               <Text style={styles.logoModalName}>{businessName ?? ''}</Text>
             </View>
             <Pressable style={styles.logoModalClose} onPress={() => setLogoModal(false)} hitSlop={12}>
