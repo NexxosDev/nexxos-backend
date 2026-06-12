@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable, Alert, Modal, ActivityIndicator, Linking, Image as RNImage, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable, Alert, Modal, ActivityIndicator, Linking, Image as RNImage } from 'react-native';
 
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { Image as ExpoImage } from 'expo-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useCatalog } from '../../src/contexts/CatalogContext';
@@ -35,50 +35,7 @@ import type { CatalogItem } from '../../src/types';
 const TOTAL_STEPS = 6;
 const DRAFT_KEY = 'nexxos_vendor_registration_draft';
 
-/**
- * Image preview using RN Image.
- * Appends a cache-busting query param to prevent Fresco (Android) from
- * serving a stale/empty cached bitmap for the same URI path.
- */
-const PreviewImage = ({ uri }: { uri: string }) => {
-  if (!uri) return null;
-  console.log('[PreviewImage] rendering uri:', uri?.substring?.(0, 80));
-  return (
-    <RNImage
-      source={{ uri }}
-      style={{ width: '100%', height: 200, borderRadius: 12 }}
-      resizeMode="cover"
-      fadeDuration={0}
-      onLoad={() => console.log('[PreviewImage] ✅ loaded:', uri?.substring?.(0, 50))}
-      onError={(e: any) => console.log('[PreviewImage] ❌ error:', JSON.stringify(e?.nativeEvent))}
-    />
-  );
-};
-
-/**
- * Process a picked image through expo-image-manipulator.
- * This creates a FRESH file in the app's cache that Fresco can reliably read,
- * bypassing Expo Go sandbox restrictions on ImagePicker temp files.
- * Returns { displayUri, uploadUri } where displayUri is the manipulated copy
- * and uploadUri is the original for S3 upload (higher quality).
- */
-const processPickedImage = async (asset: ImagePicker.ImagePickerAsset): Promise<{ displayUri: string; uploadUri: string }> => {
-  const originalUri = asset.uri ?? '';
-  try {
-    // Resize to max 800px wide for preview — creates a new file Fresco can read
-    const manipulated = await manipulateAsync(
-      originalUri,
-      [{ resize: { width: 800 } }],
-      { compress: 0.7, format: SaveFormat.JPEG }
-    );
-    console.log('[processPickedImage] original:', originalUri?.substring?.(0, 60));
-    console.log('[processPickedImage] manipulated:', manipulated?.uri?.substring?.(0, 60));
-    return { displayUri: manipulated?.uri ?? originalUri, uploadUri: originalUri };
-  } catch (err) {
-    console.log('[processPickedImage] manipulate failed, using original:', err);
-    return { displayUri: originalUri, uploadUri: originalUri };
-  }
-};
+/* no helper components - images rendered inline */
 
 interface RegistrationDraft {
   step: number;
@@ -270,27 +227,20 @@ export default function RegisterVendorScreen() {
     }
   }, [subcategoriesMap, catalog]);
 
-  // Keep original file URIs for S3 uploads (manipulated URIs are lower quality)
-  const [uploadUris, setUploadUris] = useState<Record<string, string>>({});
-
-  const applyPickedResult = async (asset: ImagePicker.ImagePickerAsset, type: 'doc' | 'logo' | 'personalDoc' | 'facade') => {
-    const { displayUri, uploadUri } = await processPickedImage(asset);
-    console.log('[applyPickedResult]', type, 'display:', displayUri?.substring?.(0, 60), 'upload:', uploadUri?.substring?.(0, 60));
-
-    // Store original URI for S3 upload
-    setUploadUris((prev) => ({ ...(prev ?? {}), [type]: uploadUri }));
-
-    // Use manipulated URI for display (Fresco-friendly)
+  const applyPickedResult = (asset: ImagePicker.ImagePickerAsset, type: 'doc' | 'logo' | 'personalDoc' | 'facade') => {
+    const uri = asset?.uri ?? '';
+    console.log('[applyPickedResult]', type, 'uri:', uri);
+    if (!uri) return;
     if (type === 'personalDoc') {
-      setPersonalDocUri(displayUri);
+      setPersonalDocUri(uri);
       setIdentityVerified(false);
       setVerifyError('');
     } else if (type === 'doc') {
-      setBusiness((p) => ({ ...(p ?? {}), docImageUri: displayUri }));
+      setBusiness((p) => ({ ...(p ?? {}), docImageUri: uri }));
     } else if (type === 'facade') {
-      setBusiness((p) => ({ ...(p ?? {}), facadeUri: displayUri }));
+      setBusiness((p) => ({ ...(p ?? {}), facadeUri: uri }));
     } else {
-      setBusiness((p) => ({ ...(p ?? {}), logoUri: displayUri }));
+      setBusiness((p) => ({ ...(p ?? {}), logoUri: uri }));
     }
   };
 
@@ -303,7 +253,7 @@ export default function RegisterVendorScreen() {
         aspect: type === 'logo' ? [1, 1] : [4, 3],
       });
       if (!result?.canceled && result?.assets?.[0]) {
-        await applyPickedResult(result.assets[0], type);
+        applyPickedResult(result.assets[0], type);
       }
     } catch { }
   };
@@ -321,7 +271,7 @@ export default function RegisterVendorScreen() {
         aspect: type === 'logo' ? [1, 1] : [4, 3],
       });
       if (!result?.canceled && result?.assets?.[0]) {
-        await applyPickedResult(result.assets[0], type);
+        applyPickedResult(result.assets[0], type);
       }
     } catch { }
   };
@@ -354,7 +304,7 @@ export default function RegisterVendorScreen() {
     setVerifyError('');
     try {
       // Use original (non-manipulated) URI for upload and base64 conversion
-      const docUploadUri = uploadUris?.['personalDoc'] || personalDocUri;
+      const docUploadUri = personalDocUri;
       const docB64 = await fileToBase64(docUploadUri);
       const [neutralB64, smileB64, turnB64] = await Promise.all([
         fileToBase64(selfies.neutral),
@@ -508,14 +458,14 @@ export default function RegisterVendorScreen() {
         let docPath = '';
         let logoPathVal = '';
         if (business?.docImageUri) {
-          docPath = await uploadFile(uploadUris?.['doc'] || business.docImageUri, 'doc_id.jpg', 'image/jpeg', false);
+          docPath = await uploadFile(business.docImageUri, 'doc_id.jpg', 'image/jpeg', false);
         }
         if (business?.logoUri) {
-          logoPathVal = await uploadFile(uploadUris?.['logo'] || business.logoUri, 'logo.jpg', 'image/jpeg', true);
+          logoPathVal = await uploadFile(business.logoUri, 'logo.jpg', 'image/jpeg', true);
         }
         let facadePathVal = '';
         if (business?.facadeUri) {
-          facadePathVal = await uploadFile(uploadUris?.['facade'] || business.facadeUri, 'facade.jpg', 'image/jpeg', true);
+          facadePathVal = await uploadFile(business.facadeUri, 'facade.jpg', 'image/jpeg', true);
         }
         if (docPath || logoPathVal || facadePathVal) {
           const updateData: Record<string, unknown> = {};
@@ -575,17 +525,19 @@ export default function RegisterVendorScreen() {
                 Foto de Cédula <Text style={styles.requiredStar}>*</Text>
               </Text>
               {personalDocUri ? (
-                <View style={styles.imagePreviewWrapper}>
+                <View style={styles.inlinePreviewBlock}>
                   <Pressable onPress={() => setPreviewImageUri(personalDocUri)}>
-                    <PreviewImage uri={personalDocUri} />
+                    <ExpoImage
+                      source={{ uri: personalDocUri }}
+                      style={styles.inlinePreviewImage}
+                      contentFit="cover"
+                      cachePolicy="none"
+                    />
                   </Pressable>
-                  <View style={styles.imageOverlayButtons}>
-                    <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
-                    <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('personalDoc')}>
-                      <Ionicons name="camera-outline" size={20} color={colors.white} />
-                      <Text style={styles.changeImageText}>Cambiar</Text>
-                    </Pressable>
-                  </View>
+                  <Pressable style={styles.changeBtn} onPress={() => showImageOptions('personalDoc')}>
+                    <Ionicons name="camera-outline" size={18} color={colors.white} />
+                    <Text style={styles.changeBtnText}>Cambiar</Text>
+                  </Pressable>
                 </View>
               ) : (
                 <Pressable style={styles.imagePicker} onPress={() => showImageOptions('personalDoc')}>
@@ -682,17 +634,19 @@ export default function RegisterVendorScreen() {
               Documento de la Empresa (RIF/Acta Constitutiva) <Text style={styles.requiredStar}>*</Text>
             </Text>
             {business?.docImageUri ? (
-              <View style={styles.imagePreviewWrapper}>
+              <View style={styles.inlinePreviewBlock}>
                 <Pressable onPress={() => setPreviewImageUri(business.docImageUri)}>
-                  <PreviewImage uri={business.docImageUri} />
+                  <ExpoImage
+                    source={{ uri: business.docImageUri }}
+                    style={styles.inlinePreviewImage}
+                    contentFit="cover"
+                    cachePolicy="none"
+                  />
                 </Pressable>
-                <View style={styles.imageOverlayButtons}>
-                  <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
-                  <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('doc')}>
-                    <Ionicons name="camera-outline" size={20} color={colors.white} />
-                    <Text style={styles.changeImageText}>Cambiar</Text>
-                  </Pressable>
-                </View>
+                <Pressable style={styles.changeBtn} onPress={() => showImageOptions('doc')}>
+                  <Ionicons name="camera-outline" size={18} color={colors.white} />
+                  <Text style={styles.changeBtnText}>Cambiar</Text>
+                </Pressable>
               </View>
             ) : (
               <Pressable style={styles.imagePicker} onPress={() => showImageOptions('doc')}>
@@ -706,17 +660,19 @@ export default function RegisterVendorScreen() {
               Logo del Negocio <Text style={styles.requiredStar}>*</Text>
             </Text>
             {business?.logoUri ? (
-              <View style={styles.imagePreviewWrapper}>
+              <View style={styles.inlinePreviewBlock}>
                 <Pressable onPress={() => setPreviewImageUri(business.logoUri)}>
-                  <PreviewImage uri={business.logoUri} />
+                  <ExpoImage
+                    source={{ uri: business.logoUri }}
+                    style={styles.inlinePreviewImage}
+                    contentFit="cover"
+                    cachePolicy="none"
+                  />
                 </Pressable>
-                <View style={styles.imageOverlayButtons}>
-                  <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
-                  <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('logo')}>
-                    <Ionicons name="image-outline" size={20} color={colors.white} />
-                    <Text style={styles.changeImageText}>Cambiar</Text>
-                  </Pressable>
-                </View>
+                <Pressable style={styles.changeBtn} onPress={() => showImageOptions('logo')}>
+                  <Ionicons name="image-outline" size={18} color={colors.white} />
+                  <Text style={styles.changeBtnText}>Cambiar</Text>
+                </Pressable>
               </View>
             ) : (
               <Pressable style={styles.imagePicker} onPress={() => showImageOptions('logo')}>
@@ -733,17 +689,19 @@ export default function RegisterVendorScreen() {
               Muestra el frente de tu negocio para generar más confianza con los compradores.
             </Text>
             {business?.facadeUri ? (
-              <View style={styles.imagePreviewWrapper}>
+              <View style={styles.inlinePreviewBlock}>
                 <Pressable onPress={() => setPreviewImageUri(business.facadeUri)}>
-                  <PreviewImage uri={business.facadeUri} />
+                  <ExpoImage
+                    source={{ uri: business.facadeUri }}
+                    style={styles.inlinePreviewImage}
+                    contentFit="cover"
+                    cachePolicy="none"
+                  />
                 </Pressable>
-                <View style={styles.imageOverlayButtons}>
-                  <View style={styles.zoomHint}><Ionicons name="expand-outline" size={14} color="#FFF" /></View>
-                  <Pressable style={styles.changeImageButton} onPress={() => showImageOptions('facade')}>
-                    <Ionicons name="business-outline" size={20} color={colors.white} />
-                    <Text style={styles.changeImageText}>Cambiar</Text>
-                  </Pressable>
-                </View>
+                <Pressable style={styles.changeBtn} onPress={() => showImageOptions('facade')}>
+                  <Ionicons name="business-outline" size={18} color={colors.white} />
+                  <Text style={styles.changeBtnText}>Cambiar</Text>
+                </Pressable>
               </View>
             ) : (
               <Pressable style={styles.imagePicker} onPress={() => showImageOptions('facade')}>
@@ -967,54 +925,27 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   summaryLabel: { fontSize: 12, color: c.textSecondary, marginTop: Spacing.sm },
   summaryValue: { fontSize: 15, fontWeight: '500', color: c.textPrimary },
   requiredStar: { color: c.error, fontSize: 13 },
-  imagePreviewContainer: {
-    position: 'relative',
+  inlinePreviewBlock: {
+    marginBottom: Spacing.md,
+  },
+  inlinePreviewImage: {
     width: '100%',
     height: 200,
-    marginBottom: Spacing.md,
     borderRadius: BorderRadius.md,
-    overflow: 'hidden',
     backgroundColor: c.backgroundSection,
   },
-  imagePreviewWrapper: {
-    position: 'relative',
-    marginBottom: Spacing.md,
-  },
-  imageOverlayButtons: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    padding: Spacing.sm,
-  },
-  imagePreviewFull: {
-    width: '100%',
-    height: '100%',
-  },
-  zoomHint: {
-    position: 'absolute',
-    top: Spacing.sm,
-    right: Spacing.sm,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  changeImageButton: {
-    position: 'absolute',
-    bottom: Spacing.md,
-    right: Spacing.md,
+  changeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: BorderRadius.full,
+    justifyContent: 'center',
+    backgroundColor: c.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.md,
     gap: 6,
+    marginTop: Spacing.sm,
   },
-  changeImageText: {
+  changeBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
