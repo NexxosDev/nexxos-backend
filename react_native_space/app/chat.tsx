@@ -377,6 +377,8 @@ export default function ChatScreen() {
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
       });
       const { recording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY,
@@ -400,7 +402,12 @@ export default function ChatScreen() {
       recordingRef.current = null;
       setIsRecording(false);
       setRecordingDuration(0);
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
     } catch { /* ignore */ }
   };
 
@@ -415,7 +422,12 @@ export default function ChatScreen() {
       recordingRef.current = null;
       setIsRecording(false);
       setRecordingDuration(0);
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
 
       if (!uri || durationSec < 1) {
         Alert.alert('Muy corto', 'La nota de voz es muy corta.');

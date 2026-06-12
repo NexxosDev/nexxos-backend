@@ -99,9 +99,13 @@ export default function VoiceNotePlayer({ audioUrl, duration, isOwn, isVendorMes
 
     setIsLoading(true);
     try {
+      // Reset audio mode to playback (critical after recording on Android)
       await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
       });
       const { sound } = await Audio.Sound.createAsync(
         { uri: audioUrl },
@@ -116,7 +120,8 @@ export default function VoiceNotePlayer({ audioUrl, duration, isOwn, isVendorMes
       soundRef.current = sound;
       setIsLoading(false);
       return sound;
-    } catch {
+    } catch (err) {
+      console.error('[VoiceNotePlayer] Error loading audio:', audioUrl, err);
       setIsLoading(false);
       return null;
     }
@@ -132,7 +137,10 @@ export default function VoiceNotePlayer({ audioUrl, duration, isOwn, isVendorMes
       }
 
       const sound = await ensureLoaded();
-      if (!sound) return;
+      if (!sound) {
+        console.error('[VoiceNotePlayer] Could not load sound for:', audioUrl);
+        return;
+      }
 
       // If at the end, restart
       const status = await sound.getStatusAsync();
@@ -141,10 +149,11 @@ export default function VoiceNotePlayer({ audioUrl, duration, isOwn, isVendorMes
       }
       await sound.playAsync();
       setIsPlaying(true);
-    } catch {
+    } catch (err) {
+      console.error('[VoiceNotePlayer] Playback error:', err);
       setIsPlaying(false);
     }
-  }, [isPlaying, ensureLoaded]);
+  }, [isPlaying, ensureLoaded, audioUrl]);
 
   // Speed toggle
   const cycleSpeed = useCallback(async () => {
