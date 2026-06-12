@@ -74,8 +74,9 @@ export default function ChatScreen() {
     }, 500);
   }, [draftKey]);
 
-  // Clear draft helper
+  // Clear draft helper — also cancel any pending debounce save
   const clearDraft = useCallback(() => {
+    if (draftTimerRef.current) { clearTimeout(draftTimerRef.current); draftTimerRef.current = null; }
     if (draftKey) AsyncStorage.removeItem(draftKey).catch(() => {});
   }, [draftKey]);
 
