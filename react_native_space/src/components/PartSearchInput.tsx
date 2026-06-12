@@ -5,6 +5,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Spacing, BorderRadius } from '../theme/colors';
 import type { ThemeColors } from '../theme/colors';
 import { searchParts, type PartSearchResult } from '../services/catalog';
+import VoiceSearchButton from './VoiceSearchButton';
 
 interface PartSearchInputProps {
   onSelect: (result: PartSearchResult) => void;
@@ -73,6 +74,16 @@ export default function PartSearchInput({ onSelect, onClear }: PartSearchInputPr
     inputRef.current?.focus?.();
   }, [onClear]);
 
+  const handleVoiceResult = useCallback((text: string) => {
+    const trimmed = text?.trim?.() ?? '';
+    if (!trimmed) return;
+    setQuery(trimmed);
+    selectedRef.current = false;
+    setSelected(false);
+    setFocused(true);
+    doSearch(trimmed);
+  }, [doSearch]);
+
   const showResults = focused && !selected && (query?.trim?.()?.length ?? 0) >= 2 && ((results?.length ?? 0) > 0 || loading);
 
   return (
@@ -97,6 +108,7 @@ export default function PartSearchInput({ onSelect, onClear }: PartSearchInputPr
             <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
           </Pressable>
         ) : null}
+        <VoiceSearchButton onResult={handleVoiceResult} size={20} />
       </View>
 
       {showResults ? (

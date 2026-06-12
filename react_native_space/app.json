@@ -81,7 +81,17 @@
           "defaultChannel": "default"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "NEXXOS necesita acceso al micrófono para búsqueda por voz.",
+          "speechRecognitionPermission": "NEXXOS necesita reconocimiento de voz para búsqueda por voz.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ]
     ],
     "scheme": "abacusai1776194339",
     "extra": {
