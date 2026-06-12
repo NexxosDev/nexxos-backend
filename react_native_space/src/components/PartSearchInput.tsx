@@ -8,18 +8,21 @@ import { searchParts, type PartSearchResult } from '../services/catalog';
 
 interface PartSearchInputProps {
   onSelect: (result: PartSearchResult) => void;
+  onClear?: () => void;
 }
 
-export default function PartSearchInput({ onSelect }: PartSearchInputProps) {
+export default function PartSearchInput({ onSelect, onClear }: PartSearchInputProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PartSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState(false);
-  const [selected, setSelected] = useState<PartSearchResult | null>(null);
+  const [selected, setSelected] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<TextInput>(null);
+  const selectedRef = useRef(false);
 
   const doSearch = useCallback((text: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -37,15 +40,19 @@ export default function PartSearchInput({ onSelect }: PartSearchInputProps) {
 
   const handleChange = useCallback((text: string) => {
     setQuery(text);
-    // If user edits text after a selection, clear the selection so they can pick again
-    if (selected) setSelected(null);
+    // If user types after a selection, clear the selection flag so dropdown reappears
+    if (selectedRef.current) {
+      selectedRef.current = false;
+      setSelected(false);
+    }
     doSearch(text);
-  }, [doSearch, selected]);
+  }, [doSearch]);
 
   const handleSelect = useCallback((item: PartSearchResult) => {
     const label = item?.subcategoryName ?? item?.categoryName ?? '';
     setQuery(label);
-    setSelected(item);
+    selectedRef.current = true;
+    setSelected(true);
     setResults([]);
     setFocused(false);
     onSelect?.(item);
@@ -54,9 +61,11 @@ export default function PartSearchInput({ onSelect }: PartSearchInputProps) {
   const handleClear = useCallback(() => {
     setQuery('');
     setResults([]);
-    setSelected(null);
+    selectedRef.current = false;
+    setSelected(false);
+    onClear?.();
     inputRef.current?.focus?.();
-  }, []);
+  }, [onClear]);
 
   const showResults = focused && !selected && (query?.trim?.()?.length ?? 0) >= 2 && ((results?.length ?? 0) > 0 || loading);
 
@@ -71,8 +80,8 @@ export default function PartSearchInput({ onSelect }: PartSearchInputProps) {
           onChangeText={handleChange}
           placeholder='Buscar repuesto... (ej: "croche", "tacos", "aceite")'
           placeholderTextColor={colors.textSecondary}
-          onFocus={() => { setFocused(true); if (selected) { /* keep selected shown, user can type to change */ } }}
-          onBlur={() => setTimeout(() => setFocused(false), 200)}
+          onFocus={() => { if (blurTimerRef.current) { clearTimeout(blurTimerRef.current); blurTimerRef.current = null; } setFocused(true); }}
+          onBlur={() => { blurTimerRef.current = setTimeout(() => { setFocused(false); blurTimerRef.current = null; }, 200); }}
           autoCorrect={false}
           autoCapitalize="none"
         />

@@ -258,7 +258,7 @@ export default function CreateRequestScreen() {
         return (
           <View>
             <Text style={styles.stepTitle}>¿Qué repuesto necesitas?</Text>
-            <PartSearchInput onSelect={handlePartSearchSelect} />
+            <PartSearchInput onSelect={handlePartSearchSelect} onClear={() => { setCategoryId(''); setSubcategoryId(''); setSubcategories([]); }} />
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
               <Text style={styles.dividerText}>o selecciona manualmente</Text>
