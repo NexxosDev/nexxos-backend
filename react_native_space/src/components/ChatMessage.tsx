@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Modal, Dimensions, Platform, Linking } from 'react-native';
-import { Image } from 'expo-image';
+import { View, Text, StyleSheet, Pressable, Modal, Dimensions, Platform, Linking, Image as RNImage, ActivityIndicator } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
@@ -140,7 +140,7 @@ export default function ChatMessage({
           <Pressable onPress={openInMaps} style={styles.locationBubble}>
             <View style={styles.locationMapWrapper}>
               {staticMapUrl ? (
-                <Image source={{ uri: staticMapUrl }} style={styles.locationMap} contentFit="cover" transition={200} cachePolicy="none" placeholder={{ color: colors.border } as any} />
+                <RNImage source={{ uri: staticMapUrl }} style={styles.locationMap} resizeMode="cover" />
               ) : (
                 <View style={[styles.locationMap, styles.locationMapPlaceholder]}>
                   <Ionicons name="location" size={32} color="#E53935" />
@@ -165,9 +165,7 @@ export default function ChatMessage({
             isVendorMessage={isVendorMessage}
           />
         ) : isImage ? (
-          <Pressable onPress={() => setPreviewOpen(true)}>
-            <Image source={{ uri: imageUrl ?? '' }} style={styles.image} contentFit="cover" transition={200} cachePolicy="none" placeholder={{ color: colors.border } as any} />
-          </Pressable>
+          <ChatImageBubble uri={imageUrl ?? ''} size={IMG_SIZE} borderRadius={BorderRadius.md} borderColor={colors.border} onPress={() => setPreviewOpen(true)} />
         ) : (
           <Text style={[styles.text, shouldBeYellow ? styles.textVendor : styles.textClient]}>{messageText ?? ''}</Text>
         )}
@@ -191,7 +189,7 @@ export default function ChatMessage({
 }
 
 /* ---------- Zoomable Image Viewer ---------- */
-const AnimatedImage = Animated.createAnimatedComponent(Image);
+const AnimatedImage = Animated.createAnimatedComponent(ExpoImage);
 
 function ZoomableImageViewer({ uri, onClose }: { uri: string; onClose: () => void }) {
   const scale = useSharedValue(1);
@@ -310,6 +308,48 @@ const zoomStyles = StyleSheet.create({
   closeBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 60 : 40, right: 20, zIndex: 10 },
   image: { width: SCREEN_W, height: SCREEN_H * 0.8 },
 });
+
+/* ---------- Chat Image Bubble (uses RN Image for Android reliability) ---------- */
+function ChatImageBubble({ uri, size, borderRadius, borderColor, onPress }: {
+  uri: string; size: number; borderRadius: number; borderColor: string; onPress: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  if (!uri) {
+    return (
+      <View style={{ width: size, height: size, borderRadius, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }}>
+        <Ionicons name="image-outline" size={32} color="#999" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <Pressable onPress={onPress} style={{ width: size, height: size, borderRadius, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }}>
+        <Ionicons name="alert-circle-outline" size={28} color="#999" />
+        <Text style={{ fontSize: 11, color: '#999', marginTop: 4 }}>Error al cargar</Text>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Pressable onPress={onPress}>
+      {loading ? (
+        <View style={{ position: 'absolute', width: size, height: size, borderRadius, backgroundColor: borderColor, justifyContent: 'center', alignItems: 'center', zIndex: 1 }}>
+          <ActivityIndicator size="small" color="#999" />
+        </View>
+      ) : null}
+      <RNImage
+        source={{ uri }}
+        style={{ width: size, height: size, borderRadius }}
+        resizeMode="cover"
+        onLoad={() => setLoading(false)}
+        onError={() => { setLoading(false); setError(true); }}
+      />
+    </Pressable>
+  );
+}
 
 const createStyles = (c: ThemeColors) => StyleSheet.create({
   row: { marginBottom: Spacing.sm, paddingHorizontal: Spacing.md },

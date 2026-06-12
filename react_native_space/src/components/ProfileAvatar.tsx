@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
-import { Image } from 'expo-image';
+import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator, Image as RNImage } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../contexts/ThemeContext';
@@ -61,7 +60,7 @@ export default function ProfileAvatar({ imageUrl, initials, size = 90, onImageUp
     <View style={[styles.container, { width: size, height: size }]}>
       <Pressable onPress={showOptions} style={[styles.avatarWrapper, { width: size, height: size, borderRadius: halfSize }]}>
         {imageUrl ? (
-          <Image source={{ uri: imageUrl }} style={[styles.image, { width: size, height: size, borderRadius: halfSize }]} contentFit="cover" cachePolicy="none" />
+          <RNImage source={{ uri: imageUrl }} style={[styles.image, { width: size, height: size, borderRadius: halfSize }]} resizeMode="cover" />
         ) : (
           <View style={[styles.initialsCircle, { width: size, height: size, borderRadius: halfSize }]}>
             <Text style={[styles.initials, { fontSize: size * 0.35 }]}>{initials}</Text>

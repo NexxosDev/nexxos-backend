@@ -1,9 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, RefreshControl, Pressable, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, RefreshControl, Pressable, LayoutAnimation, Platform, UIManager, Image as RNImage } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { getVendorProfile, getVendorPlan } from '../../src/services/vendor';
@@ -134,12 +133,10 @@ export default function VendorProfileScreen() {
         <View style={styles.header}>
           <View style={styles.logoContainer}>
             {profile?.logoUrl ? (
-              <Image
+              <RNImage
                 source={{ uri: profile.logoUrl }}
                 style={styles.logoImage}
-                contentFit="cover"
-                transition={200}
-                cachePolicy="none"
+                resizeMode="cover"
               />
             ) : (
               <View style={styles.logoFallback}>
