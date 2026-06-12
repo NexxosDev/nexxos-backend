@@ -116,9 +116,9 @@ export default function RegisterClientScreen() {
 
           <Text style={styles.legalText}>
             Al crear tu cuenta, aceptas los{' '}
-            <Text style={styles.legalLink} onPress={() => Linking.openURL('https://nexxos-api.abacusai.app/terminos')}>Términos y Condiciones</Text>
+            <Text style={styles.legalLink} onPress={() => Linking.openURL('https://nexxos.app/terminos')}>Términos y Condiciones</Text>
             {' '}y la{' '}
-            <Text style={styles.legalLink} onPress={() => Linking.openURL('https://nexxos-api.abacusai.app/privacidad')}>Política de Privacidad</Text>.
+            <Text style={styles.legalLink} onPress={() => Linking.openURL('https://nexxos.app/privacidad')}>Política de Privacidad</Text>.
           </Text>
 
           <Pressable onPress={() => router.push('/auth/login')} style={styles.loginLink}>
