@@ -18,8 +18,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1030.0",
-    "@aws-sdk/s3-request-presigner": "^3.1030.0",
+    "@aws-sdk/client-s3": "^3.1067.0",
+    "@aws-sdk/s3-request-presigner": "^3.1067.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -33,11 +33,11 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
     "expo-server-sdk": "^6.1.0",
-    "nodemailer": "^8.0.5",
+    "nodemailer": "^8.0.11",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
-    "resend": "^6.12.3",
+    "resend": "^6.12.4",
     "rxjs": "^7.8.1",
     "uuid": "^13.0.0"
   },
