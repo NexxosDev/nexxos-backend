@@ -25,21 +25,21 @@ export class UploadService {
         contentType,
       },
     });
-    const url = await getFileUrl(cloud_storage_path, isPublic, this.prisma);
+    const url = await getFileUrl(cloud_storage_path, isPublic, this.prisma, contentType);
     return { id: file.id, cloud_storage_path: file.cloudStoragePath, url };
   }
 
   /** Complete upload without saving to DB (for registration uploads before user exists) */
   async completeRegistrationUpload(cloud_storage_path: string, fileName: string, contentType: string) {
     const isPublic = cloud_storage_path.includes('/public/');
-    const url = await getFileUrl(cloud_storage_path, isPublic, this.prisma);
+    const url = await getFileUrl(cloud_storage_path, isPublic, this.prisma, contentType);
     return { cloud_storage_path, url };
   }
 
   async getFileUrlById(fileId: string, mode: string) {
     const file = await this.prisma.file.findUnique({ where: { id: fileId } });
     if (!file) throw new NotFoundException('File not found');
-    const url = await getFileUrl(file.cloudStoragePath, file.isPublic, this.prisma);
+    const url = await getFileUrl(file.cloudStoragePath, file.isPublic, this.prisma, file.contentType ?? undefined);
     return { url };
   }
 }
