@@ -283,7 +283,7 @@ export default function ChatScreen() {
       const contentType = 'image/jpeg';
       setUploading(true);
       const uploadRes = await uploadFileWithUrl(editedUri, fileName, contentType);
-      const imageUrl = uploadRes?.storagePath || uploadRes?.url || '';
+      const imageUrl = uploadRes?.url ?? '';
       if (imageUrl) {
         playSend();
         const newMsg = await sendChatMessage(chatId, 'Imagen', 'image', imageUrl, replyingTo?.id);
@@ -377,8 +377,6 @@ export default function ChatScreen() {
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
       });
       const { recording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY,
@@ -402,12 +400,7 @@ export default function ChatScreen() {
       recordingRef.current = null;
       setIsRecording(false);
       setRecordingDuration(0);
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
-      });
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
     } catch { /* ignore */ }
   };
 
@@ -422,12 +415,7 @@ export default function ChatScreen() {
       recordingRef.current = null;
       setIsRecording(false);
       setRecordingDuration(0);
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
-      });
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
 
       if (!uri || durationSec < 1) {
         Alert.alert('Muy corto', 'La nota de voz es muy corta.');
@@ -440,7 +428,7 @@ export default function ChatScreen() {
         const fileName = `voice_${Date.now()}.m4a`;
         const contentType = 'audio/mp4';
         const uploadRes = await uploadFileWithUrl(uri, fileName, contentType);
-        const audioUrlResult = uploadRes?.storagePath || uploadRes?.url || '';
+        const audioUrlResult = uploadRes?.url ?? '';
         if (audioUrlResult) {
           playSend();
           const newMsg = await sendChatMessage(

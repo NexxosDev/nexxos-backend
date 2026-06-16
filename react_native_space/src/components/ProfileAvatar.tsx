@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
-import { Image as ExpoImage } from 'expo-image';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../contexts/ThemeContext';
@@ -61,7 +61,7 @@ export default function ProfileAvatar({ imageUrl, initials, size = 90, onImageUp
     <View style={[styles.container, { width: size, height: size }]}>
       <Pressable onPress={showOptions} style={[styles.avatarWrapper, { width: size, height: size, borderRadius: halfSize }]}>
         {imageUrl ? (
-          <ExpoImage source={{ uri: imageUrl }} style={[styles.image, { width: size, height: size, borderRadius: halfSize }]} contentFit="cover" cachePolicy="none" />
+          <Image source={{ uri: imageUrl }} style={[styles.image, { width: size, height: size, borderRadius: halfSize }]} contentFit="cover" />
         ) : (
           <View style={[styles.initialsCircle, { width: size, height: size, borderRadius: halfSize }]}>
             <Text style={[styles.initials, { fontSize: size * 0.35 }]}>{initials}</Text>
@@ -83,7 +83,7 @@ export default function ProfileAvatar({ imageUrl, initials, size = 90, onImageUp
 
 const createStyles = (c: ThemeColors) => StyleSheet.create({
   container: { alignSelf: 'center' },
-  avatarWrapper: { position: 'relative' },
+  avatarWrapper: { position: 'relative', overflow: 'hidden' },
   image: { backgroundColor: c.backgroundSection },
   initialsCircle: { backgroundColor: c.primary, justifyContent: 'center', alignItems: 'center' },
   initials: { fontWeight: '700', color: c.accent },

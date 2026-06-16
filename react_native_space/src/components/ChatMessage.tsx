@@ -1,14 +1,14 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Dimensions, Platform, Linking, ActivityIndicator } from 'react-native';
-import { Image as ExpoImage } from 'expo-image';
+import React, { useState, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, Pressable, Modal, Dimensions, Platform, Linking } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import { useTheme } from '../contexts/ThemeContext';
 import { Spacing, BorderRadius } from '../theme/colors';
 import type { ThemeColors } from '../theme/colors';
 import type { ChatMessageReplyTo } from '../types';
-import { getGoogleMapsKey } from '../services/publicKeys';
 import VoiceNotePlayer from './VoiceNotePlayer';
-import ImagePreviewModal from './ImagePreviewModal';
 
 interface ChatMessageProps {
   messageText: string;
@@ -31,8 +31,11 @@ interface ChatMessageProps {
   onLongPress?: () => void;
 }
 
-const { width: SCREEN_W } = Dimensions.get('window');
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const IMG_SIZE = SCREEN_W * 0.55;
+const SPRING_CFG = { damping: 18, stiffness: 200 };
+const MIN_SCALE = 1;
+const MAX_SCALE = 4;
 
 function StatusTicks({ status, colors }: { status?: string; colors: ThemeColors }) {
   if (!status) return null;
@@ -84,20 +87,12 @@ export default function ChatMessage({
     Linking.openURL(url).catch(() => {});
   }, [latitude, longitude]);
 
-  const [mapsKey, setMapsKey] = useState('');
-
-  useEffect(() => {
-    if (latitude != null && longitude != null) {
-      getGoogleMapsKey().then((k) => setMapsKey(k ?? '')).catch(() => {});
-    }
-  }, [latitude, longitude]);
-
   const staticMapUrl = useMemo(() => {
-    if (latitude == null || longitude == null || !mapsKey) return '';
+    if (latitude == null || longitude == null) return '';
     const lat = latitude;
     const lng = longitude;
-    return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x300&markers=color:red%7C${lat},${lng}&key=${mapsKey}`;
-  }, [latitude, longitude, mapsKey]);
+    return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x300&markers=color:red%7C${lat},${lng}&key=AIzaSyBt0bUnhx5dz8uqiNgB3NKEoANQ-264j_M`;
+  }, [latitude, longitude]);
 
   const replySnippet = (replyTo?.messageText ?? '').length > 60
     ? (replyTo?.messageText ?? '').substring(0, 57) + '...'
@@ -136,7 +131,7 @@ export default function ChatMessage({
           <Pressable onPress={openInMaps} style={styles.locationBubble}>
             <View style={styles.locationMapWrapper}>
               {staticMapUrl ? (
-                <ExpoImage source={{ uri: staticMapUrl }} style={styles.locationMap} contentFit="cover" cachePolicy="none" />
+                <Image source={{ uri: staticMapUrl }} style={styles.locationMap} contentFit="cover" transition={200} placeholder={{ color: colors.border } as any} />
               ) : (
                 <View style={[styles.locationMap, styles.locationMapPlaceholder]}>
                   <Ionicons name="location" size={32} color="#E53935" />
@@ -161,7 +156,9 @@ export default function ChatMessage({
             isVendorMessage={isVendorMessage}
           />
         ) : isImage ? (
-          <ChatImageBubble uri={imageUrl ?? ''} size={IMG_SIZE} borderRadius={BorderRadius.md} onPress={() => setPreviewOpen(true)} />
+          <Pressable onPress={() => setPreviewOpen(true)}>
+            <Image source={{ uri: imageUrl ?? '' }} style={styles.image} contentFit="cover" transition={200} placeholder={{ color: colors.border } as any} />
+          </Pressable>
         ) : (
           <Text style={[styles.text, shouldBeYellow ? styles.textVendor : styles.textClient]}>{messageText ?? ''}</Text>
         )}
@@ -175,38 +172,135 @@ export default function ChatMessage({
         </View>
       </Pressable>
 
-      <ImagePreviewModal
-        visible={previewOpen && isImage}
-        imageUri={imageUrl}
-        onClose={() => setPreviewOpen(false)}
-      />
+      {isImage ? (
+        <Modal visible={previewOpen} transparent animationType="fade" onRequestClose={() => setPreviewOpen(false)}>
+          <ZoomableImageViewer uri={imageUrl ?? ''} onClose={() => setPreviewOpen(false)} />
+        </Modal>
+      ) : null}
     </View>
   );
 }
 
-/* ---------- Chat Image Bubble (ExpoImage with cachePolicy="none" like register-vendor) ---------- */
-function ChatImageBubble({ uri, size, borderRadius, onPress }: {
-  uri: string; size: number; borderRadius: number; onPress: () => void;
-}) {
-  if (!uri) {
-    return (
-      <View style={{ width: size, height: size, borderRadius, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }}>
-        <Ionicons name="image-outline" size={32} color="#999" />
-      </View>
-    );
-  }
+/* ---------- Zoomable Image Viewer ---------- */
+const AnimatedImage = Animated.createAnimatedComponent(Image);
+
+function ZoomableImageViewer({ uri, onClose }: { uri: string; onClose: () => void }) {
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const savedTranslateX = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
+  const focalX = useSharedValue(0);
+  const focalY = useSharedValue(0);
+
+  const closeViewer = useCallback(() => { onClose?.(); }, [onClose]);
+
+  const pinchGesture = Gesture.Pinch()
+    .onStart((e) => {
+      focalX.value = e.focalX;
+      focalY.value = e.focalY;
+    })
+    .onUpdate((e) => {
+      const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE * 0.5, savedScale.value * e.scale));
+      scale.value = newScale;
+    })
+    .onEnd(() => {
+      if (scale.value < MIN_SCALE) {
+        scale.value = withSpring(MIN_SCALE, SPRING_CFG);
+        translateX.value = withSpring(0, SPRING_CFG);
+        translateY.value = withSpring(0, SPRING_CFG);
+        savedScale.value = MIN_SCALE;
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+      } else {
+        savedScale.value = scale.value;
+      }
+    });
+
+  const panGesture = Gesture.Pan()
+    .minPointers(1)
+    .maxPointers(2)
+    .onUpdate((e) => {
+      if (savedScale.value > 1) {
+        const maxX = ((savedScale.value - 1) * SCREEN_W) / 2;
+        const maxY = ((savedScale.value - 1) * SCREEN_H) / 2;
+        translateX.value = Math.max(-maxX, Math.min(maxX, savedTranslateX.value + e.translationX));
+        translateY.value = Math.max(-maxY, Math.min(maxY, savedTranslateY.value + e.translationY));
+      }
+    })
+    .onEnd(() => {
+      savedTranslateX.value = translateX.value;
+      savedTranslateY.value = translateY.value;
+    });
+
+  const doubleTapGesture = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd((e) => {
+      if (savedScale.value > 1.1) {
+        scale.value = withSpring(MIN_SCALE, SPRING_CFG);
+        translateX.value = withSpring(0, SPRING_CFG);
+        translateY.value = withSpring(0, SPRING_CFG);
+        savedScale.value = MIN_SCALE;
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+      } else {
+        const targetScale = 2.5;
+        const originX = e.x - SCREEN_W / 2;
+        const originY = e.y - SCREEN_H / 2;
+        scale.value = withSpring(targetScale, SPRING_CFG);
+        translateX.value = withSpring(-originX * (targetScale - 1), SPRING_CFG);
+        translateY.value = withSpring(-originY * (targetScale - 1), SPRING_CFG);
+        savedScale.value = targetScale;
+        savedTranslateX.value = -originX * (targetScale - 1);
+        savedTranslateY.value = -originY * (targetScale - 1);
+      }
+    });
+
+  const singleTapGesture = Gesture.Tap()
+    .numberOfTaps(1)
+    .onEnd(() => {
+      if (savedScale.value <= 1.05) {
+        runOnJS(closeViewer)();
+      }
+    });
+
+  const composed = Gesture.Simultaneous(
+    pinchGesture,
+    panGesture,
+    Gesture.Exclusive(doubleTapGesture, singleTapGesture),
+  );
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
 
   return (
-    <Pressable onPress={onPress}>
-      <ExpoImage
-        source={{ uri }}
-        style={{ width: size, height: size, borderRadius }}
-        contentFit="cover"
-        cachePolicy="none"
-      />
-    </Pressable>
+    <GestureHandlerRootView style={zoomStyles.root}>
+      <Pressable style={zoomStyles.closeBtn} onPress={onClose}>
+        <Ionicons name="close-circle" size={36} color="#fff" />
+      </Pressable>
+      <GestureDetector gesture={composed}>
+        <AnimatedImage
+          source={{ uri }}
+          style={[zoomStyles.image, animatedStyle]}
+          contentFit="contain"
+          transition={200}
+        />
+      </GestureDetector>
+    </GestureHandlerRootView>
   );
 }
+
+const zoomStyles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
+  closeBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 60 : 40, right: 20, zIndex: 10 },
+  image: { width: SCREEN_W, height: SCREEN_H * 0.8 },
+});
 
 const createStyles = (c: ThemeColors) => StyleSheet.create({
   row: { marginBottom: Spacing.sm, paddingHorizontal: Spacing.md },
@@ -232,7 +326,7 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   deletedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2 },
   deletedText: { fontSize: 14, fontStyle: 'italic', color: c.textSecondary },
   image: { width: IMG_SIZE, height: IMG_SIZE, borderRadius: BorderRadius.md },
-  locationBubble: { width: IMG_SIZE },
+  locationBubble: { width: IMG_SIZE, overflow: 'hidden' as const },
   locationMapWrapper: { position: 'relative' as const },
   locationMap: { width: '100%' as const, height: 150, borderRadius: BorderRadius.md, marginBottom: 6 },
   locationMapPlaceholder: { backgroundColor: c.backgroundSection, justifyContent: 'center' as const, alignItems: 'center' as const },

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pre
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Image as ExpoImage } from 'expo-image';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile } from '../src/services/upload';
 import { getVendorProfile, updateVendorProfile } from '../src/services/vendor';
@@ -229,7 +229,7 @@ export default function VendorEditProfileScreen() {
               {(facadeUri || facadeRemoteUrl) ? (
                 <View style={{ marginTop: 6 }}>
                   <Pressable onPress={() => setFacadePreview(true)}>
-                    <ExpoImage source={{ uri: facadeUri ?? facadeRemoteUrl ?? '' }} style={{ width: '100%', height: 140, borderRadius: 10 }} contentFit="cover" cachePolicy="none" />
+                    <Image source={{ uri: facadeUri ?? facadeRemoteUrl ?? '' }} style={{ width: '100%', height: 140, borderRadius: 10 }} contentFit="cover" />
                     <View style={{ position: 'absolute', bottom: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, padding: 4 }}>
                       <Ionicons name="expand-outline" size={14} color="#fff" />
                     </View>
@@ -307,7 +307,7 @@ export default function VendorEditProfileScreen() {
       {(facadeUri || facadeRemoteUrl) ? (
         <Modal visible={facadePreview} transparent animationType="fade" onRequestClose={() => setFacadePreview(false)}>
           <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setFacadePreview(false)}>
-            <ExpoImage source={{ uri: facadeUri ?? facadeRemoteUrl ?? '' }} style={{ width: 320, height: 240, borderRadius: 12 }} contentFit="contain" />
+            <Image source={{ uri: facadeUri ?? facadeRemoteUrl ?? '' }} style={{ width: 320, height: 240, borderRadius: 12 }} contentFit="contain" />
             <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600', marginTop: 12 }}>Fachada del negocio</Text>
             <Pressable style={{ position: 'absolute', top: Platform.OS === 'ios' ? 56 : 36, right: 20 }} onPress={() => setFacadePreview(false)} hitSlop={12}>
               <Ionicons name="close-circle" size={32} color="#fff" />

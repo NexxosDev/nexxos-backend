@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, RefreshControl, Pressable, LayoutAnimation, Platform, UIManager } from 'react-native';
-import { Image as ExpoImage } from 'expo-image';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { getVendorProfile, getVendorPlan } from '../../src/services/vendor';
@@ -134,11 +134,11 @@ export default function VendorProfileScreen() {
         <View style={styles.header}>
           <View style={styles.logoContainer}>
             {profile?.logoUrl ? (
-              <ExpoImage
+              <Image
                 source={{ uri: profile.logoUrl }}
                 style={styles.logoImage}
                 contentFit="cover"
-                cachePolicy="none"
+                transition={200}
               />
             ) : (
               <View style={styles.logoFallback}>
@@ -377,14 +377,14 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
+    overflow: 'hidden',
     backgroundColor: c.backgroundSection,
     borderWidth: 2,
     borderColor: c.primary,
   },
   logoImage: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
+    width: '100%',
+    height: '100%',
   },
   logoFallback: {
     flex: 1,
