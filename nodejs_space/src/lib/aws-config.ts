@@ -132,8 +132,27 @@ export async function createS3Client(prisma: any): Promise<S3Client> {
     });
   }
 
-  // Fallback to default credential chain
-  logger.log('No explicit credentials found, using default SDK credential chain');
+  // Fallback: log everything we know for debugging
+  logger.warn('readFreshCredentials returned null — dumping env diagnostic');
+  logger.warn(`  AWS_SHARED_CREDENTIALS_FILE=${process.env.AWS_SHARED_CREDENTIALS_FILE ?? 'unset'}`);
+  logger.warn(`  AWS_PROFILE=${process.env.AWS_PROFILE ?? 'unset'}`);
+  logger.warn(`  AWS_REGION=${process.env.AWS_REGION ?? 'unset'}`);
+  logger.warn(`  AWS_ACCESS_KEY_ID=${(process.env.AWS_ACCESS_KEY_ID ?? 'unset').substring(0, 8)}...`);
+  logger.warn(`  ABACUS_AWS_ACCESS_KEY_ID=${(process.env.ABACUS_AWS_ACCESS_KEY_ID ?? 'unset').substring(0, 8)}...`);
+  // Check if credential files exist
+  const credPaths = ['/aws_credentials/.aws/hosted_storage_credential_json', '/aws_credentials/.aws/credential_json'];
+  for (const cp of credPaths) {
+    try { readFileSync(cp, 'utf-8'); logger.warn(`  ${cp} EXISTS`); } catch { logger.warn(`  ${cp} NOT FOUND`); }
+  }
+  // Also try the credential_process file
+  try {
+    const credFile = process.env.AWS_SHARED_CREDENTIALS_FILE ?? '';
+    if (credFile) {
+      const content = readFileSync(credFile, 'utf-8');
+      logger.warn(`  Shared creds file content: ${content.substring(0, 200)}`);
+    }
+  } catch (e: any) { logger.warn(`  Could not read shared creds file: ${e?.message}`); }
+
   return new S3Client({
     ...(region ? { region } : {}),
   });
