@@ -5,6 +5,7 @@ import {
   ImageBackground,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { directUpload as directUploadFile } from '../src/services/upload';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -836,8 +837,7 @@ async function uploadFileWithUrl(
   uri: string, fileName: string, contentType: string,
 ): Promise<{ url: string; storagePath: string }> {
   try {
-    const { directUpload } = await import('../src/services/upload');
-    const result = await directUpload(uri, fileName, contentType, true);
+    const result = await directUploadFile(uri, fileName, contentType, true);
     // DEBUG: show result on screen
     Alert.alert('DEBUG upload result', JSON.stringify(result ?? 'null').substring(0, 500));
     return { url: result?.url ?? '', storagePath: result?.cloud_storage_path ?? '' };

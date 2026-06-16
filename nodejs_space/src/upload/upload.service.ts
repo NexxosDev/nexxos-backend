@@ -49,20 +49,26 @@ export class UploadService {
    * and saves the file record. Avoids presigned URL credential expiry issues.
    */
   async directUpload(userId: string, buffer: Buffer, fileName: string, contentType: string, isPublic: boolean) {
-    const { cloud_storage_path, url } = await uploadBufferToS3(buffer, fileName, contentType, isPublic);
-    this.logger.log(`Direct upload to S3 completed: ${cloud_storage_path} (${buffer.length} bytes, user: ${userId})`);
+    try {
+      this.logger.log(`Direct upload starting: ${fileName} (${buffer.length} bytes, user: ${userId}, public: ${isPublic})`);
+      const { cloud_storage_path, url } = await uploadBufferToS3(buffer, fileName, contentType, isPublic, this.prisma);
+      this.logger.log(`Direct upload to S3 completed: ${cloud_storage_path}`);
 
-    const file = await this.prisma.file.create({
-      data: {
-        userId,
-        fileName,
-        cloudStoragePath: cloud_storage_path,
-        isPublic,
-        contentType,
-      },
-    });
+      const file = await this.prisma.file.create({
+        data: {
+          userId,
+          fileName,
+          cloudStoragePath: cloud_storage_path,
+          isPublic,
+          contentType,
+        },
+      });
 
-    return { id: file.id, cloud_storage_path, url };
+      return { id: file.id, cloud_storage_path, url };
+    } catch (err: any) {
+      this.logger.error(`Direct upload FAILED: ${err?.message ?? err}`, err?.stack);
+      throw err;
+    }
   }
 
   async getFileUrlById(fileId: string, mode: string) {
