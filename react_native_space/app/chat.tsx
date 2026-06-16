@@ -835,32 +835,9 @@ export default function ChatScreen() {
 async function uploadFileWithUrl(
   uri: string, fileName: string, contentType: string,
 ): Promise<{ url: string; storagePath: string }> {
-  const { getPresignedUrl, completeUpload } = await import('../src/services/upload');
-  const presigned = await getPresignedUrl(fileName, contentType, true);
-  const uploadUrl = presigned?.uploadUrl ?? '';
-  const storagePath = presigned?.cloud_storage_path ?? '';
-  if (!uploadUrl || !storagePath) {
-    throw new Error('No se pudo obtener la URL de subida');
-  }
-  const fileResponse = await fetch(uri);
-  const blob = await fileResponse.blob();
-  if (!blob || blob.size === 0) {
-    throw new Error('No se pudo leer el archivo');
-  }
-  const headers: Record<string, string> = { 'Content-Type': contentType };
-  const signedHeaders = new URL(uploadUrl).searchParams?.get?.('X-Amz-SignedHeaders') ?? '';
-  if (signedHeaders?.includes?.('content-disposition')) { headers['Content-Disposition'] = 'attachment'; }
-
-  // Upload to S3 and CHECK the response
-  const uploadResponse = await fetch(uploadUrl, { method: 'PUT', body: blob, headers });
-  if (!uploadResponse.ok) {
-    const errText = await uploadResponse.text().catch(() => '');
-    console.error(`S3 upload failed: ${uploadResponse.status} ${errText.substring(0, 200)}`);
-    throw new Error(`Error al subir archivo: ${uploadResponse.status}`);
-  }
-
-  const result = await completeUpload(storagePath, fileName, contentType);
-  return { url: result?.url ?? '', storagePath };
+  const { directUpload } = await import('../src/services/upload');
+  const result = await directUpload(uri, fileName, contentType, true);
+  return { url: result?.url ?? '', storagePath: result?.cloud_storage_path ?? '' };
 }
 
 const createStyles = (c: ThemeColors) => StyleSheet.create({

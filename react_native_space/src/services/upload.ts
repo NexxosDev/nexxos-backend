@@ -32,6 +32,45 @@ export async function uploadFile(uri: string, fileName: string, contentType: str
   return storagePath;
 }
 
+/**
+ * Upload file directly through the backend (proxy upload).
+ * The backend uploads to S3 using fresh credentials, avoiding presigned URL expiry issues.
+ */
+export async function directUpload(
+  uri: string,
+  fileName: string,
+  contentType: string,
+  isPublic = true,
+): Promise<{ id: string; cloud_storage_path: string; url: string }> {
+  const token = await getToken();
+  const formData = new FormData();
+
+  // React Native FormData expects this shape for file uploads
+  formData.append('file', {
+    uri,
+    name: fileName,
+    type: contentType,
+  } as any);
+  formData.append('isPublic', isPublic ? 'true' : 'false');
+
+  const baseUrl = BASE_URL.endsWith('/') ? BASE_URL : `${BASE_URL}/`;
+  const response = await fetch(`${baseUrl}api/upload/direct`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token ?? ''}`,
+      // Do NOT set Content-Type — fetch sets it automatically with the correct boundary for FormData
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => '');
+    throw new Error(`Upload failed: ${response.status} ${errText.substring(0, 200)}`);
+  }
+
+  return response.json();
+}
+
 export async function getFileViewUrl(fileId: string): Promise<string> {
   const token = await getToken();
   const url = new URL(`/api/files/${encodeURIComponent(fileId)}/url`, BASE_URL).toString();

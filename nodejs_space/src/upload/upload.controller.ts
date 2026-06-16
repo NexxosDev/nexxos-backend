@@ -1,5 +1,6 @@
-import { Controller, Post, Get, Param, Query, Body, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { Controller, Post, Get, Param, Query, Body, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { UploadService } from './upload.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -23,6 +24,35 @@ export class UploadController {
   @ApiOperation({ summary: 'Confirm file upload completed' })
   completeUpload(@CurrentUser('id') userId: string, @Body() dto: CompleteUploadDto) {
     return this.uploadService.completeUpload(userId, dto.cloud_storage_path, dto.fileName, dto.contentType);
+  }
+
+  @Post('upload/direct')
+  @ApiOperation({ summary: 'Upload file directly through backend (proxy upload)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        isPublic: { type: 'string', default: 'true' },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 } })) // 20MB max
+  async directUpload(
+    @CurrentUser('id') userId: string,
+    @UploadedFile() file: any,
+    @Body('isPublic') isPublicStr?: string,
+  ) {
+    if (!file?.buffer) throw new BadRequestException('No file provided');
+    const isPublic = isPublicStr !== 'false';
+    return this.uploadService.directUpload(
+      userId,
+      file.buffer,
+      file.originalname ?? `file_${Date.now()}`,
+      file.mimetype ?? 'application/octet-stream',
+      isPublic,
+    );
   }
 
   @Get('files/:id/url')

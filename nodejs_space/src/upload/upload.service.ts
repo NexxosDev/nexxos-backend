@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { generatePresignedUploadUrl, getFileUrl, fileExistsInS3 } from '../lib/s3';
+import { generatePresignedUploadUrl, getFileUrl, fileExistsInS3, uploadBufferToS3 } from '../lib/s3';
 
 @Injectable()
 export class UploadService {
@@ -42,6 +42,27 @@ export class UploadService {
     const isPublic = cloud_storage_path.includes('/public/');
     const url = await getFileUrl(cloud_storage_path, isPublic);
     return { cloud_storage_path, url };
+  }
+
+  /**
+   * Proxy upload: receives the file buffer, uploads directly to S3 from the server,
+   * and saves the file record. Avoids presigned URL credential expiry issues.
+   */
+  async directUpload(userId: string, buffer: Buffer, fileName: string, contentType: string, isPublic: boolean) {
+    const { cloud_storage_path, url } = await uploadBufferToS3(buffer, fileName, contentType, isPublic);
+    this.logger.log(`Direct upload to S3 completed: ${cloud_storage_path} (${buffer.length} bytes, user: ${userId})`);
+
+    const file = await this.prisma.file.create({
+      data: {
+        userId,
+        fileName,
+        cloudStoragePath: cloud_storage_path,
+        isPublic,
+        contentType,
+      },
+    });
+
+    return { id: file.id, cloud_storage_path, url };
   }
 
   async getFileUrlById(fileId: string, mode: string) {

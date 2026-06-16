@@ -10,6 +10,37 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createS3Client, getBucketConfig } from './aws-config';
 
+/**
+ * Upload a buffer directly to S3 (proxy upload — avoids presigned URL credential expiry).
+ */
+export async function uploadBufferToS3(
+  buffer: Buffer,
+  fileName: string,
+  contentType: string,
+  isPublic = false,
+  prisma?: any,
+): Promise<{ cloud_storage_path: string; url: string }> {
+  const { bucketName, folderPrefix } = await getBucketConfig(prisma);
+  const prefix = isPublic ? `${folderPrefix}public/uploads` : `${folderPrefix}uploads`;
+  const cloud_storage_path = `${prefix}/${Date.now()}-${fileName}`;
+
+  const client = await createS3Client(prisma);
+  await client.send(new PutObjectCommand({
+    Bucket: bucketName,
+    Key: cloud_storage_path,
+    Body: buffer,
+    ContentType: contentType,
+  }));
+
+  // Build direct URL for public files
+  const region = typeof client.config.region === 'function'
+    ? await client.config.region()
+    : (client.config.region ?? 'us-west-2');
+  const url = `https://${bucketName}.s3.${region}.amazonaws.com/${cloud_storage_path}`;
+
+  return { cloud_storage_path, url };
+}
+
 export async function generatePresignedUploadUrl(
   fileName: string,
   contentType: string,
