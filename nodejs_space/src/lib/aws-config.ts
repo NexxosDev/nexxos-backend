@@ -12,17 +12,17 @@ export async function getBucketConfig(prisma: any): Promise<{ bucketName: string
   return { bucketName, folderPrefix };
 }
 
-// ── Cached S3 client — rebuilt when credentials change ──
+// ── S3 client factory ──
+// When explicit IAM keys are configured (long-lived), we cache the client.
+// When relying on the default credential chain (STS / AWS_PROFILE), we create
+// a fresh client every time so the SDK's credential provider fetches fresh
+// temporary tokens automatically — caching would hold stale STS credentials.
 let _cachedClient: S3Client | null = null;
 let _credentialHash = '';
 
-function makeHash(region: string, accessKey: string, secretKey: string): string {
-  return `${region}|${accessKey}|${secretKey}`;
-}
-
 /**
  * Returns an S3Client configured with credentials from DB config (or .env fallback).
- * The client is cached and only rebuilt when the credentials change.
+ * Only caches when explicit long-lived credentials are provided.
  */
 export async function createS3Client(prisma: any): Promise<S3Client> {
   const [region, accessKeyId, secretAccessKey] = await Promise.all([
@@ -31,26 +31,28 @@ export async function createS3Client(prisma: any): Promise<S3Client> {
     getConfig('API_AWS_SECRET_ACCESS_KEY', prisma),
   ]);
 
-  const hash = makeHash(region, accessKeyId, secretAccessKey);
+  const hasExplicitKeys = !!(accessKeyId && secretAccessKey);
 
-  if (_cachedClient && hash === _credentialHash) {
-    return _cachedClient;
+  // With explicit keys we can safely cache (they don't expire)
+  if (hasExplicitKeys) {
+    const hash = `${region}|${accessKeyId}|${secretAccessKey}`;
+    if (_cachedClient && hash === _credentialHash) {
+      return _cachedClient;
+    }
+    const client = new S3Client({
+      ...(region ? { region } : {}),
+      credentials: { accessKeyId, secretAccessKey },
+    });
+    _cachedClient = client;
+    _credentialHash = hash;
+    return client;
   }
 
-  // Build new client — if keys are present use explicit credentials, otherwise
-  // fall back to the default credential chain (env vars, IAM role, etc.)
-  const clientConfig: ConstructorParameters<typeof S3Client>[0] = {};
-
-  if (region) clientConfig.region = region;
-
-  if (accessKeyId && secretAccessKey) {
-    clientConfig.credentials = {
-      accessKeyId,
-      secretAccessKey,
-    };
-  }
-
-  _cachedClient = new S3Client(clientConfig);
-  _credentialHash = hash;
-  return _cachedClient;
+  // No explicit keys → default credential chain (STS tokens, AWS_PROFILE, etc.)
+  // NEVER cache — STS tokens expire and the SDK must resolve fresh ones each time.
+  _cachedClient = null;
+  _credentialHash = '';
+  return new S3Client({
+    ...(region ? { region } : {}),
+  });
 }
