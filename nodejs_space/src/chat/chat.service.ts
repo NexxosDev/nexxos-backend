@@ -3,6 +3,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ChatPresenceService } from '../notification/chat-presence.service';
 
+/** If a stored URL is just a relative S3 key (no protocol), build the full URL */
+function resolveS3Url(value: string | null | undefined): string | null {
+  if (!value) return null;
+  if (value.startsWith('http://') || value.startsWith('https://')) return value;
+  // It's a bare storage path — build full S3 URL using env vars
+  const bucket = process.env.AWS_BUCKET_NAME ?? '';
+  const region = process.env.AWS_REGION ?? 'us-west-2';
+  if (!bucket) return value; // can't resolve without bucket
+  return `https://${bucket}.s3.${region}.amazonaws.com/${value}`;
+}
+
 const MESSAGE_SELECT = {
   id: true,
   senderId: true,
@@ -57,11 +68,11 @@ function formatMessage(m: any, vendorUserId?: string, vendorBusinessName?: strin
     senderName,
     messageText: isDeleted ? 'Mensaje eliminado' : (m.messageText ?? ''),
     messageType: isDeleted ? 'text' : (m.messageType ?? 'text'),
-    imageUrl: isDeleted ? null : (m.imageUrl ?? null),
+    imageUrl: isDeleted ? null : resolveS3Url(m.imageUrl),
     latitude: isDeleted ? null : (m.latitude ?? null),
     longitude: isDeleted ? null : (m.longitude ?? null),
     addressText: isDeleted ? null : (m.addressText ?? null),
-    audioUrl: isDeleted ? null : (m.audioUrl ?? null),
+    audioUrl: isDeleted ? null : resolveS3Url(m.audioUrl),
     audioDuration: isDeleted ? null : (m.audioDuration ?? null),
     status: m.status ?? 'sent',
     isEdited: m.isEdited ?? false,
