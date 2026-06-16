@@ -290,7 +290,7 @@ export default function ChatScreen() {
         if (newMsg) { setMessages((prev) => [newMsg, ...(prev ?? [])]); }
         setReplyingTo(null);
       }
-    } catch { Alert.alert('Error', 'No se pudo enviar la imagen. Intenta de nuevo.'); }
+    } catch (e: any) { Alert.alert('DEBUG img send error', (e?.message ?? String(e)).substring(0, 500)); }
     setUploading(false);
   };
 
@@ -439,14 +439,14 @@ export default function ChatScreen() {
           if (newMsg) { setMessages((prev) => [newMsg, ...(prev ?? [])]); }
           setReplyingTo(null);
         }
-      } catch {
-        Alert.alert('Error', 'No se pudo enviar la nota de voz.');
+      } catch (e2: any) {
+        Alert.alert('DEBUG voice upload error', (e2?.message ?? String(e2)).substring(0, 500));
       }
       setUploading(false);
-    } catch {
+    } catch (e3: any) {
       setIsRecording(false);
       setRecordingDuration(0);
-      Alert.alert('Error', 'Error al procesar la grabación.');
+      Alert.alert('DEBUG voice record error', (e3?.message ?? String(e3)).substring(0, 500));
     }
   };
 
@@ -835,9 +835,17 @@ export default function ChatScreen() {
 async function uploadFileWithUrl(
   uri: string, fileName: string, contentType: string,
 ): Promise<{ url: string; storagePath: string }> {
-  const { directUpload } = await import('../src/services/upload');
-  const result = await directUpload(uri, fileName, contentType, true);
-  return { url: result?.url ?? '', storagePath: result?.cloud_storage_path ?? '' };
+  try {
+    const { directUpload } = await import('../src/services/upload');
+    const result = await directUpload(uri, fileName, contentType, true);
+    // DEBUG: show result on screen
+    Alert.alert('DEBUG upload result', JSON.stringify(result ?? 'null').substring(0, 500));
+    return { url: result?.url ?? '', storagePath: result?.cloud_storage_path ?? '' };
+  } catch (err: any) {
+    const msg = err?.response?.data ? JSON.stringify(err.response.data) : err?.message ?? String(err);
+    Alert.alert('DEBUG upload error', msg.substring(0, 600));
+    return { url: '', storagePath: '' };
+  }
 }
 
 const createStyles = (c: ThemeColors) => StyleSheet.create({
