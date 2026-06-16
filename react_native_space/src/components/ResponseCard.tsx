@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Platform, Pressable, Linking, Alert, Modal, Image as RNImage } from 'react-native';
+import { View, Text, StyleSheet, Platform, Pressable, Linking, Alert, Modal } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -61,7 +61,7 @@ export default function ResponseCard({ businessName, logoUrl, facadeImageUrl, av
       <View style={styles.header}>
         {hasLogo ? (
           <Pressable onPress={() => setLogoModal(true)}>
-            <RNImage source={{ uri: logoUrl }} style={styles.avatarImg} resizeMode="cover" onError={() => setLogoError(true)} />
+            <ExpoImage source={{ uri: logoUrl }} style={styles.avatarImg} contentFit="cover" cachePolicy="none" onError={() => setLogoError(true)} />
           </Pressable>
         ) : (
           <View style={styles.avatar}>
