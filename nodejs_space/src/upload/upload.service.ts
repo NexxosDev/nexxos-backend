@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { generatePresignedUploadUrl, getFileUrl } from '../lib/s3';
+import { generatePresignedUploadUrl, getFileUrl, fileExistsInS3 } from '../lib/s3';
 
 @Injectable()
 export class UploadService {
@@ -15,6 +15,14 @@ export class UploadService {
   }
 
   async completeUpload(userId: string, cloud_storage_path: string, fileName: string, contentType: string) {
+    // Verify the file was actually uploaded to S3 before saving to DB
+    const exists = await fileExistsInS3(cloud_storage_path);
+    if (!exists) {
+      this.logger.error(`File NOT found in S3 after upload: ${cloud_storage_path} (user: ${userId})`);
+      throw new BadRequestException('El archivo no se pudo verificar en el servidor. Por favor intenta subir de nuevo.');
+    }
+    this.logger.log(`File verified in S3: ${cloud_storage_path}`);
+
     const isPublic = cloud_storage_path.includes('/public/');
     const file = await this.prisma.file.create({
       data: {

@@ -3,14 +3,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ChatPresenceService } from '../notification/chat-presence.service';
 
-/** If a stored URL is just a relative S3 key (no protocol), build the full URL */
+/**
+ * If a stored URL is just a relative S3 key (no protocol), build the full direct URL.
+ * Direct URLs work for public files on this bucket (verified via curl).
+ */
 function resolveS3Url(value: string | null | undefined): string | null {
   if (!value) return null;
   if (value.startsWith('http://') || value.startsWith('https://')) return value;
-  // It's a bare storage path — build full S3 URL using env vars
   const bucket = process.env.AWS_BUCKET_NAME ?? '';
   const region = process.env.AWS_REGION ?? 'us-west-2';
-  if (!bucket) return value; // can't resolve without bucket
+  if (!bucket) return value;
   return `https://${bucket}.s3.${region}.amazonaws.com/${value}`;
 }
 

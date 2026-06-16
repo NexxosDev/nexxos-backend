@@ -1,6 +1,7 @@
 import {
   PutObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   DeleteObjectCommand,
   CreateMultipartUploadCommand,
   UploadPartCommand,
@@ -96,6 +97,49 @@ export async function getFileUrl(cloud_storage_path: string, isPublic: boolean, 
     ResponseContentDisposition: 'attachment',
   });
   return getSignedUrl(client, command, { expiresIn: 3600 });
+}
+
+/**
+ * Generate a signed GET URL for a media file (image / audio).
+ * Accepts either a bare S3 key  ("37513/public/uploads/…")
+ * or a full S3 URL            ("https://bucket.s3.region.amazonaws.com/37513/…").
+ * Always returns a signed URL so the file is accessible regardless of bucket ACL.
+ */
+export async function getSignedMediaUrl(pathOrUrl: string, prisma?: any): Promise<string> {
+  if (!pathOrUrl) return '';
+
+  const { bucketName } = await getBucketConfig(prisma);
+  const client = await createS3Client(prisma);
+
+  // Extract the S3 key
+  let key = pathOrUrl;
+  if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+    try {
+      const url = new URL(pathOrUrl);
+      key = decodeURIComponent(url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname);
+    } catch {
+      return pathOrUrl; // unparseable — return as-is
+    }
+  }
+
+  const command = new GetObjectCommand({
+    Bucket: bucketName,
+    Key: key,
+    // No ResponseContentDisposition — let the browser/app decide (images render inline by default)
+  });
+  return getSignedUrl(client, command, { expiresIn: 3600 });
+}
+
+/** Check if a file exists in S3 (returns true/false, never throws) */
+export async function fileExistsInS3(cloud_storage_path: string, prisma?: any): Promise<boolean> {
+  try {
+    const { bucketName } = await getBucketConfig(prisma);
+    const client = await createS3Client(prisma);
+    await client.send(new HeadObjectCommand({ Bucket: bucketName, Key: cloud_storage_path }));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function deleteFile(cloud_storage_path: string, prisma?: any) {
