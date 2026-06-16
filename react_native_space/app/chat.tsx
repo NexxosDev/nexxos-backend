@@ -283,7 +283,7 @@ export default function ChatScreen() {
       const contentType = 'image/jpeg';
       setUploading(true);
       const uploadRes = await uploadFileWithUrl(editedUri, fileName, contentType);
-      const imageUrl = uploadRes?.url ?? '';
+      const imageUrl = uploadRes?.storagePath || uploadRes?.url || '';
       if (imageUrl) {
         playSend();
         const newMsg = await sendChatMessage(chatId, 'Imagen', 'image', imageUrl, replyingTo?.id);
@@ -440,7 +440,7 @@ export default function ChatScreen() {
         const fileName = `voice_${Date.now()}.m4a`;
         const contentType = 'audio/mp4';
         const uploadRes = await uploadFileWithUrl(uri, fileName, contentType);
-        const audioUrlResult = uploadRes?.url ?? '';
+        const audioUrlResult = uploadRes?.storagePath || uploadRes?.url || '';
         if (audioUrlResult) {
           playSend();
           const newMsg = await sendChatMessage(

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException, BadRequestException,
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ChatPresenceService } from '../notification/chat-presence.service';
+import { getFileUrl } from '../lib/s3';
 
 const MESSAGE_SELECT = {
   id: true,
@@ -75,6 +76,29 @@ function formatMessage(m: any, vendorUserId?: string, vendorBusinessName?: strin
   };
 }
 
+/**
+ * Extract S3 key from a stored URL or return as-is if already a storage path.
+ * Handles:
+ *  - Plain S3 keys (e.g. "37513/public/uploads/1718..." → not starting with http)
+ *  - Full S3 URLs (e.g. "https://bucket.s3.region.amazonaws.com/key?signature...")
+ *  - Signed URLs (e.g. "https://bucket.s3.region.amazonaws.com/key?X-Amz-...")
+ */
+function extractS3Key(value: string): string | null {
+  if (!value) return null;
+  // Already a storage path (not a URL)
+  if (!value.startsWith('http')) return value;
+  try {
+    const url = new URL(value);
+    // S3 URL pattern: https://bucket.s3.region.amazonaws.com/key
+    if (url.hostname?.includes?.('.amazonaws.com')) {
+      // pathname starts with / — remove leading slash
+      const key = url.pathname?.substring?.(1);
+      return key || null;
+    }
+  } catch { /* not a valid URL */ }
+  return null; // non-S3 URL (e.g. external URL) — can't resolve
+}
+
 const DELETE_FOR_ALL_MAX_AGE_MS = 60 * 60 * 1000;
 
 @Injectable()
@@ -86,6 +110,33 @@ export class ChatService {
     private readonly notificationService: NotificationService,
     private readonly chatPresence: ChatPresenceService,
   ) {}
+
+  /**
+   * Re-resolve a stored media URL (imageUrl / audioUrl) to a fresh signed URL.
+   * Handles both old full S3 URLs and new cloud_storage_path values.
+   */
+  private async resolveMediaUrl(value: string | null): Promise<string | null> {
+    if (!value) return null;
+    const s3Key = extractS3Key(value);
+    if (!s3Key) return value; // non-S3 URL, return as-is
+    try {
+      return await getFileUrl(s3Key, true, this.prisma);
+    } catch (err) {
+      this.logger.warn(`Failed to resolve media URL for key: ${s3Key}`, err);
+      return value; // fallback to original
+    }
+  }
+
+  /** Resolve imageUrl and audioUrl in a formatted message to fresh signed URLs */
+  private async resolveMessageMedia(msg: any): Promise<any> {
+    if (!msg) return msg;
+    if (!msg.imageUrl && !msg.audioUrl) return msg;
+    const [imageUrl, audioUrl] = await Promise.all([
+      this.resolveMediaUrl(msg.imageUrl),
+      this.resolveMediaUrl(msg.audioUrl),
+    ]);
+    return { ...msg, imageUrl, audioUrl };
+  }
 
   private async verifyAccess(chatId: string, userId: string) {
     const chat = await this.prisma.chat.findUnique({
@@ -169,10 +220,9 @@ export class ChatService {
     const vendorUserId = chat?.vendor?.userId;
     const vendorBusinessName = chat?.vendor?.businessName;
 
-    return {
-      items: items.map((m: any) => formatMessage(m, vendorUserId, vendorBusinessName)).filter(Boolean),
-      hasMore,
-    };
+    const formatted = items.map((m: any) => formatMessage(m, vendorUserId, vendorBusinessName)).filter(Boolean);
+    const resolved = await Promise.all(formatted.map((msg: any) => this.resolveMessageMedia(msg)));
+    return { items: resolved, hasMore };
   }
 
   async sendMessage(chatId: string, userId: string, messageText: string, messageType = 'text', imageUrl?: string, replyToId?: string, latitude?: number, longitude?: number, addressText?: string, audioUrl?: string, audioDuration?: number) {
@@ -218,7 +268,8 @@ export class ChatService {
       }
     }
 
-    return formatMessage(message, chat?.vendor?.userId, chat?.vendor?.businessName);
+    const formatted = formatMessage(message, chat?.vendor?.userId, chat?.vendor?.businessName);
+    return this.resolveMessageMedia(formatted);
   }
 
   async editMessage(chatId: string, messageId: string, userId: string, newText: string) {
@@ -235,7 +286,8 @@ export class ChatService {
       select: MESSAGE_SELECT,
     });
 
-    return formatMessage(updated, chat?.vendor?.userId, chat?.vendor?.businessName);
+    const formatted = formatMessage(updated, chat?.vendor?.userId, chat?.vendor?.businessName);
+    return this.resolveMessageMedia(formatted);
   }
 
   async deleteMessage(chatId: string, messageId: string, userId: string) {
@@ -257,7 +309,8 @@ export class ChatService {
       select: MESSAGE_SELECT,
     });
 
-    return formatMessage(updated, chat?.vendor?.userId, chat?.vendor?.businessName);
+    const fmtDel = formatMessage(updated, chat?.vendor?.userId, chat?.vendor?.businessName);
+    return this.resolveMessageMedia(fmtDel);
   }
 
   async markDelivered(chatId: string, userId: string, messageIds?: string[]) {
