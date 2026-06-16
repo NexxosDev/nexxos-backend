@@ -1,20 +1,49 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import { getConfig } from './config-helper';
 import { Logger } from '@nestjs/common';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
+import { execSync } from 'child_process';
 
 const logger = new Logger('AwsConfig');
 
 /**
- * Reads fresh STS credentials from all available sources in priority order:
- * 1. ABACUS_AWS_* environment variables (set by Abacus infrastructure)
- * 2. Hosted storage credential JSON files
- * 3. Standard AWS_* environment variables
+ * Reads fresh STS credentials. Uses multiple strategies:
+ * 1. Execute credential_process from AWS shared credentials file (freshest)
+ * 2. Read hosted_storage JSON files directly
+ * 3. AWS env vars / ABACUS env vars
  */
 function readFreshCredentials(): {
-  accessKeyId: string; secretAccessKey: string; sessionToken: string; source: string; expiration?: string;
+  accessKeyId: string; secretAccessKey: string; sessionToken: string; source: string;
 } | null {
-  // Source 1: Credential JSON files (hosted_storage profile — has S3 bucket access)
+  // Strategy 1: Execute credential_process directly (like the SDK would, but fresh each time)
+  try {
+    const sharedCredsFile = process.env.AWS_SHARED_CREDENTIALS_FILE;
+    const profile = process.env.AWS_PROFILE || 'hosted_storage';
+    if (sharedCredsFile && existsSync(sharedCredsFile)) {
+      const content = readFileSync(sharedCredsFile, 'utf-8');
+      // Parse INI to find credential_process for our profile
+      const profileSection = content.split(/\[/).find(s => s.startsWith(`${profile}]`));
+      const match = profileSection?.match(/credential_process\s*=\s*(.+)/);
+      if (match) {
+        const cmd = match[1].trim();
+        const output = execSync(cmd, { timeout: 5000, encoding: 'utf-8' });
+        const parsed = JSON.parse(output);
+        if (parsed?.AccessKeyId && parsed?.SecretAccessKey) {
+          logger.log(`Credentials from credential_process (profile: ${profile}, key: ${parsed.AccessKeyId.substring(0, 8)}...)`);
+          return {
+            accessKeyId: parsed.AccessKeyId,
+            secretAccessKey: parsed.SecretAccessKey,
+            sessionToken: parsed.SessionToken ?? '',
+            source: `credential_process:${profile}`,
+          };
+        }
+      }
+    }
+  } catch (e: any) {
+    logger.warn(`credential_process failed: ${e?.message}`);
+  }
+
+  // Strategy 2: Read JSON files directly
   const paths = [
     '/aws_credentials/.aws/hosted_storage_credential_json',
     '/aws_credentials/.aws/credential_json',
@@ -24,46 +53,33 @@ function readFreshCredentials(): {
       const raw = readFileSync(p, 'utf-8');
       const parsed = JSON.parse(raw);
       if (parsed?.AccessKeyId && parsed?.SecretAccessKey) {
+        logger.log(`Credentials from file ${p} (key: ${parsed.AccessKeyId.substring(0, 8)}...)`);
         return {
           accessKeyId: parsed.AccessKeyId,
           secretAccessKey: parsed.SecretAccessKey,
           sessionToken: parsed.SessionToken ?? '',
           source: `file:${p}`,
-          expiration: parsed.Expiration ?? undefined,
         };
       }
-    } catch {
-      // File doesn't exist or invalid — try next
+    } catch { /* skip */ }
+  }
+
+  // Strategy 3: Env vars
+  for (const [prefix, src] of [['AWS_', 'AWS env'], ['ABACUS_AWS_', 'ABACUS env']] as const) {
+    const k = process.env[`${prefix}ACCESS_KEY_ID`];
+    const s = process.env[`${prefix}SECRET_ACCESS_KEY`];
+    const t = process.env[`${prefix}SESSION_TOKEN`];
+    if (k && s) {
+      logger.log(`Credentials from ${src} (key: ${k.substring(0, 8)}...)`);
+      return { accessKeyId: k, secretAccessKey: s, sessionToken: t ?? '', source: src };
     }
   }
 
-  // Source 2: Standard AWS_* env vars
-  const stdKey = process.env.AWS_ACCESS_KEY_ID;
-  const stdSecret = process.env.AWS_SECRET_ACCESS_KEY;
-  const stdToken = process.env.AWS_SESSION_TOKEN;
-  if (stdKey && stdSecret) {
-    return {
-      accessKeyId: stdKey,
-      secretAccessKey: stdSecret,
-      sessionToken: stdToken ?? '',
-      source: 'AWS env vars',
-    };
-  }
-
-  // Source 3: ABACUS_AWS_* env vars (may have limited permissions)
-  const abacusKey = process.env.ABACUS_AWS_ACCESS_KEY_ID;
-  const abacusSecret = process.env.ABACUS_AWS_SECRET_ACCESS_KEY;
-  const abacusToken = process.env.ABACUS_AWS_SESSION_TOKEN;
-  if (abacusKey && abacusSecret) {
-    return {
-      accessKeyId: abacusKey,
-      secretAccessKey: abacusSecret,
-      sessionToken: abacusToken ?? '',
-      source: 'ABACUS_AWS env vars',
-      expiration: process.env.ABACUS_AWS_EXPIRATION,
-    };
-  }
-
+  logger.error('NO credentials found from any source!');
+  logger.error(`  AWS_SHARED_CREDENTIALS_FILE=${process.env.AWS_SHARED_CREDENTIALS_FILE ?? 'unset'}`);
+  logger.error(`  AWS_PROFILE=${process.env.AWS_PROFILE ?? 'unset'}`);
+  logger.error(`  /aws_credentials exists: ${existsSync('/aws_credentials')}`);
+  logger.error(`  /opt/hostedapp/configs_credentials exists: ${existsSync('/opt/hostedapp/configs_credentials')}`);
   return null;
 }
 
@@ -121,7 +137,7 @@ export async function createS3Client(prisma: any): Promise<S3Client> {
 
   const freshCreds = readFreshCredentials();
   if (freshCreds) {
-    logger.log(`Using credentials from ${freshCreds.source} (key: ${freshCreds.accessKeyId.substring(0, 8)}..., expires: ${freshCreds.expiration ?? 'unknown'})`);
+    logger.log(`Using credentials from ${freshCreds.source} (key: ${freshCreds.accessKeyId.substring(0, 8)}...)`);
     return new S3Client({
       ...(region ? { region } : {}),
       credentials: {
@@ -132,27 +148,8 @@ export async function createS3Client(prisma: any): Promise<S3Client> {
     });
   }
 
-  // Fallback: log everything we know for debugging
-  logger.warn('readFreshCredentials returned null — dumping env diagnostic');
-  logger.warn(`  AWS_SHARED_CREDENTIALS_FILE=${process.env.AWS_SHARED_CREDENTIALS_FILE ?? 'unset'}`);
-  logger.warn(`  AWS_PROFILE=${process.env.AWS_PROFILE ?? 'unset'}`);
-  logger.warn(`  AWS_REGION=${process.env.AWS_REGION ?? 'unset'}`);
-  logger.warn(`  AWS_ACCESS_KEY_ID=${(process.env.AWS_ACCESS_KEY_ID ?? 'unset').substring(0, 8)}...`);
-  logger.warn(`  ABACUS_AWS_ACCESS_KEY_ID=${(process.env.ABACUS_AWS_ACCESS_KEY_ID ?? 'unset').substring(0, 8)}...`);
-  // Check if credential files exist
-  const credPaths = ['/aws_credentials/.aws/hosted_storage_credential_json', '/aws_credentials/.aws/credential_json'];
-  for (const cp of credPaths) {
-    try { readFileSync(cp, 'utf-8'); logger.warn(`  ${cp} EXISTS`); } catch { logger.warn(`  ${cp} NOT FOUND`); }
-  }
-  // Also try the credential_process file
-  try {
-    const credFile = process.env.AWS_SHARED_CREDENTIALS_FILE ?? '';
-    if (credFile) {
-      const content = readFileSync(credFile, 'utf-8');
-      logger.warn(`  Shared creds file content: ${content.substring(0, 200)}`);
-    }
-  } catch (e: any) { logger.warn(`  Could not read shared creds file: ${e?.message}`); }
-
+  // No credentials found — last resort: bare SDK default chain
+  logger.warn('readFreshCredentials returned null, falling back to bare S3Client()');
   return new S3Client({
     ...(region ? { region } : {}),
   });
