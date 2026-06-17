@@ -8,10 +8,14 @@ import {
   CompleteMultipartUploadCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { createS3Client, getBucketConfig } from './aws-config';
+import { createS3Client, getBucketConfig, invalidateCachedCredentials } from './aws-config';
+import { Logger } from '@nestjs/common';
+
+const s3Logger = new Logger('S3');
 
 /**
  * Upload a buffer directly to S3 (proxy upload — avoids presigned URL credential expiry).
+ * Includes automatic credential refresh retry on InvalidAccessKeyId.
  */
 export async function uploadBufferToS3(
   buffer: Buffer,
@@ -24,13 +28,28 @@ export async function uploadBufferToS3(
   const prefix = isPublic ? `${folderPrefix}public/uploads` : `${folderPrefix}uploads`;
   const cloud_storage_path = `${prefix}/${Date.now()}-${fileName}`;
 
-  const client = await createS3Client(prisma);
-  await client.send(new PutObjectCommand({
+  const putCmd = new PutObjectCommand({
     Bucket: bucketName,
     Key: cloud_storage_path,
     Body: buffer,
     ContentType: contentType,
-  }));
+  });
+
+  // Try upload, with one retry on credential failure
+  let client = await createS3Client(prisma);
+  try {
+    await client.send(putCmd);
+  } catch (err: any) {
+    if (err?.Code === 'InvalidAccessKeyId' || err?.name === 'InvalidAccessKeyId') {
+      s3Logger.warn(`S3 upload got InvalidAccessKeyId, refreshing credentials and retrying...`);
+      invalidateCachedCredentials();
+      client = await createS3Client(prisma);
+      await client.send(putCmd);
+      s3Logger.log('Retry with refreshed credentials succeeded');
+    } else {
+      throw err;
+    }
+  }
 
   // Build direct URL for public files
   const region = typeof client.config.region === 'function'

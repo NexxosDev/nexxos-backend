@@ -120,39 +120,46 @@ async function fetchFreshCredentials(): Promise<CachedCreds | null> {
 /**
  * Get valid hosted_storage STS credentials.
  * Priority:
- *  1. Cached credentials (if not expired)
- *  2. Local credential file (if not expired)
- *  3. Fresh credentials from S3 refresh location
+ *  1. Cached credentials (if not expired AND not invalidated)
+ *  2. S3 refresh location (ALWAYS preferred — gets the freshest credentials)
+ *  3. Local credential file (fallback if refresh location unavailable)
+ *
+ * NOTE: STS credentials can be REVOKED by AWS before their stated expiration
+ * (e.g. when a container is suspended and resumed). That's why we always prefer
+ * the refresh location over the local file, even if the local file is "not expired".
  */
-async function getHostedStorageCredentials(): Promise<CachedCreds | null> {
+async function getHostedStorageCredentials(forceRefresh = false): Promise<CachedCreds | null> {
   const now = Date.now();
 
-  // 1. Return cached if still valid
-  if (_cachedCreds && _cachedCreds.expiresAt > now + EXPIRY_MARGIN_MS) {
+  // 1. Return cached if still valid and not force-refreshing
+  if (!forceRefresh && _cachedCreds && _cachedCreds.expiresAt > now + EXPIRY_MARGIN_MS) {
     return _cachedCreds;
   }
 
-  // 2. Try local file
+  // 2. Always try S3 refresh location FIRST (gets genuinely fresh credentials)
+  const hasRefreshLocation = !!(process.env.ABACUS_AWS_REFRESH_LOCATION && process.env.ABACUS_AWS_ACCESS_KEY_ID);
+  if (hasRefreshLocation) {
+    logger.log('Fetching fresh credentials from S3 refresh location...');
+    const fresh = await fetchFreshCredentials();
+    if (fresh && fresh.expiresAt > now + EXPIRY_MARGIN_MS) {
+      _cachedCreds = fresh;
+      _cachedClient = null;
+      return fresh;
+    }
+  }
+
+  // 3. Fallback to local file (only if refresh failed or unavailable)
   const local = readLocalCredentialFile();
   if (local && local.expiresAt > now + EXPIRY_MARGIN_MS) {
     logger.log(`Using local credential file (${local.accessKeyId.substring(0, 8)}... expires in ${Math.round((local.expiresAt - now) / 60000)}min)`);
     _cachedCreds = local;
-    _cachedClient = null; // invalidate client so it gets recreated
+    _cachedClient = null;
     return local;
   }
 
-  // 3. Fetch fresh from S3 refresh location
-  logger.log('Local credentials expired or missing, fetching fresh from S3...');
-  const fresh = await fetchFreshCredentials();
-  if (fresh) {
-    _cachedCreds = fresh;
-    _cachedClient = null;
-    return fresh;
-  }
-
-  // 4. Last resort: use local even if expired (might still work briefly)
+  // 4. Last resort: use local even if expired
   if (local) {
-    logger.warn(`Using possibly-expired local credentials as last resort (expired ${Math.round((now - local.expiresAt) / 60000)}min ago)`);
+    logger.warn(`Using possibly-expired local credentials as last resort`);
     _cachedCreds = local;
     _cachedClient = null;
     return local;
@@ -162,13 +169,26 @@ async function getHostedStorageCredentials(): Promise<CachedCreds | null> {
 }
 
 /**
+ * Invalidate cached credentials and force a fresh fetch on next call.
+ * Called when an S3 operation fails with InvalidAccessKeyId.
+ */
+export function invalidateCachedCredentials() {
+  logger.warn('Invalidating cached S3 credentials (will force refresh on next call)');
+  _cachedCreds = null;
+  _cachedClient = null;
+}
+
+/**
  * Returns an S3Client configured with credentials.
  * Priority:
  *  1. Explicit IAM keys from DB config (permanent, cached)
  *  2. Hosted storage STS credentials (refreshed automatically)
  */
 export async function createS3Client(prisma?: any): Promise<S3Client> {
-  // ── 1. Explicit long-lived keys from DB ──
+  // ── 1. Explicit long-lived IAM keys from DB ──
+  // IMPORTANT: Only use keys that are truly permanent (start with "AKIA").
+  // Keys starting with "ASIA" are temporary STS credentials and MUST go through
+  // the hosted_storage credential refresh path instead.
   if (prisma) {
     const [region, accessKeyId, secretAccessKey] = await Promise.all([
       getConfig('API_AWS_REGION', prisma),
@@ -176,12 +196,13 @@ export async function createS3Client(prisma?: any): Promise<S3Client> {
       getConfig('API_AWS_SECRET_ACCESS_KEY', prisma),
     ]);
 
-    if (accessKeyId && secretAccessKey) {
+    const isLongLived = accessKeyId && secretAccessKey && accessKeyId.startsWith('AKIA');
+    if (isLongLived) {
       const hash = `${region}|${accessKeyId}|${secretAccessKey}`;
       if (_cachedClient && hash === _explicitKeyHash) {
         return _cachedClient;
       }
-      logger.log(`Creating S3Client with explicit keys (${accessKeyId.substring(0, 8)}...)`);
+      logger.log(`Creating S3Client with permanent IAM keys (${accessKeyId.substring(0, 8)}...)`);
       const client = new S3Client({
         ...(region ? { region } : {}),
         credentials: { accessKeyId, secretAccessKey },
@@ -189,6 +210,9 @@ export async function createS3Client(prisma?: any): Promise<S3Client> {
       _cachedClient = client;
       _explicitKeyHash = hash;
       return client;
+    }
+    if (accessKeyId && !isLongLived) {
+      logger.log(`Skipping STS key from config/env (${accessKeyId.substring(0, 8)}...) — using refresh path instead`);
     }
   }
 

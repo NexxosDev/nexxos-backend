@@ -6,6 +6,14 @@ import { Request, Response, NextFunction } from 'express';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
+
+  // ── S3 credential diagnostics ──
+  const hasAbacusAwsKey = !!process.env.ABACUS_AWS_ACCESS_KEY_ID;
+  const hasRefreshLoc = !!process.env.ABACUS_AWS_REFRESH_LOCATION;
+  const hasCredFile = (() => { try { require('fs').accessSync('/aws_credentials/.aws/hosted_storage_credential_json'); return true; } catch { return false; } })();
+  const hasSharedCreds = !!process.env.AWS_SHARED_CREDENTIALS_FILE;
+  logger.log(`[S3 Creds] ABACUS_AWS_ACCESS_KEY_ID: ${hasAbacusAwsKey ? 'YES' : 'NO'}, REFRESH_LOCATION: ${hasRefreshLoc ? 'YES' : 'NO'}, credential_file: ${hasCredFile ? 'EXISTS' : 'MISSING'}, AWS_SHARED_CREDENTIALS_FILE: ${hasSharedCreds ? process.env.AWS_SHARED_CREDENTIALS_FILE : 'NOT SET'}`);
+
   const app = await NestFactory.create(AppModule, {
     bodyParser: true,
   });
