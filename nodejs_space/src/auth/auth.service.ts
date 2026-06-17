@@ -393,7 +393,7 @@ export class AuthService {
     for (const key of s3KeysToDelete) {
       try {
         const { deleteFile } = await import('../lib/s3.js');
-        await deleteFile(key);
+        await deleteFile(key, this.prisma);
         this.logger.log(`Deleted S3 file: ${key}`);
       } catch (e) {
         this.logger.warn(`Failed to delete S3 file ${key}: ${(e as Error)?.message}`);
