@@ -119,7 +119,9 @@ export async function getFileUrl(cloud_storage_path: string, isPublic: boolean, 
   const { bucketName } = await getBucketConfig(prisma);
   const client = await createS3Client(prisma);
   if (isPublic) {
-    const region = await client.config.region();
+    const region = typeof client.config.region === 'function'
+      ? await client.config.region()
+      : (client.config.region ?? 'us-west-2');
     return `https://${bucketName}.s3.${region}.amazonaws.com/${cloud_storage_path}`;
   }
   const command = new GetObjectCommand({

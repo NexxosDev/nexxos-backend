@@ -291,7 +291,7 @@ export default function ChatScreen() {
         if (newMsg) { setMessages((prev) => [newMsg, ...(prev ?? [])]); }
         setReplyingTo(null);
       }
-    } catch (e: any) { Alert.alert('DEBUG img send error', (e?.message ?? String(e)).substring(0, 500)); }
+    } catch (e: any) { console.error('Image send error:', e?.message ?? e); }
     setUploading(false);
   };
 
@@ -441,13 +441,14 @@ export default function ChatScreen() {
           setReplyingTo(null);
         }
       } catch (e2: any) {
-        Alert.alert('DEBUG voice upload error', (e2?.message ?? String(e2)).substring(0, 500));
+        console.error('Voice upload error:', e2?.message ?? e2);
+        Alert.alert('Error', 'No se pudo enviar la nota de voz.');
       }
       setUploading(false);
     } catch (e3: any) {
       setIsRecording(false);
       setRecordingDuration(0);
-      Alert.alert('DEBUG voice record error', (e3?.message ?? String(e3)).substring(0, 500));
+      console.error('Voice record error:', e3?.message ?? e3);
     }
   };
 
@@ -838,12 +839,9 @@ async function uploadFileWithUrl(
 ): Promise<{ url: string; storagePath: string }> {
   try {
     const result = await directUploadFile(uri, fileName, contentType, true);
-    // DEBUG: show result on screen
-    Alert.alert('DEBUG upload result', JSON.stringify(result ?? 'null').substring(0, 500));
     return { url: result?.url ?? '', storagePath: result?.cloud_storage_path ?? '' };
   } catch (err: any) {
-    const msg = err?.response?.data ? JSON.stringify(err.response.data) : err?.message ?? String(err);
-    Alert.alert('DEBUG upload error', msg.substring(0, 600));
+    console.error('Upload error:', err?.message ?? err);
     return { url: '', storagePath: '' };
   }
 }
