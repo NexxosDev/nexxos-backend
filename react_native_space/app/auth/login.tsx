@@ -65,6 +65,10 @@ export default function LoginScreen() {
           <Pressable onPress={() => router.push('/auth/register-type')} style={styles.link}>
             <Text style={styles.registerText}>¿No tienes cuenta? <Text style={styles.registerBold}>Regístrate</Text></Text>
           </Pressable>
+
+          <Text style={styles.backendIndicator}>
+            {(process.env.EXPO_PUBLIC_API_URL ?? '').replace(/^https?:\/\//, '').replace(/\/$/, '')}
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -87,4 +91,5 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   divider: { height: 1, backgroundColor: c.border, marginVertical: Spacing.lg },
   registerText: { fontSize: 15, color: c.textSecondary, textAlign: 'center' },
   registerBold: { color: c.primary, fontWeight: '600' },
+  backendIndicator: { fontSize: 10, color: c.textSecondary, textAlign: 'center', marginTop: Spacing.lg, opacity: 0.5 },
 });
