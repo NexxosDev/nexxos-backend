@@ -67,7 +67,7 @@ export default function LoginScreen() {
           </Pressable>
 
           <Text style={styles.backendIndicator}>
-            {(process.env.EXPO_PUBLIC_API_URL ?? '').replace(/^https?:\/\//, '').replace(/\/$/, '')}
+            api.nexxos.app
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
