@@ -9,6 +9,7 @@ import { Spacing } from '../../src/theme/colors';
 import type { ThemeColors } from '../../src/theme/colors';
 import Input from '../../src/components/Input';
 import Button from '../../src/components/Button';
+import { BACKEND_LABEL } from '../../src/config/backend';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -67,7 +68,7 @@ export default function LoginScreen() {
           </Pressable>
 
           <Text style={styles.backendIndicator}>
-            api.nexxos.app
+            {BACKEND_LABEL}
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

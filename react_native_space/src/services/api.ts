@@ -1,9 +1,9 @@
 import axios from 'axios';
 import { getToken, removeToken } from './token';
 
-// Force production backend — ignore Abacus preview URL injection
-const PRODUCTION_API = 'https://api.nexxos.app/';
-const BASE_URL = PRODUCTION_API;
+import { BACKEND_URL } from '../config/backend';
+
+const BASE_URL = BACKEND_URL;
 
 const api = axios.create({
   baseURL: new URL('/api', BASE_URL).toString(),
