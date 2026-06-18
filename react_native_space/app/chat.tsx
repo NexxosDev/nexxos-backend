@@ -290,8 +290,13 @@ export default function ChatScreen() {
         const newMsg = await sendChatMessage(chatId, 'Imagen', 'image', imageUrl, replyingTo?.id);
         if (newMsg) { setMessages((prev) => [newMsg, ...(prev ?? [])]); }
         setReplyingTo(null);
+        Alert.alert('📷 Upload OK', `URL: ${imageUrl.substring(0, 80)}...`);
+      } else {
+        Alert.alert('📷 Upload FALLÓ', 'El servidor no retornó URL. Revisa logs del backend.');
       }
-    } catch (e: any) { console.error('Image send error:', e?.message ?? e); }
+    } catch (e: any) {
+      Alert.alert('📷 Error de imagen', `${e?.message ?? e}`);
+    }
     setUploading(false);
   };
 
@@ -439,10 +444,12 @@ export default function ChatScreen() {
           );
           if (newMsg) { setMessages((prev) => [newMsg, ...(prev ?? [])]); }
           setReplyingTo(null);
+          Alert.alert('🎤 Upload OK', `Duración: ${durationSec}s\nURL: ${audioUrlResult.substring(0, 80)}...`);
+        } else {
+          Alert.alert('🎤 Upload FALLÓ', 'El servidor no retornó URL. Revisa logs del backend.');
         }
       } catch (e2: any) {
-        console.error('Voice upload error:', e2?.message ?? e2);
-        Alert.alert('Error', 'No se pudo enviar la nota de voz.');
+        Alert.alert('🎤 Error de audio', `${e2?.message ?? e2}`);
       }
       setUploading(false);
     } catch (e3: any) {
@@ -841,8 +848,10 @@ async function uploadFileWithUrl(
     const result = await directUploadFile(uri, fileName, contentType, true);
     return { url: result?.url ?? '', storagePath: result?.cloud_storage_path ?? '' };
   } catch (err: any) {
-    console.error('Upload error:', err?.message ?? err);
-    return { url: '', storagePath: '' };
+    const status = err?.response?.status ?? '';
+    const data = JSON.stringify(err?.response?.data ?? {});
+    const msg = err?.message ?? err;
+    throw new Error(`Upload failed: ${status} ${data || msg}`);
   }
 }
 
