@@ -1,6 +1,7 @@
 import api from './api';
+import { BACKEND_URL } from '../config/backend';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://nexxos-api.abacusai.app/';
+const BASE_URL = BACKEND_URL;
 
 /** Upload a file using the public registration endpoints (no auth needed) */
 export async function uploadRegistrationFile(

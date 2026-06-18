@@ -1,7 +1,8 @@
 import api from './api';
 import { getToken } from './token';
+import { BACKEND_URL } from '../config/backend';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://nexxos-api.abacusai.app/';
+const BASE_URL = BACKEND_URL;
 
 export async function getPresignedUrl(fileName: string, contentType: string, isPublic: boolean): Promise<{ uploadUrl: string; cloud_storage_path: string }> {
   const res = await api.post('/upload/presigned', { fileName, contentType, isPublic });

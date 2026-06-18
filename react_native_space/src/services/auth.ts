@@ -1,5 +1,6 @@
 import api from './api';
 import type { AuthResponse, User } from '../types';
+import { BACKEND_URL } from '../config/backend';
 
 export async function loginApi(email: string, password: string): Promise<AuthResponse> {
   const res = await api.post('/auth/login', { email, password });
@@ -58,7 +59,7 @@ export async function verifyResetCodeApi(email: string, code: string): Promise<{
 }
 
 export async function verifyEmailApi(token: string): Promise<{ success: boolean; message: string }> {
-  const response = await fetch(new URL(`auth/verify-email?token=${encodeURIComponent(token)}`, process.env.EXPO_PUBLIC_API_URL).toString(), {
+  const response = await fetch(new URL(`auth/verify-email?token=${encodeURIComponent(token)}`, BACKEND_URL).toString(), {
     method: 'GET',
   });
   if (!response?.ok) {
@@ -69,7 +70,7 @@ export async function verifyEmailApi(token: string): Promise<{ success: boolean;
 }
 
 export async function resendVerificationEmailApi(email: string): Promise<{ success: boolean; message: string }> {
-  const response = await fetch(new URL('auth/resend-verification', process.env.EXPO_PUBLIC_API_URL).toString(), {
+  const response = await fetch(new URL('auth/resend-verification', BACKEND_URL).toString(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),

@@ -848,10 +848,8 @@ async function uploadFileWithUrl(
     const result = await directUploadFile(uri, fileName, contentType, true);
     return { url: result?.url ?? '', storagePath: result?.cloud_storage_path ?? '' };
   } catch (err: any) {
-    const status = err?.response?.status ?? '';
-    const data = JSON.stringify(err?.response?.data ?? {});
-    const msg = err?.message ?? err;
-    throw new Error(`Upload failed: ${status} ${data || msg}`);
+    const msg = err?.message ?? String(err ?? 'Unknown error');
+    throw new Error(`Upload failed: ${msg}`);
   }
 }
 
