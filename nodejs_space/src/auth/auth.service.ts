@@ -204,6 +204,7 @@ export class AuthService {
   }
 
   async upgradeToVendor(userId: string, dto: import('./dto/upgrade-to-vendor.dto').UpgradeToVendorDto) {
+    this.logger.log(`[upgradeToVendor] Starting for userId=${userId}`);
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { userRoles: { include: { role: true } }, vendor: true },
@@ -216,11 +217,11 @@ export class AuthService {
 
     const hasVendorRole = user.userRoles.some((ur: any) => ur.role.name === 'VENDEDOR');
 
-    await this.prisma.$transaction(async (tx: any) => {
+    const vendor = await this.prisma.$transaction(async (tx: any) => {
       if (!hasVendorRole) {
         await tx.userRole.create({ data: { userId: user.id, roleId: vendorRole.id } });
       }
-      const vendor = await tx.vendor.create({
+      const v = await tx.vendor.create({
         data: {
           userId: user.id,
           businessName: dto.businessName,
@@ -250,10 +251,12 @@ export class AuthService {
           },
         },
       });
-      await tx.vendorMetrics.create({ data: { vendorId: vendor.id } });
-      // Assign default plan (Beta or Gratuito depending on cutoff date)
-      await this.plansService.assignDefaultPlan(vendor.id);
+      await tx.vendorMetrics.create({ data: { vendorId: v.id } });
+      return v;
     });
+
+    // Assign default plan OUTSIDE transaction to avoid deadlock
+    await this.plansService.assignDefaultPlan(vendor.id);
 
     // Return updated user info
     const updated = await this.prisma.user.findUnique({
