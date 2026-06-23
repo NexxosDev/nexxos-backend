@@ -60,6 +60,11 @@ function NotificationNavigator() {
             if (data.requestId) router.push(`/request-detail?id=${data.requestId}`);
             else router.push('/client/requests');
             break;
+          case 'RADIUS_EXPANDED':
+          case 'RADIUS_MAX_REACHED':
+            if (data.requestId) router.push(`/request-detail?id=${data.requestId}`);
+            else router.push('/client/requests');
+            break;
         }
       } catch (err) {
         console.error('Error navigating from notification:', err);
