@@ -212,7 +212,7 @@ export default function ChatScreen() {
           setMessages((prev) => (prev ?? []).map((m) => m?.id === updated.id ? updated : m));
         }
       } catch {
-        Alert.alert('Error', 'No se pudo editar el mensaje.');
+        console.warn('No se pudo editar el mensaje.');
       }
       setEditingMessage(null);
       setText('');
@@ -248,7 +248,7 @@ export default function ChatScreen() {
         }
       } catch {
         setMessages((prev) => (prev ?? []).filter((m) => m?.id !== tempId));
-        Alert.alert('Error', 'No se pudo enviar el mensaje.');
+        console.warn('No se pudo enviar el mensaje.');
       }
     }
     setSending(false);
@@ -261,11 +261,11 @@ export default function ChatScreen() {
       let result: ImagePicker.ImagePickerResult;
       if (source === 'camera') {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
-        if (!perm?.granted) { Alert.alert('Permiso necesario', 'Necesitas permitir el acceso a la cámara.'); return; }
+        if (!perm?.granted) { console.warn('Permiso de cámara denegado'); return; }
         result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 });
       } else {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!perm?.granted) { Alert.alert('Permiso necesario', 'Necesitas permitir el acceso a la galería.'); return; }
+        if (!perm?.granted) { console.warn('Permiso de galería denegado'); return; }
         result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
       }
       if (result?.canceled || !result?.assets?.[0]) return;
@@ -290,12 +290,12 @@ export default function ChatScreen() {
         const newMsg = await sendChatMessage(chatId, 'Imagen', 'image', imageUrl, replyingTo?.id);
         if (newMsg) { setMessages((prev) => [newMsg, ...(prev ?? [])]); }
         setReplyingTo(null);
-        Alert.alert('📷 Upload OK', `URL: ${imageUrl.substring(0, 80)}...`);
+        console.log('📷 Upload OK', imageUrl?.substring(0, 80));
       } else {
-        Alert.alert('📷 Upload FALLÓ', 'El servidor no retornó URL. Revisa logs del backend.');
+        console.warn('📷 Upload FALLÓ: servidor no retornó URL');
       }
     } catch (e: any) {
-      Alert.alert('📷 Error de imagen', `${e?.message ?? e}`);
+      console.warn('📷 Error de imagen', e?.message ?? e);
     }
     setUploading(false);
   };
@@ -308,14 +308,14 @@ export default function ChatScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permiso necesario', 'Necesitas permitir el acceso a tu ubicación para compartirla.');
+        console.warn('Permiso de ubicación denegado');
         return;
       }
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const lat = loc?.coords?.latitude;
       const lng = loc?.coords?.longitude;
       if (lat == null || lng == null) {
-        Alert.alert('Error', 'No se pudo obtener tu ubicación.');
+        console.warn('No se pudo obtener ubicación');
         return;
       }
 
@@ -354,7 +354,7 @@ export default function ChatScreen() {
                 if (newMsg) { setMessages((prev) => [newMsg, ...(prev ?? [])]); }
                 setReplyingTo(null);
               } catch {
-                Alert.alert('Error', 'No se pudo enviar la ubicación.');
+                console.warn('No se pudo enviar la ubicación.');
               }
               setSending(false);
             },
@@ -362,7 +362,7 @@ export default function ChatScreen() {
         ],
       );
     } catch {
-      Alert.alert('Error', 'No se pudo acceder a la ubicación.');
+      console.warn('No se pudo acceder a la ubicación.');
     }
   };
 
@@ -377,7 +377,7 @@ export default function ChatScreen() {
     try {
       const perm = await Audio.requestPermissionsAsync();
       if (!perm?.granted) {
-        Alert.alert('Permiso necesario', 'Necesitas permitir el acceso al micrófono para grabar notas de voz.');
+        console.warn('Permiso de micrófono denegado');
         return;
       }
       await Audio.setAudioModeAsync({
@@ -395,7 +395,7 @@ export default function ChatScreen() {
         setRecordingDuration((d) => d + 1);
       }, 1000);
     } catch {
-      Alert.alert('Error', 'No se pudo iniciar la grabación.');
+      console.warn('No se pudo iniciar la grabación.');
     }
   };
 
@@ -424,7 +424,7 @@ export default function ChatScreen() {
       await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
 
       if (!uri || durationSec < 1) {
-        Alert.alert('Muy corto', 'La nota de voz es muy corta.');
+        console.warn('Nota de voz muy corta');
         return;
       }
 
@@ -444,12 +444,12 @@ export default function ChatScreen() {
           );
           if (newMsg) { setMessages((prev) => [newMsg, ...(prev ?? [])]); }
           setReplyingTo(null);
-          Alert.alert('🎤 Upload OK', `Duración: ${durationSec}s\nURL: ${audioUrlResult.substring(0, 80)}...`);
+          console.log('🎤 Upload OK', `Duración: ${durationSec}s`);
         } else {
-          Alert.alert('🎤 Upload FALLÓ', 'El servidor no retornó URL. Revisa logs del backend.');
+          console.warn('🎤 Upload FALLÓ: servidor no retornó URL');
         }
       } catch (e2: any) {
-        Alert.alert('🎤 Error de audio', `${e2?.message ?? e2}`);
+        console.warn('🎤 Error de audio', e2?.message ?? e2);
       }
       setUploading(false);
     } catch (e3: any) {
@@ -528,7 +528,7 @@ export default function ChatScreen() {
       }
     } catch (err: any) {
       const msg = err?.response?.data?.message ?? 'No se pudo eliminar el mensaje.';
-      Alert.alert('Error', msg);
+      console.warn('Error al eliminar mensaje:', msg);
     }
     setDeleteConfirmMsg(null);
   }, [chatId, deleteConfirmMsg]);
