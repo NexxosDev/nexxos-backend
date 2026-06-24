@@ -436,9 +436,22 @@ export default function RegisterVendorScreen() {
         partSubcategoryIds: subcatIds ?? [],
       };
 
+      Alert.alert('DEBUG 1', `isExisting=${isExisting}\nvendorData keys: ${Object.keys(vendorData).join(', ')}\nmodels: ${(selectedModels ?? []).length}\nsubcats: ${(subcatIds ?? []).length}`);
+
       if (isExisting) {
         // Existing user: upgrade to vendor (no signup needed)
-        await upgradeToVendorApi(vendorData);
+        Alert.alert('DEBUG 2', 'Calling upgradeToVendorApi...');
+        try {
+          const result = await upgradeToVendorApi(vendorData);
+          Alert.alert('DEBUG 3 - SUCCESS', JSON.stringify(result, null, 2)?.substring(0, 500));
+        } catch (upgradeErr: any) {
+          const errDetail = upgradeErr?.response?.data
+            ? JSON.stringify(upgradeErr.response.data)
+            : upgradeErr?.message ?? String(upgradeErr);
+          const status = upgradeErr?.response?.status ?? 'N/A';
+          Alert.alert('DEBUG 3 - UPGRADE ERROR', `Status: ${status}\n\n${errDetail?.substring(0, 800)}`);
+          throw upgradeErr;
+        }
       } else {
         // New user: full signup flow
         await signup({
@@ -474,7 +487,9 @@ export default function RegisterVendorScreen() {
           if (facadePathVal) updateData.facadeImagePath = facadePathVal;
           await updateVendorProfile(updateData);
         }
-      } catch (imgErr) {
+      } catch (imgErr: any) {
+        const imgErrMsg = imgErr?.response?.data ? JSON.stringify(imgErr.response.data) : imgErr?.message ?? String(imgErr);
+        Alert.alert('DEBUG 4 - IMAGE UPLOAD ERROR', imgErrMsg?.substring(0, 800));
         console.warn('Image upload failed after signup:', imgErr);
       }
 
@@ -485,7 +500,12 @@ export default function RegisterVendorScreen() {
         await refreshUser?.();
         router.replace('/vendor');
       }
-    } catch (err) {
+    } catch (err: any) {
+      const finalErr = err?.response?.data
+        ? JSON.stringify(err.response.data)
+        : err?.message ?? String(err);
+      const status = err?.response?.status ?? 'N/A';
+      Alert.alert('DEBUG 5 - FINAL ERROR', `Status: ${status}\n\n${finalErr?.substring(0, 800)}`);
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
