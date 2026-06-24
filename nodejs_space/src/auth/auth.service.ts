@@ -205,80 +205,97 @@ export class AuthService {
 
   async upgradeToVendor(userId: string, dto: import('./dto/upgrade-to-vendor.dto').UpgradeToVendorDto) {
     this.logger.log(`[upgradeToVendor] Starting for userId=${userId}`);
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { userRoles: { include: { role: true } }, vendor: true },
-    });
-    if (!user) throw new UnauthorizedException('User not found');
-    if (user.vendor) throw new ConflictException('Ya tienes un perfil de vendedor.');
-
-    const vendorRole = await this.prisma.role.findUnique({ where: { name: 'VENDEDOR' } });
-    if (!vendorRole) throw new BadRequestException('Vendor role not configured');
-
-    const hasVendorRole = user.userRoles.some((ur: any) => ur.role.name === 'VENDEDOR');
-
-    const vendor = await this.prisma.$transaction(async (tx: any) => {
-      if (!hasVendorRole) {
-        await tx.userRole.create({ data: { userId: user.id, roleId: vendorRole.id } });
-      }
-      const v = await tx.vendor.create({
-        data: {
-          userId: user.id,
-          businessName: dto.businessName,
-          rif: dto.rif,
-          country: dto.country || null,
-          city: dto.city || null,
-          state: dto.state || null,
-          municipality: dto.municipality || null,
-          parish: dto.parish || null,
-          street: dto.street || null,
-          postalCode: dto.postalCode || null,
-          latitude: dto.latitude || null,
-          longitude: dto.longitude || null,
-          referencePoint: dto.referencePoint || null,
-          fullAddress: dto.fullAddress || null,
-          logoUrl: dto.logoPath || null,
-          documentImageUrl: dto.documentImagePath || null,
-          personalDocUrl: dto.personalDocPath || null,
-          selfieUrl: dto.selfiePath || null,
-          identityVerified: !!dto.identityVerified,
-          identityVerifiedAt: dto.identityVerified ? new Date() : null,
-          vendorVehicleModels: {
-            create: dto.vehicleModelIds.map((id) => ({ vehicleModelId: id })),
-          },
-          vendorPartSubcategories: {
-            create: dto.partSubcategoryIds.map((id) => ({ partSubcategoryId: id })),
-          },
-        },
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { userRoles: { include: { role: true } }, vendor: true },
       });
-      await tx.vendorMetrics.create({ data: { vendorId: v.id } });
-      return v;
-    });
+      if (!user) throw new UnauthorizedException('User not found');
+      if (user.vendor) throw new ConflictException('Ya tienes un perfil de vendedor.');
+      this.logger.log(`[upgradeToVendor] User found: ${user.email}, hasVendor=${!!user.vendor}`);
 
-    // Assign default plan OUTSIDE transaction to avoid deadlock
-    await this.plansService.assignDefaultPlan(vendor.id);
+      const vendorRole = await this.prisma.role.findUnique({ where: { name: 'VENDEDOR' } });
+      if (!vendorRole) throw new BadRequestException('Vendor role not configured');
+      this.logger.log(`[upgradeToVendor] vendorRole found: ${vendorRole.id}`);
 
-    // Return updated user info
-    const updated = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { userRoles: { include: { role: true } }, vendor: true },
-    });
+      const hasVendorRole = user.userRoles.some((ur: any) => ur.role.name === 'VENDEDOR');
+      this.logger.log(`[upgradeToVendor] hasVendorRole=${hasVendorRole}, models=${dto.vehicleModelIds?.length}, subcats=${dto.partSubcategoryIds?.length}`);
 
-    this.logger.log(`User ${user.email} upgraded to VENDEDOR`);
+      this.logger.log(`[upgradeToVendor] Starting transaction...`);
+      const vendor = await this.prisma.$transaction(async (tx: any) => {
+        if (!hasVendorRole) {
+          this.logger.log(`[upgradeToVendor] Creating userRole...`);
+          await tx.userRole.create({ data: { userId: user.id, roleId: vendorRole.id } });
+        }
+        this.logger.log(`[upgradeToVendor] Creating vendor record...`);
+        const v = await tx.vendor.create({
+          data: {
+            userId: user.id,
+            businessName: dto.businessName,
+            rif: dto.rif,
+            country: dto.country || null,
+            city: dto.city || null,
+            state: dto.state || null,
+            municipality: dto.municipality || null,
+            parish: dto.parish || null,
+            street: dto.street || null,
+            postalCode: dto.postalCode || null,
+            latitude: dto.latitude || null,
+            longitude: dto.longitude || null,
+            referencePoint: dto.referencePoint || null,
+            fullAddress: dto.fullAddress || null,
+            logoUrl: dto.logoPath || null,
+            documentImageUrl: dto.documentImagePath || null,
+            personalDocUrl: dto.personalDocPath || null,
+            selfieUrl: dto.selfiePath || null,
+            identityVerified: !!dto.identityVerified,
+            identityVerifiedAt: dto.identityVerified ? new Date() : null,
+            vendorVehicleModels: {
+              create: dto.vehicleModelIds.map((id) => ({ vehicleModelId: id })),
+            },
+            vendorPartSubcategories: {
+              create: dto.partSubcategoryIds.map((id) => ({ partSubcategoryId: id })),
+            },
+          },
+        });
+        this.logger.log(`[upgradeToVendor] Vendor created: ${v.id}, creating metrics...`);
+        await tx.vendorMetrics.create({ data: { vendorId: v.id } });
+        this.logger.log(`[upgradeToVendor] Transaction complete`);
+        return v;
+      });
 
-    return {
-      success: true,
-      user: {
-        id: updated!.id,
-        email: updated!.email,
-        name: updated!.name,
-        firstName: updated!.firstName,
-        lastName: updated!.lastName,
-        emailVerified: updated!.emailVerified,
-        roles: updated!.userRoles.map((ur: any) => ur.role.name),
-        hasVendorProfile: true,
-      },
-    };
+      // Assign default plan OUTSIDE transaction to avoid deadlock
+      this.logger.log(`[upgradeToVendor] Assigning default plan to vendor ${vendor.id}...`);
+      await this.plansService.assignDefaultPlan(vendor.id);
+      this.logger.log(`[upgradeToVendor] Plan assigned`);
+
+      // Return updated user info
+      const updated = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { userRoles: { include: { role: true } }, vendor: true },
+      });
+
+      this.logger.log(`User ${user.email} upgraded to VENDEDOR`);
+
+      return {
+        success: true,
+        user: {
+          id: updated!.id,
+          email: updated!.email,
+          name: updated!.name,
+          firstName: updated!.firstName,
+          lastName: updated!.lastName,
+          emailVerified: updated!.emailVerified,
+          roles: updated!.userRoles.map((ur: any) => ur.role.name),
+          hasVendorProfile: true,
+        },
+      };
+    } catch (error: any) {
+      this.logger.error(`[upgradeToVendor] FAILED for userId=${userId}: ${error?.message}`, error?.stack);
+      // Re-throw known HTTP exceptions as-is, wrap unknown errors with detail
+      if (error?.status) throw error;
+      throw new BadRequestException(`Error al crear perfil de vendedor: ${error?.message ?? 'Error desconocido'}`);
+    }
   }
 
   // ── Delete account (soft delete + anonymize) ──
