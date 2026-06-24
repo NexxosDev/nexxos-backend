@@ -1,1 +1,613 @@
-/home/ubuntu/.shared_schema_files/60c5850a0/schema.prisma
+// CRITICAL: This schema file is shared across multiple applications. Only make edits with explicit user consent. Changes here affect all apps using this database.
+
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/nexxos_mvp/nodejs_space/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+  id                      String                   @id @default(uuid()) @db.Uuid
+  email                   String                   @unique
+  password                String
+  firstName               String                   @map("first_name")
+  lastName                String                   @map("last_name")
+  name                    String
+  phone                   String
+  documentId              String                   @unique @map("document_id")
+  isActive                Boolean                  @default(true) @map("is_active")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+  emailVerified           Boolean                  @default(false) @map("email_verified")
+  profileImageUrl         String?                  @map("profile_image_url")
+  deletedAt               DateTime?                @map("deleted_at")
+  catalogSuggestions      CatalogSuggestion[]
+  chatMessages            ChatMessage[]
+  chatsAsClient           Chat[]                   @relation("ChatClient")
+  clientPointLogs         ClientPointLog[]
+  emailVerificationTokens EmailVerificationToken[]
+  files                   File[]
+  passwordResetTokens     PasswordResetToken[]
+  pushTokens              PushToken[]
+  requestRatingsGiven     RequestRating[]          @relation("RatingClient")
+  clientRequests          Request[]
+  responseTags            ResponseTag[]
+  userRoles               UserRole[]
+  vendor                  Vendor?
+
+  @@map("users")
+}
+
+model PushToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique
+  platform  String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_tokens")
+}
+
+model Role {
+  id        String     @id @default(uuid()) @db.Uuid
+  name      String     @unique
+  userRoles UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  roleId String @map("role_id") @db.Uuid
+  role   Role   @relation(fields: [roleId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model Vendor {
+  id                      String                  @id @default(uuid()) @db.Uuid
+  userId                  String                  @unique @map("user_id") @db.Uuid
+  businessName            String                  @map("business_name")
+  rif                     String
+  logoUrl                 String?                 @map("logo_url")
+  documentImageUrl        String?                 @map("document_image_url")
+  isAvailable             Boolean                 @default(true) @map("is_available")
+  createdAt               DateTime                @default(now()) @map("created_at")
+  updatedAt               DateTime                @updatedAt @map("updated_at")
+  city                    String?
+  country                 String?
+  fullAddress             String?                 @map("full_address")
+  latitude                Float?
+  longitude               Float?
+  municipality            String?
+  parish                  String?
+  postalCode              String?                 @map("postal_code")
+  referencePoint          String?                 @map("reference_point")
+  state                   String?
+  street                  String?
+  identityVerified        Boolean                 @default(false) @map("identity_verified")
+  identityVerifiedAt      DateTime?               @map("identity_verified_at")
+  personalDocUrl          String?                 @map("personal_doc_url")
+  selfieUrl               String?                 @map("selfie_url")
+  facadeImageUrl          String?                 @map("facade_image_url")
+  chats                   Chat[]
+  quickReplies            QuickReply[]
+  requestRatingsReceived  RequestRating[]         @relation("RatingVendor")
+  requestResponses        RequestResponse[]
+  requestVendorMatches    RequestVendorMatch[]
+  vendorMetrics           VendorMetrics?
+  vendorMonthlyRequests   VendorMonthlyRequests[]
+  vendorPartSubcategories VendorPartSubcategory[]
+  vendorSubscriptions     VendorSubscription[]
+  vendorVehicleModels     VendorVehicleModel[]
+  user                    User                    @relation(fields: [userId], references: [id])
+
+  @@map("vendors")
+}
+
+model VendorMetrics {
+  id                    String    @id @default(uuid()) @db.Uuid
+  vendorId              String    @unique @map("vendor_id") @db.Uuid
+  totalRequestsReceived Int       @default(0) @map("total_requests_received")
+  totalRequestsAnswered Int       @default(0) @map("total_requests_answered")
+  avgRating             Float?    @map("avg_rating")
+  totalRatings          Int       @default(0) @map("total_ratings")
+  lastActivityAt        DateTime? @map("last_activity_at")
+  vendor                Vendor    @relation(fields: [vendorId], references: [id])
+
+  @@map("vendor_metrics")
+}
+
+model VehicleBrand {
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String         @unique
+  displayOrder  Int?           @map("display_order")
+  requests      Request[]
+  vehicleModels VehicleModel[]
+
+  @@map("vehicle_brands")
+}
+
+model VehicleModel {
+  id                  String               @id @default(uuid()) @db.Uuid
+  brandId             String               @map("brand_id") @db.Uuid
+  name                String
+  requests            Request[]
+  brand               VehicleBrand         @relation(fields: [brandId], references: [id])
+  vendorVehicleModels VendorVehicleModel[]
+
+  @@unique([brandId, name])
+  @@map("vehicle_models")
+}
+
+model PartCategory {
+  id                String            @id @default(uuid()) @db.Uuid
+  name              String            @unique
+  displayOrder      Int?              @map("display_order")
+  partSubcategories PartSubcategory[]
+  requests          Request[]
+
+  @@map("part_categories")
+}
+
+model PartSubcategory {
+  id                      String                  @id @default(uuid()) @db.Uuid
+  categoryId              String                  @map("category_id") @db.Uuid
+  name                    String
+  keywords                PartKeyword[]
+  category                PartCategory            @relation(fields: [categoryId], references: [id])
+  requests                Request[]
+  vendorPartSubcategories VendorPartSubcategory[]
+
+  @@unique([categoryId, name])
+  @@map("part_subcategories")
+}
+
+model PartKeyword {
+  id            String          @id @default(uuid()) @db.Uuid
+  subcategoryId String          @map("subcategory_id") @db.Uuid
+  keyword       String
+  subcategory   PartSubcategory @relation(fields: [subcategoryId], references: [id], onDelete: Cascade)
+
+  @@index([keyword])
+  @@map("part_keywords")
+}
+
+model State {
+  id             String         @id @default(uuid()) @db.Uuid
+  name           String         @unique
+  capital        String?
+  isoCode        String?        @map("iso_code")
+  municipalities Municipality[]
+  requests       Request[]
+
+  @@map("states")
+}
+
+model Municipality {
+  id       String    @id @default(uuid()) @db.Uuid
+  stateId  String    @map("state_id") @db.Uuid
+  name     String
+  state    State     @relation(fields: [stateId], references: [id])
+  parishes Parish[]
+  requests Request[]
+
+  @@unique([stateId, name])
+  @@map("municipalities")
+}
+
+model Parish {
+  id             String       @id @default(uuid()) @db.Uuid
+  municipalityId String       @map("municipality_id") @db.Uuid
+  name           String
+  municipality   Municipality @relation(fields: [municipalityId], references: [id])
+  requests       Request[]
+
+  @@unique([municipalityId, name])
+  @@index([municipalityId])
+  @@map("parishes")
+}
+
+model VendorVehicleModel {
+  id             String       @id @default(uuid()) @db.Uuid
+  vendorId       String       @map("vendor_id") @db.Uuid
+  vehicleModelId String       @map("vehicle_model_id") @db.Uuid
+  vehicleModel   VehicleModel @relation(fields: [vehicleModelId], references: [id])
+  vendor         Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, vehicleModelId])
+  @@map("vendor_vehicle_models")
+}
+
+model VendorPartSubcategory {
+  id                String          @id @default(uuid()) @db.Uuid
+  vendorId          String          @map("vendor_id") @db.Uuid
+  partSubcategoryId String          @map("part_subcategory_id") @db.Uuid
+  partSubcategory   PartSubcategory @relation(fields: [partSubcategoryId], references: [id])
+  vendor            Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, partSubcategoryId])
+  @@map("vendor_part_subcategories")
+}
+
+model Request {
+  id                   String               @id @default(uuid()) @db.Uuid
+  clientId             String               @map("client_id") @db.Uuid
+  vehicleBrandId       String               @map("vehicle_brand_id") @db.Uuid
+  vehicleModelId       String               @map("vehicle_model_id") @db.Uuid
+  partCategoryId       String               @map("part_category_id") @db.Uuid
+  partSubcategoryId    String?              @map("part_subcategory_id") @db.Uuid
+  stateId              String?              @map("state_id") @db.Uuid
+  municipalityId       String?              @map("municipality_id") @db.Uuid
+  searchRadiusKm       Int?                 @map("search_radius_km")
+  freeDescription      String               @map("free_description")
+  status               String               @default("ABIERTA")
+  createdAt            DateTime             @default(now()) @map("created_at")
+  closedAt             DateTime?            @map("closed_at")
+  latitude             Float?
+  longitude            Float?
+  lastMessageAt        DateTime?            @map("last_message_at")
+  parishId             String?              @map("parish_id") @db.Uuid
+  ratingReminderSentAt DateTime?            @map("rating_reminder_sent_at")
+  expansionCount       Int                  @default(0) @map("expansion_count")
+  lastExpansionAt      DateTime?            @map("last_expansion_at")
+  originalRadiusKm     Int?                 @map("original_radius_km")
+  vehicleYear          Int?                 @map("vehicle_year")
+  chats                Chat[]
+  clientPointLogs      ClientPointLog[]
+  requestRating        RequestRating?
+  requestResponses     RequestResponse[]
+  requestVendorMatches RequestVendorMatch[]
+  client               User                 @relation(fields: [clientId], references: [id])
+  municipality         Municipality?        @relation(fields: [municipalityId], references: [id])
+  parish               Parish?              @relation(fields: [parishId], references: [id])
+  partCategory         PartCategory         @relation(fields: [partCategoryId], references: [id])
+  partSubcategory      PartSubcategory?     @relation(fields: [partSubcategoryId], references: [id])
+  state                State?               @relation(fields: [stateId], references: [id])
+  vehicleBrand         VehicleBrand         @relation(fields: [vehicleBrandId], references: [id])
+  vehicleModel         VehicleModel         @relation(fields: [vehicleModelId], references: [id])
+
+  @@index([clientId])
+  @@index([status])
+  @@index([stateId, municipalityId])
+  @@map("requests")
+}
+
+model RequestVendorMatch {
+  id          String    @id @default(uuid()) @db.Uuid
+  requestId   String    @map("request_id") @db.Uuid
+  vendorId    String    @map("vendor_id") @db.Uuid
+  deliveredAt DateTime  @default(now()) @map("delivered_at")
+  responded   Boolean   @default(false)
+  declined    Boolean   @default(false)
+  respondedAt DateTime? @map("responded_at")
+  declinedAt  DateTime? @map("declined_at")
+  request     Request   @relation(fields: [requestId], references: [id])
+  vendor      Vendor    @relation(fields: [vendorId], references: [id])
+
+  @@unique([requestId, vendorId])
+  @@index([vendorId])
+  @@index([requestId])
+  @@map("request_vendor_matches")
+}
+
+model RequestResponse {
+  id             String        @id @default(uuid()) @db.Uuid
+  requestId      String        @map("request_id") @db.Uuid
+  vendorId       String        @map("vendor_id") @db.Uuid
+  initialMessage String        @map("initial_message")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  request        Request       @relation(fields: [requestId], references: [id])
+  vendor         Vendor        @relation(fields: [vendorId], references: [id])
+  tags           ResponseTag[]
+
+  @@unique([requestId, vendorId])
+  @@map("request_responses")
+}
+
+model ResponseTag {
+  id         String          @id @default(uuid()) @db.Uuid
+  userId     String          @map("user_id") @db.Uuid
+  responseId String          @map("response_id") @db.Uuid
+  tag        String
+  createdAt  DateTime        @default(now()) @map("created_at")
+  response   RequestResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, responseId, tag])
+  @@index([userId, responseId])
+  @@map("response_tags")
+}
+
+model Chat {
+  id           String        @id @default(uuid()) @db.Uuid
+  requestId    String        @map("request_id") @db.Uuid
+  vendorId     String        @map("vendor_id") @db.Uuid
+  clientId     String        @map("client_id") @db.Uuid
+  createdAt    DateTime      @default(now()) @map("created_at")
+  chatMessages ChatMessage[]
+  client       User          @relation("ChatClient", fields: [clientId], references: [id])
+  request      Request       @relation(fields: [requestId], references: [id])
+  vendor       Vendor        @relation(fields: [vendorId], references: [id])
+
+  @@unique([requestId, vendorId, clientId])
+  @@index([clientId])
+  @@index([vendorId])
+  @@map("chats")
+}
+
+model ChatMessage {
+  id            String        @id @default(uuid()) @db.Uuid
+  chatId        String        @map("chat_id") @db.Uuid
+  senderId      String        @map("sender_id") @db.Uuid
+  messageText   String        @map("message_text")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  imageUrl      String?       @map("image_url")
+  messageType   String        @default("text") @map("message_type")
+  replyToId     String?       @map("reply_to_id") @db.Uuid
+  deletedForAll Boolean       @default(false) @map("deleted_for_all")
+  isEdited      Boolean       @default(false) @map("is_edited")
+  status        String        @default("sent") @map("status")
+  addressText   String?       @map("address_text")
+  latitude      Float?
+  longitude     Float?
+  audioDuration Float?        @map("audio_duration")
+  audioUrl      String?       @map("audio_url")
+  chat          Chat          @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  replyTo       ChatMessage?  @relation("MessageReply", fields: [replyToId], references: [id])
+  replies       ChatMessage[] @relation("MessageReply")
+  sender        User          @relation(fields: [senderId], references: [id])
+
+  @@index([chatId, createdAt])
+  @@map("chat_messages")
+}
+
+model RequestRating {
+  id        String   @id @default(uuid()) @db.Uuid
+  requestId String   @unique @map("request_id") @db.Uuid
+  clientId  String   @map("client_id") @db.Uuid
+  vendorId  String   @map("vendor_id") @db.Uuid
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at")
+  client    User     @relation("RatingClient", fields: [clientId], references: [id])
+  request   Request  @relation(fields: [requestId], references: [id])
+  vendor    Vendor   @relation("RatingVendor", fields: [vendorId], references: [id])
+
+  @@index([vendorId])
+  @@map("request_ratings")
+}
+
+model File {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  fileName         String   @map("file_name")
+  cloudStoragePath String   @map("cloud_storage_path")
+  isPublic         Boolean  @default(false) @map("is_public")
+  contentType      String   @map("content_type")
+  createdAt        DateTime @default(now()) @map("created_at")
+  user             User     @relation(fields: [userId], references: [id])
+
+  @@map("files")
+}
+
+model Plan {
+  id                   String               @id @default(uuid()) @db.Uuid
+  name                 String
+  description          String?
+  isActive             Boolean              @default(true) @map("is_active")
+  slug                 String               @unique
+  solicitudesMensuales Int                  @default(50) @map("solicitudes_mensuales")
+  prioridad            Int                  @default(1)
+  precioMensual        Float                @default(0) @map("precio_mensual")
+  precioAnual          Float                @default(0) @map("precio_anual")
+  comisionPorcentaje   Float                @default(0) @map("comision_porcentaje")
+  visibleEnApp         Boolean              @default(true) @map("visible_en_app")
+  beneficios           String?              @db.Text
+  createdAt            DateTime             @default(now()) @map("created_at")
+  updatedAt            DateTime             @updatedAt @map("updated_at")
+  vendorSubscriptions  VendorSubscription[]
+
+  @@map("plans")
+}
+
+model VendorSubscription {
+  id              String    @id @default(uuid()) @db.Uuid
+  vendorId        String    @map("vendor_id") @db.Uuid
+  planId          String    @map("plan_id") @db.Uuid
+  estado          String    @default("ACTIVE")
+  fechaAsignacion DateTime  @default(now()) @map("fecha_asignacion")
+  fechaExpiracion DateTime? @map("fecha_expiracion")
+  fechaGracia     DateTime? @map("fecha_gracia")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  plan            Plan      @relation(fields: [planId], references: [id])
+  vendor          Vendor    @relation(fields: [vendorId], references: [id])
+
+  @@index([vendorId, estado])
+  @@map("vendor_subscriptions")
+}
+
+model VendorMonthlyRequests {
+  id        String   @id @default(uuid()) @db.Uuid
+  vendorId  String   @map("vendor_id") @db.Uuid
+  year      Int
+  month     Int
+  count     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  vendor    Vendor   @relation(fields: [vendorId], references: [id])
+
+  @@unique([vendorId, year, month])
+  @@map("vendor_monthly_requests")
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  token     String   @unique
+  userId    String   @map("user_id") @db.Uuid
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_verification_tokens")
+}
+
+model EmailVerificationCode {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String
+  code      String
+  expiresAt DateTime @map("expires_at")
+  verified  Boolean  @default(false)
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email, code])
+  @@map("email_verification_codes")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  token     String   @unique
+  userId    String   @map("user_id") @db.Uuid
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
+model PasswordResetCode {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String
+  code      String
+  expiresAt DateTime @map("expires_at")
+  verified  Boolean  @default(false)
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email, code])
+  @@map("password_reset_codes")
+}
+
+model Admin {
+  id        String     @id @default(uuid()) @db.Uuid
+  email     String     @unique
+  password  String
+  firstName String     @map("first_name")
+  lastName  String     @map("last_name")
+  isActive  Boolean    @default(true) @map("is_active")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  auditLogs AuditLog[]
+
+  @@map("admins")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  adminId   String   @map("admin_id") @db.Uuid
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  changes   Json?
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+  admin     Admin    @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model ClientPointLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  action    String
+  points    Int
+  requestId String?  @map("request_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  request   Request? @relation(fields: [requestId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, action])
+  @@index([userId, createdAt])
+  @@map("client_point_logs")
+}
+
+model LegalDocument {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique
+  title     String
+  content   String
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("legal_documents")
+}
+
+model CatalogSuggestion {
+  id             String    @id @default(uuid()) @db.Uuid
+  text           String
+  normalizedText String    @map("normalized_text")
+  userId         String?   @map("user_id") @db.Uuid
+  isReviewed     Boolean   @default(false) @map("is_reviewed")
+  adminNotes     String?   @map("admin_notes")
+  reviewedAt     DateTime? @map("reviewed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  user           User?     @relation(fields: [userId], references: [id])
+
+  @@index([normalizedText])
+  @@index([isReviewed])
+  @@index([createdAt])
+  @@map("catalog_suggestions")
+}
+
+model AppConfig {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("app_config")
+}
+
+model QuickReply {
+  id          String   @id @default(uuid()) @db.Uuid
+  vendorId    String   @map("vendor_id") @db.Uuid
+  messageText String   @map("message_text")
+  order       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@map("quick_replies")
+}
+
+model ExchangeRate {
+  id           String   @id @default(uuid()) @db.Uuid
+  currencyPair String   @map("currency_pair") // e.g. "USD_VES"
+  rate         Float    // e.g. 61.56
+  source       String   @default("BCV") // "BCV" | "MANUAL"
+  date         DateTime @db.Date // the date this rate applies to
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([currencyPair, date])
+  @@index([currencyPair, date])
+  @@map("exchange_rates")
+}
