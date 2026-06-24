@@ -264,10 +264,15 @@ export class AuthService {
         return v;
       });
 
-      // Assign default plan OUTSIDE transaction to avoid deadlock
-      this.logger.log(`[upgradeToVendor] Assigning default plan to vendor ${vendor.id}...`);
-      await this.plansService.assignDefaultPlan(vendor.id);
-      this.logger.log(`[upgradeToVendor] Plan assigned`);
+      // Assign default plan OUTSIDE transaction to avoid deadlock — non-fatal
+      try {
+        this.logger.log(`[upgradeToVendor] Assigning default plan to vendor ${vendor.id}...`);
+        await this.plansService.assignDefaultPlan(vendor.id);
+        this.logger.log(`[upgradeToVendor] Plan assigned`);
+      } catch (planErr: any) {
+        this.logger.error(`[upgradeToVendor] Plan assignment failed (non-fatal): ${planErr?.message}`, planErr?.stack);
+        // Don't fail the whole upgrade if plan assignment fails
+      }
 
       // Return updated user info
       const updated = await this.prisma.user.findUnique({
