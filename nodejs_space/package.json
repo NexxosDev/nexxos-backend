@@ -96,7 +96,6 @@
   "engines": {
     "node": ">=18.18.0"
   },
-  "packageManager": "yarn@4.13.0",
   "prisma": {
     "seed": "tsx --require dotenv/config scripts/safe-seed.ts",
     "schema": "prisma/schema.prisma"
