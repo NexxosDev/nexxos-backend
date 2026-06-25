@@ -43,7 +43,11 @@ export default function ProfileAvatar({ imageUrl, initials, size = 90, onImageUp
       const storagePath = await uploadFile(uri, `profile_${Date.now()}.jpg`, 'image/jpeg', true);
       await api.patch('/users/profile', { profileImagePath: storagePath });
       onImageUpdated?.();
-    } catch { Alert.alert('Error', 'No se pudo actualizar la imagen de perfil.'); }
+    } catch (err: any) {
+      const detail = err?.response?.data?.message ?? err?.message ?? 'Error desconocido';
+      console.error('Profile image upload error:', JSON.stringify(err?.response?.data ?? err?.message));
+      Alert.alert('Error', `No se pudo actualizar la imagen de perfil: ${detail}`);
+    }
     finally { setUploading(false); }
   };
 
