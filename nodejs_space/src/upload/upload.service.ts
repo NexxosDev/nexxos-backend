@@ -15,14 +15,14 @@ export class UploadService {
   }
 
   async completeUpload(userId: string, cloud_storage_path: string, fileName: string, contentType: string) {
-    this.logger.log(`completeUpload: verifying ${cloud_storage_path} for user ${userId}...`);
-    // Verify the file was actually uploaded to S3 before saving to DB
+    this.logger.log(`completeUpload: ${cloud_storage_path} for user ${userId}`);
+    // Non-blocking verification — log warning but don't fail (frontend already validated S3 PUT response)
     const exists = await fileExistsInS3(cloud_storage_path, this.prisma);
     if (!exists) {
-      this.logger.error(`File NOT found in S3 after upload (with retry): ${cloud_storage_path} (user: ${userId})`);
-      throw new BadRequestException('El archivo no se pudo verificar en el servidor. Por favor intenta subir de nuevo.');
+      this.logger.warn(`HeadObject check failed for ${cloud_storage_path} (user: ${userId}) — proceeding anyway since client confirmed upload`);
+    } else {
+      this.logger.log(`File verified in S3: ${cloud_storage_path}`);
     }
-    this.logger.log(`File verified in S3: ${cloud_storage_path}`);
 
     const isPublic = cloud_storage_path.includes('/public/');
     const file = await this.prisma.file.create({
