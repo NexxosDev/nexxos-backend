@@ -28,7 +28,13 @@ export async function uploadFile(uri: string, fileName: string, contentType: str
     headers['Content-Disposition'] = 'attachment';
   }
 
-  await fetch(uploadUrl, { method: 'PUT', body: blob, headers });
+  const s3Response = await fetch(uploadUrl, { method: 'PUT', body: blob, headers });
+  if (!s3Response?.ok) {
+    const errText = await s3Response?.text?.().catch(() => 'unknown');
+    console.error(`S3 PUT failed: status=${s3Response?.status}, body=${errText}`);
+    throw new Error(`S3 upload failed (status ${s3Response?.status})`);
+  }
+
   await completeUpload(storagePath, fileName, contentType);
   return storagePath;
 }

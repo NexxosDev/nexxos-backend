@@ -15,10 +15,11 @@ export class UploadService {
   }
 
   async completeUpload(userId: string, cloud_storage_path: string, fileName: string, contentType: string) {
+    this.logger.log(`completeUpload: verifying ${cloud_storage_path} for user ${userId}...`);
     // Verify the file was actually uploaded to S3 before saving to DB
     const exists = await fileExistsInS3(cloud_storage_path, this.prisma);
     if (!exists) {
-      this.logger.error(`File NOT found in S3 after upload: ${cloud_storage_path} (user: ${userId})`);
+      this.logger.error(`File NOT found in S3 after upload (with retry): ${cloud_storage_path} (user: ${userId})`);
       throw new BadRequestException('El archivo no se pudo verificar en el servidor. Por favor intenta subir de nuevo.');
     }
     this.logger.log(`File verified in S3: ${cloud_storage_path}`);

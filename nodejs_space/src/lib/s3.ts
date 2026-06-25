@@ -182,16 +182,20 @@ export async function getSignedMediaUrl(pathOrUrl: string, prisma?: any): Promis
   return getSignedUrl(client, command, { expiresIn: 3600 });
 }
 
-/** Check if a file exists in S3 (returns true/false, never throws) */
+/** Check if a file exists in S3 (returns true/false, never throws). Retries once after 1s for eventual consistency. */
 export async function fileExistsInS3(cloud_storage_path: string, prisma?: any): Promise<boolean> {
-  try {
-    const { bucketName } = await getBucketConfig(prisma);
-    const client = await createS3Client(prisma);
-    await client.send(new HeadObjectCommand({ Bucket: bucketName, Key: cloud_storage_path }));
-    return true;
-  } catch {
-    return false;
+  const { bucketName } = await getBucketConfig(prisma);
+  const client = await createS3Client(prisma);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await client.send(new HeadObjectCommand({ Bucket: bucketName, Key: cloud_storage_path }));
+      return true;
+    } catch (err: any) {
+      s3Logger.warn(`fileExistsInS3 attempt ${attempt + 1} failed for ${cloud_storage_path}: ${err?.name ?? err?.message}`);
+      if (attempt === 0) await new Promise(r => setTimeout(r, 1500));
+    }
   }
+  return false;
 }
 
 export async function deleteFile(cloud_storage_path: string, prisma?: any) {
