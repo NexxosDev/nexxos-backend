@@ -72,7 +72,7 @@ export default function CreateRequestScreen() {
   }, []);
 
   const renderBrandIcon = useCallback((item: CatalogItem) => (
-    <BrandLogo brandName={item?.name ?? ''} size={24} />
+    <BrandLogo brandName={item?.name ?? ''} logoUrl={item?.logoUrl} size={24} />
   ), []);
 
   const renderCategoryIcon = useCallback((item: CatalogItem) => (

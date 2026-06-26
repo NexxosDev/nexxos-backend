@@ -80,7 +80,7 @@ export default function VehicleAccordion({
                   ]}
                   onPress={() => toggleExpand(brandId)}
                 >
-                  <BrandLogo brandName={brand?.name ?? ''} size={22} />
+                  <BrandLogo brandName={brand?.name ?? ''} logoUrl={brand?.logoUrl} size={22} />
                   <Text style={styles.brandName}>{brand?.name ?? ''}</Text>
                   {totalCount > 0 ? (
                     <View style={[

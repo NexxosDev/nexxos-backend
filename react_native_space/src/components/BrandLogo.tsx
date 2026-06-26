@@ -24,13 +24,14 @@ function getBrandLogoUrl(brandName: string): string | null {
   return `${CDN_BASE}${key}-logo.png?w=120&h=90&fit=fill&fill=solid&fill-color=00000000&auto=format`;
 }
 
-interface BrandLogoProps { brandName: string; size?: number; }
+interface BrandLogoProps { brandName: string; logoUrl?: string | null; size?: number; }
 
-export default function BrandLogo({ brandName, size = 28 }: BrandLogoProps) {
+export default function BrandLogo({ brandName, logoUrl: dbLogoUrl, size = 28 }: BrandLogoProps) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const [failed, setFailed] = useState(false);
-  const logoUrl = getBrandLogoUrl(brandName ?? '');
+  // Prefer DB logoUrl, fallback to CDN map
+  const logoUrl = dbLogoUrl || getBrandLogoUrl(brandName ?? '');
 
   if (!logoUrl || failed) {
     return (

@@ -29,6 +29,8 @@ export interface CatalogItem {
   stateId?: string;
   brandId?: string;
   categoryId?: string;
+  logoUrl?: string | null;
+  origin?: string | null;
 }
 
 export interface RequestListItem {

@@ -97,7 +97,7 @@
     "node": ">=18.18.0"
   },
   "prisma": {
-    "seed": "tsx --require dotenv/config scripts/safe-seed.ts",
+    "seed": "ts-node prisma/seed.ts",
     "schema": "prisma/schema.prisma"
   }
 }

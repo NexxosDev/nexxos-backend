@@ -69,7 +69,12 @@ const ORIGIN_MAP: Record<string, string> = {
   'Geely': 'chinese',
 };
 
-export function getBrandRegionKey(brandName: string): string {
+/**
+ * Returns the region key for a brand.
+ * Prefers the `origin` field from DB if provided, falls back to hardcoded map.
+ */
+export function getBrandRegionKey(brandName: string, dbOrigin?: string | null): string {
+  if (dbOrigin) return dbOrigin;
   return ORIGIN_MAP[brandName] ?? 'other';
 }
 
@@ -82,13 +87,13 @@ export interface GroupedBrand<T> {
  * Groups an array of brand items by origin region.
  * T must have a `name` property (string).
  */
-export function groupBrandsByOrigin<T extends { name?: string }>(
+export function groupBrandsByOrigin<T extends { name?: string; origin?: string | null }>(
   brands: T[],
 ): GroupedBrand<T>[] {
   const grouped: Record<string, T[]> = {};
 
   for (const brand of brands ?? []) {
-    const regionKey = getBrandRegionKey(brand?.name ?? '');
+    const regionKey = getBrandRegionKey(brand?.name ?? '', brand?.origin);
     if (!grouped[regionKey]) grouped[regionKey] = [];
     grouped[regionKey].push(brand);
   }

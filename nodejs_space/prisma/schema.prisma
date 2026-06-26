@@ -133,6 +133,8 @@ model VehicleBrand {
   id            String         @id @default(uuid()) @db.Uuid
   name          String         @unique
   displayOrder  Int?           @map("display_order")
+  logoUrl       String?        @map("logo_url")
+  origin        String?
   requests      Request[]
   vehicleModels VehicleModel[]
 

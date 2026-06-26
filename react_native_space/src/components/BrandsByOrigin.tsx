@@ -32,7 +32,7 @@ export default function BrandsByOrigin({ brands, selectedBrands, onToggleBrand }
               const isSelected = (selectedBrands ?? []).includes(b?.id ?? '');
               return (
                 <Pressable key={b?.id} style={[styles.chip, isSelected && styles.chipSelected]} onPress={() => onToggleBrand(b?.id ?? '')}>
-                  <BrandLogo brandName={b?.name ?? ''} size={20} />
+                  <BrandLogo brandName={b?.name ?? ''} logoUrl={b?.logoUrl} size={20} />
                   <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{b?.name ?? ''}</Text>
                 </Pressable>
               );
