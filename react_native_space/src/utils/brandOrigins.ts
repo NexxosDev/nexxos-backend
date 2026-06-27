@@ -67,6 +67,7 @@ const ORIGIN_MAP: Record<string, string> = {
   'Haval': 'chinese',
   'MG': 'chinese',
   'Geely': 'chinese',
+  'GWM': 'chinese',
 };
 
 /**

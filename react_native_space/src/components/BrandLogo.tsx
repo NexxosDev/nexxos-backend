@@ -13,7 +13,7 @@ const BRAND_KEY_MAP: Record<string, string> = {
   audi: 'audi', peugeot: 'peugeot', subaru: 'subaru', volvo: 'volvo', lexus: 'lexus', porsche: 'porsche',
   'land rover': 'land-rover', jaguar: 'jaguar', tesla: 'tesla',
   chery: 'chery', changan: 'changan', geely: 'geely', haval: 'haval', mg: 'mg', 'great wall': 'great-wall',
-  ram: 'ram', isuzu: 'isuzu', iveco: 'iveco',
+  gwm: 'great-wall', ram: 'ram', isuzu: 'isuzu', iveco: 'iveco',
 };
 
 const CDN_BASE = 'https://vl.imgix.net/img/';
@@ -43,7 +43,7 @@ export default function BrandLogo({ brandName, logoUrl: dbLogoUrl, size = 28 }: 
 
   return (
     <View style={[styles.container, { width: size + 8, height: size + 8, borderRadius: (size + 8) / 2 }]}>
-      <Image source={{ uri: logoUrl }} style={{ width: size, height: size }} contentFit="contain" transition={150} cachePolicy="none" onError={() => setFailed(true)} />
+      <Image source={{ uri: logoUrl }} style={{ width: size, height: size }} contentFit="contain" transition={150} cachePolicy="memory-disk" onError={() => setFailed(true)} />
     </View>
   );
 }
