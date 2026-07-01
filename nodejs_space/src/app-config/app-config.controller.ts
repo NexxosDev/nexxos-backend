@@ -108,49 +108,91 @@ export class AppConfigController {
     return { methods: activeMethods };
   }
 
-  @Get('marketing/banner')
-  @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'))
-  @ApiOperation({ summary: 'Get active marketing banner (if any)' })
-  async getMarketingBanner() {
-    const raw = await this.configService.get('MARKETING_BANNER');
-    if (!raw) return { visible: false };
+  /**
+   * Parses a stored banner JSON string and returns a normalized carousel response.
+   * Supports the new multi-slide shape ({ slides: [...] }) and the legacy
+   * single-image shape ({ imageUrl, linkUrl, altText }). Respects `activo` and
+   * the fechaInicio/fechaFin scheduling window.
+   */
+  private buildBannerResponse(raw: string | null | undefined, keyLabel: string) {
+    if (!raw) return { visible: false, banners: [], slides: [] };
 
     try {
-      const banner = JSON.parse(raw) as {
+      const parsed = JSON.parse(raw) as {
         activo?: boolean;
         imageUrl?: string;
         linkUrl?: string;
         altText?: string;
         fechaInicio?: string;
         fechaFin?: string;
+        slides?: Array<{ imageUrl?: string; linkUrl?: string; altText?: string }>;
       };
 
-      if (!banner?.activo || !banner?.imageUrl) {
-        return { visible: false };
+      if (!parsed?.activo) {
+        return { visible: false, banners: [], slides: [] };
       }
 
-      // Check date range
+      // Scheduling window
       const now = new Date();
-      if (banner.fechaInicio) {
-        const start = new Date(banner.fechaInicio);
-        if (now < start) return { visible: false };
+      if (parsed.fechaInicio) {
+        const start = new Date(parsed.fechaInicio);
+        if (!isNaN(start.getTime()) && now < start) {
+          return { visible: false, banners: [], slides: [] };
+        }
       }
-      if (banner.fechaFin) {
-        const end = new Date(banner.fechaFin + 'T23:59:59');
-        if (now > end) return { visible: false };
+      if (parsed.fechaFin) {
+        const end = new Date(parsed.fechaFin + 'T23:59:59');
+        if (!isNaN(end.getTime()) && now > end) {
+          return { visible: false, banners: [], slides: [] };
+        }
       }
 
+      // Build the ordered slides array. Prefer `slides`; fall back to the
+      // legacy single top-level image for banners saved before carousels.
+      const source =
+        Array.isArray(parsed.slides) && parsed.slides.length > 0
+          ? parsed.slides
+          : parsed.imageUrl
+          ? [{ imageUrl: parsed.imageUrl, linkUrl: parsed.linkUrl, altText: parsed.altText }]
+          : [];
+
+      const slides = source
+        .filter((s) => s && typeof s.imageUrl === 'string' && s.imageUrl.length > 0)
+        .slice(0, 4)
+        .map((s) => ({
+          imageUrl: s.imageUrl as string,
+          linkUrl: s.linkUrl ?? '',
+          altText: s.altText ?? '',
+        }));
+
+      if (slides.length === 0) {
+        return { visible: false, banners: [], slides: [] };
+      }
+
+      const first = slides[0];
       return {
         visible: true,
-        imageUrl: banner.imageUrl,
-        linkUrl: banner.linkUrl ?? '',
-        altText: banner.altText ?? '',
+        // New carousel arrays (both names for max frontend compatibility)
+        banners: slides,
+        slides,
+        // Legacy single-image fields (first slide)
+        imageUrl: first.imageUrl,
+        linkUrl: first.linkUrl,
+        altText: first.altText,
       };
     } catch {
-      this.logger.warn('Failed to parse MARKETING_BANNER config');
-      return { visible: false };
+      this.logger.warn(`Failed to parse ${keyLabel} config`);
+      return { visible: false, banners: [], slides: [] };
     }
+  }
+
+  @Get('marketing/banner')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({ summary: 'Get active marketing banner carousel (if any)' })
+  async getMarketingBanner() {
+    const raw = await this.configService.get('MARKETING_BANNER');
+    return this.buildBannerResponse(raw, 'MARKETING_BANNER');
   }
 
   @Get('config/public-keys')
@@ -167,44 +209,14 @@ export class AppConfigController {
   @Get('marketing/client-banner')
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
-  @ApiOperation({ summary: 'Get active marketing banner for client home screen (if any)' })
+  @ApiOperation({ summary: 'Get active marketing banner carousel for client home screen (if any)' })
   async getClientBanner() {
     const raw = await this.configService.get('MARKETING_CLIENT_BANNER');
-    if (!raw) return { visible: false };
-
-    try {
-      const banner = JSON.parse(raw) as {
-        activo?: boolean;
-        imageUrl?: string;
-        linkUrl?: string;
-        altText?: string;
-        fechaInicio?: string;
-        fechaFin?: string;
-      };
-
-      if (!banner?.activo || !banner?.imageUrl) {
-        return { visible: false };
-      }
-
-      const now = new Date();
-      if (banner.fechaInicio) {
-        const start = new Date(banner.fechaInicio);
-        if (now < start) return { visible: false };
-      }
-      if (banner.fechaFin) {
-        const end = new Date(banner.fechaFin + 'T23:59:59');
-        if (now > end) return { visible: false };
-      }
-
-      return {
-        visible: true,
-        imageUrl: banner.imageUrl,
-        linkUrl: banner.linkUrl ?? '',
-        altText: banner.altText ?? '',
-      };
-    } catch {
-      this.logger.warn('Failed to parse MARKETING_CLIENT_BANNER config');
-      return { visible: false };
-    }
+    const res = this.buildBannerResponse(raw, 'MARKETING_CLIENT_BANNER');
+    // Also expose `banner` (first slide) for parity with the admin public endpoint.
+    return {
+      ...res,
+      banner: res.visible && res.banners.length > 0 ? res.banners[0] : null,
+    };
   }
 }
