@@ -5,7 +5,7 @@
 //   "apunta a PROD" -> ENV = 'PROD'  (Render + Supabase, producción)
 //   "apunta a DEV"  -> ENV = 'DEV'   (Abacus, pruebas)
 
-const ENV: 'PROD' | 'DEV' = 'DEV';
+const ENV: 'PROD' | 'DEV' = 'PROD';
 
 // ---- No tocar de aquí para abajo ----
 const BACKENDS: Record<'PROD' | 'DEV', string> = {
