@@ -106,11 +106,11 @@ export default function VendorEditProfileScreen() {
   }, [modelsMap, catalog]);
 
   const loadSubsForCategory = useCallback(async (catId: string) => {
-    if (!subcategoriesMap?.[catId]) {
-      const items = await catalog?.loadSubcategories?.(catId) ?? [];
-      setSubcategoriesMap((prev) => ({ ...(prev ?? {}), [catId]: items }));
-    }
-  }, [subcategoriesMap, catalog]);
+    // Always force-refresh from server so subcategories newly added by the
+    // admin appear immediately when the category is expanded.
+    const items = await catalog?.loadSubcategories?.(catId, true) ?? [];
+    setSubcategoriesMap((prev) => ({ ...(prev ?? {}), [catId]: items }));
+  }, [catalog]);
 
   const toggleModel = useCallback((modelId: string) => {
     setSelectedModels((prev) => {
