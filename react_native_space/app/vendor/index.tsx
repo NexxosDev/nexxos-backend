@@ -4,7 +4,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getVendorDashboard, updateVendorAvailability, getVendorResponseMetrics, getVendorPlan, getMarketingBanner, getMetricsBreakdown } from '../../src/services/vendor';
-import type { MarketingBanner, MetricsBreakdown } from '../../src/services/vendor';
+import type { BannerSlide, MetricsBreakdown } from '../../src/services/vendor';
 import { useReactiveList } from '../../src/hooks/useReactiveList';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
@@ -16,7 +16,7 @@ import EmptyState from '../../src/components/EmptyState';
 import LoadingSpinner from '../../src/components/LoadingSpinner';
 import UnreadBell from '../../src/components/UnreadBell';
 import RenewalBanner from '../../src/components/RenewalBanner';
-import PromoBanner from '../../src/components/PromoBanner';
+import PromoCarousel from '../../src/components/PromoCarousel';
 import { useUnread } from '../../src/contexts/UnreadContext';
 import type { VendorDashboard, VendorResponseMetrics, VendorPlanInfo } from '../../src/types';
 
@@ -43,7 +43,7 @@ export default function VendorHome() {
   const [dashboard, setDashboard] = useState<VendorDashboard | null>(null);
   const [responseMetrics, setResponseMetrics] = useState<VendorResponseMetrics | null>(null);
   const [planInfo, setPlanInfo] = useState<VendorPlanInfo | null>(null);
-  const [banner, setBanner] = useState<MarketingBanner | null>(null);
+  const [banners, setBanners] = useState<BannerSlide[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [toggling, setToggling] = useState(false);
@@ -96,12 +96,12 @@ export default function VendorHome() {
         getVendorDashboard(),
         getVendorResponseMetrics().catch(() => null),
         getVendorPlan().catch(() => null),
-        getMarketingBanner().catch(() => null),
+        getMarketingBanner().catch(() => []),
       ]);
       setDashboard(dashData ?? null);
       setResponseMetrics(metricsData ?? null);
       setPlanInfo(planData ?? null);
-      setBanner(bannerData ?? null);
+      setBanners(bannerData ?? []);
     } catch { }
     if (isRefresh) setRefreshing(false); else setLoading(false);
   }, []);
@@ -300,7 +300,7 @@ export default function VendorHome() {
       ) : null}
 
       {/* Marketing promo banner (after metrics, before solicitudes) */}
-      <PromoBanner banner={banner} />
+      <PromoCarousel slides={banners} horizontalPadding={Spacing.lg * 2} />
 
       <Text style={styles.sectionTitle}>Solicitudes Recientes</Text>
     </View>

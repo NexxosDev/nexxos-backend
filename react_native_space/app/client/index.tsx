@@ -7,13 +7,13 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { getRequests, getPendingRatings } from '../../src/services/requests';
 import { getClientBanner } from '../../src/services/vendor';
-import type { MarketingBanner } from '../../src/services/vendor';
+import type { BannerSlide } from '../../src/services/vendor';
 import { Spacing, BorderRadius } from '../../src/theme/colors';
 import type { ThemeColors } from '../../src/theme/colors';
 import RequestCard from '../../src/components/RequestCard';
 import EmptyState from '../../src/components/EmptyState';
 import LoadingSpinner from '../../src/components/LoadingSpinner';
-import PromoBanner from '../../src/components/PromoBanner';
+import PromoCarousel from '../../src/components/PromoCarousel';
 import UnreadBell from '../../src/components/UnreadBell';
 import { useUnread } from '../../src/contexts/UnreadContext';
 import type { RequestListItem } from '../../src/types';
@@ -28,7 +28,7 @@ export default function ClientHome() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [pendingRatingsCount, setPendingRatingsCount] = useState(0);
-  const [banner, setBanner] = useState<MarketingBanner | null>(null);
+  const [banners, setBanners] = useState<BannerSlide[]>([]);
 
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -36,11 +36,11 @@ export default function ClientHome() {
       const [data, pendingData, bannerData] = await Promise.all([
         getRequests({ limit: 5 }),
         getPendingRatings().catch(() => ({ items: [], total: 0 })),
-        getClientBanner().catch(() => null),
+        getClientBanner().catch(() => []),
       ]);
       setRequests(data?.items ?? []);
       setPendingRatingsCount(pendingData?.total ?? 0);
-      setBanner(bannerData ?? null);
+      setBanners(bannerData ?? []);
     } catch { }
     if (isRefresh) setRefreshing(false); else setLoading(false);
   }, []);
@@ -70,7 +70,7 @@ export default function ClientHome() {
       </View>
       <Text style={styles.greeting}>¡Hola, {user?.firstName ?? 'Usuario'}!</Text>
       <Text style={styles.subtitle}>¿Qué necesitas hoy?</Text>
-      <PromoBanner banner={banner} />
+      <PromoCarousel slides={banners} horizontalPadding={Spacing.lg * 2} />
       {pendingRatingsCount > 0 ? (
         <Pressable style={styles.ratingBanner} onPress={() => router.push('/client/requests?status=CERRADA')}>
           <Ionicons name="star-outline" size={22} color={colors.primary} />

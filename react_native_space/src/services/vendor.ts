@@ -173,19 +173,72 @@ export async function getExchangeRateLatest(): Promise<ExchangeRateInfo> {
 
 // ── Marketing Banner ──────────────────────────────────
 
-export interface MarketingBanner {
-  visible: boolean;
-  imageUrl?: string;
+export interface BannerSlide {
+  imageUrl: string;
   linkUrl?: string;
   altText?: string;
 }
 
-export async function getMarketingBanner(): Promise<MarketingBanner> {
-  const res = await api.get('/marketing/banner');
-  return res?.data ?? { visible: false };
+/**
+ * Normalizes any banner response shape into an ordered array of slides.
+ * Handles (in priority order):
+ *   1. res.banners  -> new client-banner carousel array
+ *   2. res.slides   -> raw vendor JSON carousel array
+ *   3. res.banner   -> single legacy client object
+ *   4. top-level { imageUrl, linkUrl, altText } -> legacy vendor single image
+ * Respects visible === false / activo === false (returns []).
+ */
+function normalizeSlides(res: any): BannerSlide[] {
+  const data = res ?? {};
+
+  // Explicit "off" flags -> nothing to show
+  if (data?.visible === false || data?.activo === false) return [];
+
+  const toSlide = (s: any): BannerSlide | null => {
+    const imageUrl = s?.imageUrl;
+    if (!imageUrl || typeof imageUrl !== 'string') return null;
+    return {
+      imageUrl,
+      linkUrl: s?.linkUrl ?? undefined,
+      altText: s?.altText ?? undefined,
+    };
+  };
+
+  // 1 & 2: array forms
+  const arr = Array.isArray(data?.banners)
+    ? data.banners
+    : Array.isArray(data?.slides)
+    ? data.slides
+    : null;
+  if (arr) {
+    return (arr.map(toSlide).filter(Boolean) as BannerSlide[]).slice(0, 4);
+  }
+
+  // 3: single legacy client object
+  if (data?.banner && typeof data.banner === 'object') {
+    const s = toSlide(data.banner);
+    return s ? [s] : [];
+  }
+
+  // 4: legacy vendor top-level single image
+  const single = toSlide(data);
+  return single ? [single] : [];
 }
 
-export async function getClientBanner(): Promise<MarketingBanner> {
-  const res = await api.get('/marketing/client-banner');
-  return res?.data ?? { visible: false };
+export async function getMarketingBanner(): Promise<BannerSlide[]> {
+  try {
+    const res = await api.get('/marketing/banner');
+    return normalizeSlides(res?.data);
+  } catch {
+    return [];
+  }
+}
+
+export async function getClientBanner(): Promise<BannerSlide[]> {
+  try {
+    const res = await api.get('/marketing/client-banner');
+    return normalizeSlides(res?.data);
+  } catch {
+    return [];
+  }
 }
