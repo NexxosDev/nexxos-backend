@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable, Alert, Modal } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -48,8 +48,30 @@ export default function VendorEditProfileScreen() {
 
   useEffect(() => {
     catalog?.loadBrands?.();
-    catalog?.loadCategories?.();
   }, []);
+
+  // Keep latest refs to avoid re-registering the focus effect on every render
+  const catalogRef = useRef(catalog);
+  catalogRef.current = catalog;
+  const subMapRef = useRef(subcategoriesMap);
+  subMapRef.current = subcategoriesMap;
+
+  // Force-refresh catalog from server whenever the screen gains focus, so
+  // categories/subcategories newly added by the admin appear without an app restart.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      (async () => {
+        await catalogRef.current?.loadCategories?.(true);
+        const catIds = Object.keys(subMapRef.current ?? {});
+        for (const catId of catIds) {
+          const items = (await catalogRef.current?.loadSubcategories?.(catId, true)) ?? [];
+          if (active) setSubcategoriesMap((prev) => ({ ...(prev ?? {}), [catId]: items }));
+        }
+      })();
+      return () => { active = false; };
+    }, [])
+  );
 
   useEffect(() => {
     (async () => {

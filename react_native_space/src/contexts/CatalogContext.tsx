@@ -11,8 +11,8 @@ interface CatalogContextType {
   loadBrands: () => Promise<CatalogItem[]>;
   loadModels: (brandId: string) => Promise<CatalogItem[]>;
   categories: CatalogItem[];
-  loadCategories: () => Promise<CatalogItem[]>;
-  loadSubcategories: (categoryId: string) => Promise<CatalogItem[]>;
+  loadCategories: (force?: boolean) => Promise<CatalogItem[]>;
+  loadSubcategories: (categoryId: string, force?: boolean) => Promise<CatalogItem[]>;
 }
 
 const CatalogContext = createContext<CatalogContextType>({
@@ -86,22 +86,22 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     } catch { return []; }
   }, [modelCache]);
 
-  const loadCategories = useCallback(async () => {
-    if ((categories?.length ?? 0) > 0) return categories;
+  const loadCategories = useCallback(async (force?: boolean) => {
+    if (!force && (categories?.length ?? 0) > 0) return categories;
     try {
       const items = await catalogApi.getPartCategories();
       setCategories(items ?? []);
       return items ?? [];
-    } catch { return []; }
+    } catch { return force ? (categories ?? []) : []; }
   }, [categories]);
 
-  const loadSubcategories = useCallback(async (categoryId: string) => {
-    if (subcategoryCache?.[categoryId]) return subcategoryCache[categoryId] ?? [];
+  const loadSubcategories = useCallback(async (categoryId: string, force?: boolean) => {
+    if (!force && subcategoryCache?.[categoryId]) return subcategoryCache[categoryId] ?? [];
     try {
       const items = await catalogApi.getPartSubcategories(categoryId);
       setSubcategoryCache((prev) => ({ ...(prev ?? {}), [categoryId]: items ?? [] }));
       return items ?? [];
-    } catch { return []; }
+    } catch { return force ? (subcategoryCache?.[categoryId] ?? []) : []; }
   }, [subcategoryCache]);
 
   return (
