@@ -5,7 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
-import { formatCedula, validateCedula } from '../../src/utils/cedula';
+import { validateCedula } from '../../src/utils/cedula';
+import CedulaField from '../../src/components/CedulaField';
 import { getErrorMessage } from '../../src/services/api';
 import { Spacing } from '../../src/theme/colors';
 import type { ThemeColors } from '../../src/theme/colors';
@@ -90,7 +91,7 @@ export default function RegisterClientScreen() {
 
           <Input label="Nombre" value={form.firstName} onChangeText={(v) => update('firstName', v)} error={fieldErrors?.firstName} />
           <Input label="Apellido" value={form.lastName} onChangeText={(v) => update('lastName', v)} error={fieldErrors?.lastName} />
-          <Input label="Cédula" value={form.documentId} onChangeText={(v) => update('documentId', formatCedula(v))} placeholder="V-12345678" error={fieldErrors?.documentId} />
+          <CedulaField value={form.documentId} onChangeText={(v) => update('documentId', v)} error={fieldErrors?.documentId} />
           <PhoneInput label="Teléfono" value={form.phone} onChangeText={(v) => update('phone', v)} error={fieldErrors?.phone} />
           <Input label="Email" value={form.email} onChangeText={(v) => update('email', v)} keyboardType="email-address" autoCapitalize="none" error={fieldErrors?.email} />
           <EmailVerification email={form.email} verified={emailVerified} onVerified={setEmailVerified} />

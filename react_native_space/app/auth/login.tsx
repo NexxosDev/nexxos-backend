@@ -9,7 +9,6 @@ import { Spacing } from '../../src/theme/colors';
 import type { ThemeColors } from '../../src/theme/colors';
 import Input from '../../src/components/Input';
 import Button from '../../src/components/Button';
-import { BACKEND_LABEL } from '../../src/config/backend';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -66,10 +65,6 @@ export default function LoginScreen() {
           <Pressable onPress={() => router.push('/auth/register-type')} style={styles.link}>
             <Text style={styles.registerText}>¿No tienes cuenta? <Text style={styles.registerBold}>Regístrate</Text></Text>
           </Pressable>
-
-          <Text style={styles.backendIndicator}>
-            {BACKEND_LABEL}
-          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -92,5 +87,4 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   divider: { height: 1, backgroundColor: c.border, marginVertical: Spacing.lg },
   registerText: { fontSize: 15, color: c.textSecondary, textAlign: 'center' },
   registerBold: { color: c.primary, fontWeight: '600' },
-  backendIndicator: { fontSize: 10, color: c.textSecondary, textAlign: 'center', marginTop: Spacing.lg, opacity: 0.5 },
 });
