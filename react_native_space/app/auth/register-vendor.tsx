@@ -15,8 +15,7 @@ import { updateVendorProfile } from '../../src/services/vendor';
 import { uploadRegistrationFile, verifyIdentity, fileToBase64 } from '../../src/services/identity';
 import { upgradeToVendorApi } from '../../src/services/auth';
 import { useTheme } from '../../src/contexts/ThemeContext';
-import { validateCedula } from '../../src/utils/cedula';
-import CedulaField from '../../src/components/CedulaField';
+import { formatCedula, validateCedula } from '../../src/utils/cedula';
 import { formatRif, validateRif } from '../../src/utils/rif';
 import ImagePreviewModal from '../../src/components/ImagePreviewModal';
 import type { ThemeColors } from '../../src/theme/colors';
@@ -513,7 +512,7 @@ export default function RegisterVendorScreen() {
             ) : null}
             <Input label="Nombre" value={personal.firstName} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), firstName: v }))} locked={isExisting} />
             <Input label="Apellido" value={personal.lastName} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), lastName: v }))} locked={isExisting} />
-            <CedulaField value={personal.documentId} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), documentId: v }))} locked={isExisting} />
+            <Input label="Cédula" value={personal.documentId} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), documentId: formatCedula(v) }))} placeholder="V-12345678" locked={isExisting} />
             <PhoneInput label="Teléfono" value={personal.phone} onChangeText={(v) => setPersonal((p) => ({ ...(p ?? {}), phone: v }))} locked={isExisting} />
             <Input label="Email" value={personal.email} onChangeText={(v) => { setPersonal((p) => ({ ...(p ?? {}), email: v })); setEmailVerified(false); }} keyboardType="email-address" autoCapitalize="none" locked={isExisting} />
             {!isExisting ? (
@@ -785,7 +784,7 @@ export default function RegisterVendorScreen() {
               <Text style={styles.summaryValue}>{selectedSubcategories?.length ?? 0} subcategorías</Text>
             </View>
 
-            {/* Age confirmation checkbox (LOPNNA) */}
+            {/* Age confirmation checkbox */}
             <Pressable
               onPress={() => setAgeConfirmed((v) => !v)}
               style={styles.checkboxRow}
@@ -796,7 +795,7 @@ export default function RegisterVendorScreen() {
                 {ageConfirmed ? <Ionicons name="checkmark" size={14} color="#000" /> : null}
               </View>
               <Text style={styles.checkboxLabel}>
-                Confirmo que soy <Text style={{ fontWeight: '700' }}>mayor de 18 años</Text> (LOPNNA)
+                Confirmo que soy <Text style={{ fontWeight: '700' }}>mayor de 18 años</Text>
               </Text>
             </Pressable>
           </View>

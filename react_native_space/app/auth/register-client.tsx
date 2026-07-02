@@ -98,7 +98,7 @@ export default function RegisterClientScreen() {
           <Input label="Contraseña" value={form.password} onChangeText={(v) => update('password', v)} secureTextEntry error={fieldErrors?.password} />
           <Input label="Confirmar Contraseña" value={form.confirmPassword} onChangeText={(v) => update('confirmPassword', v)} secureTextEntry error={fieldErrors?.confirmPassword} />
 
-          {/* Age confirmation checkbox (LOPNNA) */}
+          {/* Age confirmation checkbox */}
           <Pressable
             onPress={() => setAgeConfirmed((v) => !v)}
             style={styles.checkboxRow}
@@ -109,7 +109,7 @@ export default function RegisterClientScreen() {
               {ageConfirmed ? <Ionicons name="checkmark" size={14} color="#000" /> : null}
             </View>
             <Text style={styles.checkboxLabel}>
-              Confirmo que soy <Text style={{ fontWeight: '700' }}>mayor de 18 años</Text> (LOPNNA)
+              Confirmo que soy <Text style={{ fontWeight: '700' }}>mayor de 18 años</Text>
             </Text>
           </Pressable>
 
