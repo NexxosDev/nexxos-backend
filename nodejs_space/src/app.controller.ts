@@ -7,6 +7,6 @@ export class AppController {
   @ApiTags('Health')
   @ApiOperation({ summary: 'Health check endpoint' })
   getHealth() {
-    return { status: 'ok', timestamp: new Date().toISOString(), version: 'v2.1-upgrade-fix' };
+    return { status: 'ok', timestamp: new Date().toISOString(), version: 'v2.2-banner-carousel' };
   }
 }
