@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { View, StyleSheet, Image, Easing } from 'react-native';
+import { View, StyleSheet, Image } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -8,6 +8,7 @@ import Animated, {
   withDelay,
   withSequence,
   interpolate,
+  Easing,
 } from 'react-native-reanimated';
 import { useTheme } from '../contexts/ThemeContext';
 import type { ThemeColors } from '../theme/colors';
