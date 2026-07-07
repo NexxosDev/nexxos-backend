@@ -13,7 +13,7 @@ import Animated, {
 import { useTheme } from '../contexts/ThemeContext';
 import type { ThemeColors } from '../theme/colors';
 
-const logoYellow = require('../../assets/images/nexxos-logo-yellow.png');
+const logoYellow = require('../../assets/images/nexxos-logo-gold-solid.png');
 
 interface LoadingSpinnerProps {
   fullScreen?: boolean;
@@ -57,31 +57,21 @@ function DotsLoader({ color }: { color: string }) {
 
 /* ── Full screen: pulsing brand logo ── */
 function LogoPulse() {
-  const scale = useSharedValue(0.9);
-  const opacity = useSharedValue(0.85);
+  const scale = useSharedValue(0.92);
 
   useEffect(() => {
     scale.value = withRepeat(
       withSequence(
-        withTiming(1.06, { duration: 700, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.9, { duration: 700, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1.08, { duration: 750, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.92, { duration: 750, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
       false,
     );
-    opacity.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 700, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.85, { duration: 700, easing: Easing.inOut(Easing.ease) }),
-      ),
-      -1,
-      false,
-    );
-  }, [scale, opacity]);
+  }, [scale]);
 
   const style = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-    opacity: opacity.value,
   }));
 
   return (
