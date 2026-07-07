@@ -58,7 +58,7 @@ function DotsLoader({ color }: { color: string }) {
 /* ── Full screen: pulsing brand logo ── */
 function LogoPulse() {
   const scale = useSharedValue(0.9);
-  const opacity = useSharedValue(0.55);
+  const opacity = useSharedValue(0.85);
 
   useEffect(() => {
     scale.value = withRepeat(
@@ -72,7 +72,7 @@ function LogoPulse() {
     opacity.value = withRepeat(
       withSequence(
         withTiming(1, { duration: 700, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.55, { duration: 700, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.85, { duration: 700, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
       false,
