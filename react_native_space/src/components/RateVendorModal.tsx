@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Alert, Platform, KeyboardAvoidingView } from 'react-native';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Platform, KeyboardAvoidingView, Keyboard } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../contexts/ThemeContext';
@@ -27,8 +28,23 @@ interface RateVendorModalProps {
 
 export default function RateVendorModal({ visible, requestId, vendors = [], onClose, onRated }: RateVendorModalProps) {
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.bottom), [colors, insets.bottom]);
   const scrollRef = useRef<ScrollView>(null);
+  const [kbHeight, setKbHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvt, (e) => {
+      setKbHeight(e?.endCoordinates?.height ?? 0);
+    });
+    const hideSub = Keyboard.addListener(hideEvt, () => setKbHeight(0));
+    return () => {
+      showSub?.remove?.();
+      hideSub?.remove?.();
+    };
+  }, []);
   const [selectedVendorId, setSelectedVendorId] = useState('');
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -84,9 +100,8 @@ export default function RateVendorModal({ visible, requestId, vendors = [], onCl
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleSkip}>
       <Pressable style={styles.overlay} onPress={handleSkip} />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardAvoid}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
       >
         <View style={styles.sheet}>
           {success ? (
@@ -107,6 +122,7 @@ export default function RateVendorModal({ visible, requestId, vendors = [], onCl
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
               ref={scrollRef}
+              contentContainerStyle={{ paddingBottom: kbHeight > 0 ? kbHeight * 0.5 : 0 }}
             >
               <Text style={styles.title}>⭐ Califica al vendedor</Text>
               <Text style={styles.subtitle}>Gana puntos calificando al vendedor que te ayudó</Text>
@@ -149,7 +165,7 @@ export default function RateVendorModal({ visible, requestId, vendors = [], onCl
                 onChangeText={setComment}
                 multiline
                 maxLength={500}
-                onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd?.({ animated: true }), 300)}
+                onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd?.({ animated: true }), Platform.OS === 'ios' ? 250 : 350)}
               />
               {(comment?.length ?? 0) > 0 && (comment?.length ?? 0) < 20 ? (
                 <Text style={styles.charHint}>{20 - (comment?.length ?? 0)} caracteres más para bonus</Text>
@@ -174,7 +190,7 @@ export default function RateVendorModal({ visible, requestId, vendors = [], onCl
   );
 }
 
-const createStyles = (c: ThemeColors) => StyleSheet.create({
+const createStyles = (c: ThemeColors, bottomInset: number) => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: c.overlay },
   keyboardAvoid: { justifyContent: 'flex-end' },
   sheet: {
@@ -182,8 +198,8 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: Spacing.lg,
-    paddingBottom: 40,
-    maxHeight: '85%',
+    paddingBottom: Math.max(bottomInset, 16) + 24,
+    maxHeight: '90%',
   },
   title: {
     fontSize: 20,
@@ -307,7 +323,8 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   // Success state
   successContainer: {
     alignItems: 'center',
-    paddingVertical: Spacing.lg,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.lg,
   },
   successEmoji: {
     fontSize: 48,
