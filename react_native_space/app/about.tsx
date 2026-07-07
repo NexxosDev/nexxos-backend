@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
+import { APP_VERSION, BUILD_NUMBER } from '../src/config/version';
 import { useTheme } from '../src/contexts/ThemeContext';
 import api from '../src/services/api';
 
@@ -142,7 +143,7 @@ export default function AboutScreen() {
           ))}
 
           <Text style={{ textAlign: 'center', color: colors.textSecondary, fontSize: 12, opacity: 0.6, marginTop: 24 }}>
-            Versión {Constants.expoConfig?.version ?? '1.0.0'}
+            Versión {Constants.expoConfig?.version ?? APP_VERSION} (build {String(BUILD_NUMBER)})
           </Text>
 
           <View style={{ height: 40 }} />
