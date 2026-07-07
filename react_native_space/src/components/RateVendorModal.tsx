@@ -115,7 +115,9 @@ export default function RateVendorModal({ visible, requestId, vendors = [], onCl
                   <Text style={styles.bonusText}>¡Bonus por primera calificación! 🏆</Text>
                 </View>
               ) : null}
-              <Button title="Continuar" onPress={handleDone} style={styles.doneBtn} />
+              <View style={styles.doneBtnWrap}>
+                <Button title="Continuar" onPress={handleDone} style={styles.doneBtn} />
+              </View>
             </View>
           ) : (
             <ScrollView
@@ -357,8 +359,11 @@ const createStyles = (c: ThemeColors, bottomInset: number) => StyleSheet.create(
     fontWeight: '600',
     color: c.primary,
   },
+  doneBtnWrap: {
+    width: '100%',
+    marginTop: Spacing.xs,
+  },
   doneBtn: {
-    marginTop: Spacing.md,
     width: '100%',
   },
 });
