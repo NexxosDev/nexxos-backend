@@ -242,3 +242,36 @@ export async function getClientBanner(): Promise<BannerSlide[]> {
     return [];
   }
 }
+
+// ── Ratings received by vendor ─────────────────────────────
+export interface VendorRatingItem {
+  id: string;
+  clientName: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+}
+
+export interface VendorRatingsResponse {
+  avgRating: number | null;
+  totalRatings: number;
+  ratings: VendorRatingItem[];
+}
+
+export async function getVendorRatings(limit = 5): Promise<VendorRatingsResponse> {
+  const res = await api.get('/vendor/ratings', { params: { limit } });
+  const data = res?.data ?? {};
+  return {
+    avgRating: typeof data?.avgRating === 'number' ? data.avgRating : null,
+    totalRatings: typeof data?.totalRatings === 'number' ? data.totalRatings : 0,
+    ratings: Array.isArray(data?.ratings)
+      ? data.ratings.map((r: any) => ({
+          id: String(r?.id ?? ''),
+          clientName: r?.clientName ?? 'Cliente',
+          rating: typeof r?.rating === 'number' ? r.rating : 0,
+          comment: r?.comment ?? null,
+          createdAt: r?.createdAt ?? '',
+        }))
+      : [],
+  };
+}

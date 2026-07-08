@@ -325,6 +325,43 @@ export class VendorService {
     };
   }
 
+  // ── Ratings received ───────────────────────────────────
+
+  async getReceivedRatings(userId: string, limit = 5) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+      include: { vendorMetrics: true },
+    });
+    if (!vendor) throw new NotFoundException('Vendor profile not found');
+
+    const safeLimit = Math.min(Math.max(Number(limit) || 5, 1), 50);
+
+    const ratings = await this.prisma.requestRating.findMany({
+      where: { vendorId: vendor.id, rating: { gte: 1 } },
+      orderBy: { createdAt: 'desc' },
+      take: safeLimit,
+      select: {
+        id: true,
+        rating: true,
+        comment: true,
+        createdAt: true,
+        client: { select: { name: true } },
+      },
+    });
+
+    return {
+      avgRating: vendor.vendorMetrics?.avgRating ?? null,
+      totalRatings: vendor.vendorMetrics?.totalRatings ?? ratings.length,
+      ratings: ratings.map((r: any) => ({
+        id: r.id,
+        clientName: r.client?.name ?? 'Cliente',
+        rating: r.rating ?? 0,
+        comment: r.comment ?? null,
+        createdAt: r.createdAt,
+      })),
+    };
+  }
+
   // ── Metrics Breakdown ──────────────────────────────────
 
   async getMetricsBreakdown(userId: string) {

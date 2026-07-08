@@ -17,6 +17,7 @@ import LoadingSpinner from '../../src/components/LoadingSpinner';
 import UnreadBell from '../../src/components/UnreadBell';
 import RenewalBanner from '../../src/components/RenewalBanner';
 import PromoCarousel from '../../src/components/PromoCarousel';
+import VendorRatingsModal from '../../src/components/VendorRatingsModal';
 import { useUnread } from '../../src/contexts/UnreadContext';
 import type { VendorDashboard, VendorResponseMetrics, VendorPlanInfo } from '../../src/types';
 
@@ -51,6 +52,7 @@ export default function VendorHome() {
   const [breakdown, setBreakdown] = useState<MetricsBreakdown | null>(null);
   const [breakdownModal, setBreakdownModal] = useState<'recibidas' | 'respondidas' | null>(null);
   const [metricsExpanded, setMetricsExpanded] = useState(false);
+  const [ratingsModalVisible, setRatingsModalVisible] = useState(false);
 
   const getTimeInfo = useCallback((item: VendorDashboard['recentRequests'][number]): { label: string; color: string } => {
     const delivered = item?.deliveredAt ? new Date(item.deliveredAt).getTime() : 0;
@@ -240,11 +242,16 @@ export default function VendorHome() {
         {typeof metrics?.avgRating === 'number' ? (
           <>
             <View style={{ width: 8 }} />
-            <View style={styles.ratingCard}>
+            <Pressable
+              style={({ pressed }) => [styles.ratingCard, pressed && { opacity: 0.7 }]}
+              onPress={() => setRatingsModalVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Ver calificaciones recibidas"
+            >
               <Ionicons name="star" size={18} color="#F59E0B" />
               <Text style={styles.ratingValue}>{metrics?.avgRating?.toFixed?.(1) ?? '0'}</Text>
               <Text style={styles.ratingCount}>({metrics?.totalRatings ?? 0})</Text>
-            </View>
+            </Pressable>
           </>
         ) : null}
       </View>
@@ -338,6 +345,9 @@ export default function VendorHome() {
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={colors.primary} />}
       />
+      {/* Ratings Modal */}
+      <VendorRatingsModal visible={ratingsModalVisible} onClose={() => setRatingsModalVisible(false)} />
+
       {/* Breakdown Modal */}
       <Modal
         visible={breakdownModal !== null}
