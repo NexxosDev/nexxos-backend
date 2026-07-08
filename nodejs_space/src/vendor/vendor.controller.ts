@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { VendorService } from './vendor.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -56,6 +56,13 @@ export class VendorController {
   @ApiOperation({ summary: 'Get breakdown of requests by status (accepted, declined, unanswered)' })
   getMetricsBreakdown(@CurrentUser('id') userId: string) {
     return this.vendorService.getMetricsBreakdown(userId);
+  }
+
+  @Get('ratings')
+  @Roles('VENDEDOR')
+  @ApiOperation({ summary: 'Get latest ratings received by the current vendor (most recent first)' })
+  getReceivedRatings(@CurrentUser('id') userId: string, @Query('limit') limit?: string) {
+    return this.vendorService.getReceivedRatings(userId, limit ? parseInt(limit, 10) : 5);
   }
 
   // ── Quick Replies ──────────────────────────────────────
