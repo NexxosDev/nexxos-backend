@@ -9,6 +9,7 @@ import { Spacing } from '../../src/theme/colors';
 import type { ThemeColors } from '../../src/theme/colors';
 import Input from '../../src/components/Input';
 import Button from '../../src/components/Button';
+import LegalFooter from '../../src/components/LegalFooter';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -65,6 +66,8 @@ export default function LoginScreen() {
           <Pressable onPress={() => router.push('/auth/register-type')} style={styles.link}>
             <Text style={styles.registerText}>¿No tienes cuenta? <Text style={styles.registerBold}>Regístrate</Text></Text>
           </Pressable>
+
+          <LegalFooter style={styles.footer} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -74,7 +77,8 @@ export default function LoginScreen() {
 const createStyles = (c: ThemeColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.background },
   flex: { flex: 1 },
-  scroll: { padding: Spacing.lg, paddingTop: Spacing.xxl },
+  scroll: { flexGrow: 1, padding: Spacing.lg, paddingTop: Spacing.xxl },
+  footer: { marginTop: 'auto', paddingTop: Spacing.xl },
   header: { alignItems: 'center', marginBottom: Spacing.xl },
   logo: { fontSize: 36, fontWeight: '800', color: c.primary, letterSpacing: 3 },
   title: { fontSize: 22, fontWeight: '600', color: c.textPrimary, marginTop: Spacing.md },

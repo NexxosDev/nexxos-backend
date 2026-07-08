@@ -9,6 +9,7 @@ import Constants from 'expo-constants';
 import { APP_VERSION, BUILD_NUMBER } from '../src/config/version';
 import { useTheme } from '../src/contexts/ThemeContext';
 import api from '../src/services/api';
+import LegalFooter from '../src/components/LegalFooter';
 
 interface ParsedSection {
   emoji: string;
@@ -142,7 +143,9 @@ export default function AboutScreen() {
             </View>
           ))}
 
-          <Text style={{ textAlign: 'center', color: colors.textSecondary, fontSize: 12, opacity: 0.6, marginTop: 24 }}>
+          <LegalFooter style={{ marginTop: 24 }} />
+
+          <Text style={{ textAlign: 'center', color: colors.textSecondary, fontSize: 12, opacity: 0.6, marginTop: 8 }}>
             Versión {Constants.expoConfig?.version ?? APP_VERSION}.{String(BUILD_NUMBER)}
           </Text>
 

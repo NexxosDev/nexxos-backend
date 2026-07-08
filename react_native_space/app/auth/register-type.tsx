@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { Spacing, BorderRadius } from '../../src/theme/colors';
 import type { ThemeColors } from '../../src/theme/colors';
+import LegalFooter from '../../src/components/LegalFooter';
 
 export default function RegisterTypeScreen() {
   const router = useRouter();
@@ -40,6 +41,8 @@ export default function RegisterTypeScreen() {
       <Pressable onPress={() => router.push('/auth/login')} style={styles.loginLink}>
         <Text style={styles.loginText}>¿Ya tienes cuenta? <Text style={styles.loginBold}>Inicia Sesión</Text></Text>
       </Pressable>
+
+      <LegalFooter style={styles.footer} />
     </SafeAreaView>
   );
 }
@@ -59,6 +62,7 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   },
   cardTitle: { fontSize: 20, fontWeight: '700', color: c.textPrimary, marginBottom: 4 },
   cardSub: { fontSize: 14, color: c.textSecondary, textAlign: 'center' },
+  footer: { marginTop: 'auto', paddingTop: Spacing.lg },
   loginLink: { alignItems: 'center', marginTop: Spacing.xl },
   loginText: { fontSize: 15, color: c.textSecondary },
   loginBold: { color: c.primary, fontWeight: '600' },
