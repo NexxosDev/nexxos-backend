@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, Pressable, RefreshControl } from 'rea
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { getRequests, getPendingRatings } from '../../src/services/requests';
@@ -21,9 +22,9 @@ import type { RequestListItem } from '../../src/types';
 export default function ClientHome() {
   const router = useRouter();
   const { user } = useAuth();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { byRequestId } = useUnread();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const [requests, setRequests] = useState<RequestListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -72,15 +73,31 @@ export default function ClientHome() {
       <Text style={styles.subtitle}>¿Qué necesitas hoy?</Text>
       <PromoCarousel slides={banners} horizontalPadding={Spacing.lg * 2} />
       {pendingRatingsCount > 0 ? (
-        <Pressable style={styles.ratingBanner} onPress={() => router.push('/client/requests?status=CERRADA')}>
-          <Ionicons name="star-outline" size={22} color={colors.primary} />
-          <View style={styles.bannerContent}>
-            <Text style={styles.ratingBannerTitle}>
-              {pendingRatingsCount === 1 ? 'Tienes 1 calificación pendiente' : `Tienes ${pendingRatingsCount} calificaciones pendientes`}
-            </Text>
-            <Text style={styles.ratingBannerText}>¡Califica y gana puntos! ⭐</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+        <Pressable
+          style={({ pressed }) => [styles.ratingBannerWrap, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}
+          onPress={() => router.push('/client/requests?status=CERRADA')}
+          accessibilityRole="button"
+          accessibilityLabel="Calificaciones pendientes"
+        >
+          <LinearGradient
+            colors={['#FFD54F', '#FFC107', '#FFB300'] as const}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.ratingBanner}
+          >
+            <View style={styles.ratingIconBadge}>
+              <Ionicons name="star" size={20} color="#FFA000" />
+            </View>
+            <View style={styles.bannerContent}>
+              <Text style={styles.ratingBannerTitle}>
+                {pendingRatingsCount === 1 ? 'Tienes 1 calificación pendiente' : `Tienes ${pendingRatingsCount} calificaciones pendientes`}
+              </Text>
+              <Text style={styles.ratingBannerText}>¡Califica y gana puntos! ⭐</Text>
+            </View>
+            <View style={styles.ratingChevronBadge}>
+              <Ionicons name="chevron-forward" size={18} color="#5A4300" />
+            </View>
+          </LinearGradient>
         </Pressable>
       ) : null}
       <View style={styles.banner}>
@@ -142,7 +159,7 @@ export default function ClientHome() {
   );
 }
 
-const createStyles = (c: ThemeColors) => StyleSheet.create({
+const createStyles = (c: ThemeColors, isDark: boolean) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.background },
   list: { padding: Spacing.md, paddingBottom: 100 },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
@@ -150,14 +167,36 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   logo: { fontSize: 22, fontWeight: '800', color: c.primary, letterSpacing: 2 },
   greeting: { fontSize: 22, fontWeight: '700', color: c.textPrimary },
   subtitle: { fontSize: 15, color: c.textSecondary, marginTop: 2, marginBottom: Spacing.md },
+  ratingBannerWrap: {
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+    overflow: 'hidden',
+    // Realce dorado: sombra en iOS / elevación en Android
+    shadowColor: '#FFB300',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: isDark ? 0.55 : 0.45,
+    shadowRadius: 10,
+    elevation: 6,
+    ...(isDark ? { borderWidth: 1, borderColor: '#FFD54F55' } : null),
+  },
   ratingBanner: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    backgroundColor: `${c.primary}12`, borderRadius: BorderRadius.md,
-    padding: Spacing.md, marginBottom: Spacing.sm,
-    borderWidth: 1, borderColor: `${c.primary}30`,
+    paddingVertical: Spacing.md, paddingHorizontal: Spacing.md,
   },
-  ratingBannerTitle: { fontSize: 14, fontWeight: '600', color: c.primary },
-  ratingBannerText: { fontSize: 12, color: c.textSecondary, marginTop: 1 },
+  ratingIconBadge: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15, shadowRadius: 2, elevation: 2,
+  },
+  ratingChevronBadge: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  ratingBannerTitle: { fontSize: 15, fontWeight: '800', color: '#3D2E00' },
+  ratingBannerText: { fontSize: 12.5, fontWeight: '600', color: '#5A4300', marginTop: 1 },
   banner: {
     flexDirection: 'row', backgroundColor: c.backgroundSection, borderRadius: BorderRadius.md,
     padding: Spacing.md, marginBottom: Spacing.lg, alignItems: 'center', gap: Spacing.md,
