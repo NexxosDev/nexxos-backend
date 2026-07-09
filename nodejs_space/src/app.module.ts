@@ -18,6 +18,7 @@ import { LegalModule } from './legal/legal.module';
 import { SuggestionsModule } from './suggestions/suggestions.module';
 import { AppConfigModule } from './app-config/app-config.module';
 import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module';
+import { CampaignModule } from './campaign/campaign.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module';
     VehiclesModule,
     LegalModule,
     SuggestionsModule,
+    CampaignModule,
   ],
   controllers: [AppController],
 })
