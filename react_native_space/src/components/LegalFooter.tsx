@@ -13,7 +13,7 @@ export default function LegalFooter({ style }: LegalFooterProps) {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const companyLine = COMPANY_RIF
-    ? `${COMPANY_NAME} \u2014 RIF: ${COMPANY_RIF}`
+    ? `${COMPANY_NAME} \u2014 ${COMPANY_RIF}`
     : COMPANY_NAME;
 
   return (
