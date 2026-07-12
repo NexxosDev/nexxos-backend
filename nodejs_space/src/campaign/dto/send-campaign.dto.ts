@@ -48,4 +48,15 @@ export class SendCampaignDto {
   @IsArray()
   @IsString({ each: true })
   userIds?: string[];
+
+  @ApiPropertyOptional({
+    example: '/client/requests',
+    maxLength: 500,
+    description:
+      'URL de destino (deep link) al tocar la notificación. Acepta rutas internas (/client/requests) o URLs externas (https://...). Viaja en data.url del push.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  actionUrl?: string;
 }

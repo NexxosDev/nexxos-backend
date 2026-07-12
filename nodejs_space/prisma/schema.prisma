@@ -613,3 +613,26 @@ model ExchangeRate {
   @@index([currencyPair, date])
   @@map("exchange_rates")
 }
+
+model PushCampaign {
+  id          String    @id @default(uuid()) @db.Uuid
+  title       String    @db.VarChar(100)
+  body        String    @db.VarChar(178)
+  role        String    @default("ALL") @db.VarChar(20)
+  platform    String    @default("ALL") @db.VarChar(20)
+  userIds     Json?     @map("user_ids")
+  filters     Json?
+  actionUrl   String?   @map("action_url") @db.VarChar(500)
+  status      String    @default("DRAFT") @db.VarChar(20)
+  targeted    Int       @default(0)
+  scheduledAt DateTime? @map("scheduled_at")
+  sentAt      DateTime? @map("sent_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  createdBy   String    @map("created_by") @db.VarChar(100)
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([scheduledAt])
+  @@map("push_campaigns")
+}
