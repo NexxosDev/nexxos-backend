@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Platform } from 'react-native';
+import { Platform, Linking } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -65,6 +65,19 @@ function NotificationNavigator() {
             if (data.requestId) router.push(`/request-detail?id=${data.requestId}`);
             else router.push('/client/requests');
             break;
+          case 'CAMPAIGN': {
+            const url = typeof data.url === 'string' ? data.url.trim() : '';
+            if (!url) break;
+            // URL externa -> abrir en el navegador; ruta interna -> navegar en la app
+            if (/^https?:\/\//i.test(url)) {
+              Linking.openURL(url).catch((e) =>
+                console.error('Error abriendo URL externa:', e),
+              );
+            } else {
+              router.push(url as any);
+            }
+            break;
+          }
         }
       } catch (err) {
         console.error('Error navigating from notification:', err);
