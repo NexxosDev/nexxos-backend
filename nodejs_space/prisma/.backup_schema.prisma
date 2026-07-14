@@ -636,3 +636,34 @@ model PushCampaign {
   @@index([scheduledAt])
   @@map("push_campaigns")
 }
+
+model PromoPopup {
+  id        String    @id @default(uuid()) @db.Uuid
+  enabled   Boolean   @default(false)
+  title     String    @db.VarChar(150)
+  subtitle  String    @db.VarChar(300)
+  imageUrl  String?   @map("image_url") @db.VarChar(1000)
+  ctaText   String?   @map("cta_text") @db.VarChar(20)
+  actionUrl String?   @map("action_url") @db.VarChar(500)
+  startsAt  DateTime? @map("starts_at")
+  endsAt    DateTime? @map("ends_at")
+  priority  Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.VarChar(100)
+
+  @@index([enabled])
+  @@map("promo_popups")
+}
+
+model PromoPopupView {
+  id        String   @id @default(uuid()) @db.Uuid
+  popupId   String   @map("popup_id") @db.Uuid
+  subject   String   @db.VarChar(200)
+  seenDate  String   @map("seen_date") @db.VarChar(10)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([popupId, subject, seenDate])
+  @@index([subject])
+  @@map("promo_popup_views")
+}

@@ -19,6 +19,7 @@ import { SuggestionsModule } from './suggestions/suggestions.module';
 import { AppConfigModule } from './app-config/app-config.module';
 import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module';
 import { CampaignModule } from './campaign/campaign.module';
+import { PromoPopupModule } from './promo-popup/promo-popup.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { CampaignModule } from './campaign/campaign.module';
     LegalModule,
     SuggestionsModule,
     CampaignModule,
+    PromoPopupModule,
   ],
   controllers: [AppController],
 })

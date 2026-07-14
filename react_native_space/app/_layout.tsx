@@ -14,6 +14,7 @@ import { UnreadProvider } from '../src/contexts/UnreadContext';
 import { NetworkProvider } from '../src/contexts/NetworkContext';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import AnimatedSplash from '../src/components/AnimatedSplash';
+import PromoPopup from '../src/components/PromoPopup';
 
 // expo-notifications crashes Expo Go on SDK 53+; only import in dev builds / standalone
 const isExpoGo = Constants.appOwnership === 'expo';
@@ -164,6 +165,7 @@ function InnerLayout() {
       {showSplash && (
         <AnimatedSplash onFinish={handleSplashFinish} fontLoaded={fontLoaded} />
       )}
+      {!showSplash && <PromoPopup />}
     </>
   );
 }
