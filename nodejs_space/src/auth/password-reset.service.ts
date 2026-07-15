@@ -33,8 +33,10 @@ export class PasswordResetService {
     const normalizedEmail = email?.trim()?.toLowerCase();
     if (!normalizedEmail) throw new BadRequestException('Email es requerido');
 
-    // Check if user exists
-    const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+    // Check if user exists (case-insensitive: emails pueden estar guardados con mayúsculas)
+    const user = await this.prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+    });
     if (!user) {
       // For security, don't reveal if email exists — but still return success
       this.logger.warn(`Password reset requested for non-existent email: ${normalizedEmail}`);
@@ -155,8 +157,10 @@ export class PasswordResetService {
       throw new BadRequestException('La sesión ha expirado. Solicita un nuevo código.');
     }
 
-    // Find the user
-    const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+    // Find the user (case-insensitive)
+    const user = await this.prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+    });
     if (!user) {
       throw new BadRequestException('Usuario no encontrado.');
     }
