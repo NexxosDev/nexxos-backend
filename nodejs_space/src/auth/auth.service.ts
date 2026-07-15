@@ -143,8 +143,10 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+    // Búsqueda case-insensitive: emails pueden estar guardados con mayúsculas
+    const normalizedEmail = dto.email?.trim()?.toLowerCase() ?? '';
+    const user = await this.prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
       include: { userRoles: { include: { role: true } } },
     });
     if (!user) throw new UnauthorizedException('Credenciales inválidas');
