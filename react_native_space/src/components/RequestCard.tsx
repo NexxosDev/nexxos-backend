@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -25,16 +25,31 @@ interface RequestCardProps {
   unreadCount?: number;
   clientName?: string;
   clientLevel?: ClientLevel;
+  emphasizePending?: boolean;
   onPress?: () => void;
 }
 
 export default function RequestCard({
   vehicleBrand, vehicleModel, vehicleYear, partCategory, status,
-  responseCount, hasRating, municipality, state, createdAt, timeLabel, timeLabelColor, unreadCount, clientName, clientLevel, onPress,
+  responseCount, hasRating, municipality, state, createdAt, timeLabel, timeLabelColor, unreadCount, clientName, clientLevel, emphasizePending, onPress,
 }: RequestCardProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const scale = useRef(new Animated.Value(1)).current;
+  const pulse = useRef(new Animated.Value(1)).current;
+  const isPendingEmphasis = (emphasizePending === true) && (status === 'PENDING');
+
+  useEffect(() => {
+    if (!isPendingEmphasis) return;
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.12, duration: 750, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 750, useNativeDriver: true }),
+      ]),
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [isPendingEmphasis, pulse]);
 
   const formatDate = (d: string) => {
     try {
@@ -46,7 +61,7 @@ export default function RequestCard({
   return (
     <Animated.View style={[{ transform: [{ scale }] }]}>
       <Pressable
-        style={styles.card}
+        style={[styles.card, isPendingEmphasis && styles.cardPending]}
         onPress={onPress}
         onPressIn={() => Animated.spring(scale, { toValue: 0.98, useNativeDriver: true }).start()}
         onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 3 }).start()}
@@ -74,7 +89,14 @@ export default function RequestCard({
             ) : null}
           </View>
           <View style={styles.right}>
-            <Badge status={status ?? ''} size="small" />
+            {isPendingEmphasis ? (
+              <Animated.View style={[styles.pendingBadge, { transform: [{ scale: pulse }] }]}>
+                <Ionicons name="time" size={12} color={colors.white} />
+                <Text style={styles.pendingBadgeText}>Pendiente</Text>
+              </Animated.View>
+            ) : (
+              <Badge status={status ?? ''} size="small" />
+            )}
             {hasRating === true ? (
               <View style={styles.ratingBadgeGreen}>
                 <Ionicons name="checkmark-circle" size={11} color="#16A34A" />
@@ -125,6 +147,27 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
       default: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4 },
     }),
   },
+  cardPending: {
+    borderColor: c.statusPending,
+    borderLeftWidth: 4,
+    backgroundColor: 'rgba(33, 150, 243, 0.08)',
+    ...Platform.select({
+      ios: { shadowColor: c.statusPending, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.45, shadowRadius: 7 },
+      android: { elevation: 5 },
+      default: { shadowColor: c.statusPending, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.45, shadowRadius: 7 },
+    }),
+  },
+  pendingBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: c.statusPending, borderRadius: BorderRadius.full,
+    paddingHorizontal: 9, paddingVertical: 3,
+    ...Platform.select({
+      ios: { shadowColor: c.statusPending, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.7, shadowRadius: 5 },
+      android: { elevation: 4 },
+      default: { shadowColor: c.statusPending, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.7, shadowRadius: 5 },
+    }),
+  },
+  pendingBadgeText: { fontSize: 11, fontWeight: '700', color: c.white },
   row: { flexDirection: 'row', alignItems: 'center' },
   iconContainer: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', marginRight: Spacing.sm },
   content: { flex: 1 },

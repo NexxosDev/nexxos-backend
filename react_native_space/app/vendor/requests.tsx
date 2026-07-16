@@ -129,6 +129,7 @@ export default function VendorRequests() {
               vehicleYear={item?.request?.vehicleYear}
               partCategory={item?.request?.partCategory ?? ''}
               status={item?.status ?? ''}
+              emphasizePending
               municipality={item?.request?.municipality}
               state={item?.request?.state}
               createdAt={item?.request?.createdAt ?? ''}
