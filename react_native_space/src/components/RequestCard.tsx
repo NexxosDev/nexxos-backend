@@ -150,7 +150,6 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   cardPending: {
     borderColor: c.statusPending,
     borderLeftWidth: 4,
-    backgroundColor: 'rgba(33, 150, 243, 0.08)',
     ...Platform.select({
       ios: { shadowColor: c.statusPending, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.45, shadowRadius: 7 },
       android: { elevation: 5 },
