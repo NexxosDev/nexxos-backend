@@ -98,7 +98,7 @@ export default function VendorRequestDetailScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </Pressable>
         <Text style={styles.topTitle}>Detalle de Solicitud</Text>
-        <Badge status={detail?.status ?? ''} />
+        <Badge status={detail?.status ?? ''} emphasizePending />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={colors.primary} />}>
