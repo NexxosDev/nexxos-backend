@@ -106,6 +106,11 @@ model Vendor {
   freeShippingRadiusKm    Int?                    @map("free_shipping_radius_km")
   ownDeliveryEnabled      Boolean                 @default(false) @map("own_delivery_enabled")
   ownDeliveryCost         Float?                  @map("own_delivery_cost")
+  ownDeliveryPricingMode  String?                 @default("FIXED") @map("own_delivery_pricing_mode")
+  ownDeliveryBaseFare     Float?                  @map("own_delivery_base_fare")
+  ownDeliveryBaseKm       Float?                  @map("own_delivery_base_km")
+  ownDeliveryPerBlockCost Float?                  @map("own_delivery_per_block_cost")
+  ownDeliveryBlockKm      Float?                  @map("own_delivery_block_km")
   chats                   Chat[]
   deliveryOrders          DeliveryOrder[]
   quickReplies            QuickReply[]

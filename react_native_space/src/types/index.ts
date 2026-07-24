@@ -238,6 +238,11 @@ export interface VendorProfile {
   freeShippingRadiusKm?: number | null;
   ownDeliveryEnabled?: boolean;
   ownDeliveryCost?: number | null;
+  ownDeliveryPricingMode?: string | null;
+  ownDeliveryBaseFare?: number | null;
+  ownDeliveryBaseKm?: number | null;
+  ownDeliveryPerBlockCost?: number | null;
+  ownDeliveryBlockKm?: number | null;
   vehicleModels: { id: string; name: string; brand: { id: string; name: string } }[];
   partSubcategories: { id: string; name: string; category: { id: string; name: string } }[];
   metrics: {

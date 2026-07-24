@@ -43,6 +43,11 @@ export default function VendorEditProfileScreen() {
   const [freeShippingRadiusKm, setFreeShippingRadiusKm] = useState('');
   const [ownDeliveryEnabled, setOwnDeliveryEnabled] = useState(false);
   const [ownDeliveryCost, setOwnDeliveryCost] = useState('');
+  const [ownDeliveryPricingMode, setOwnDeliveryPricingMode] = useState<'FIXED' | 'PER_KM'>('FIXED');
+  const [ownDeliveryBaseFare, setOwnDeliveryBaseFare] = useState('');
+  const [ownDeliveryBaseKm, setOwnDeliveryBaseKm] = useState('');
+  const [ownDeliveryPerBlockCost, setOwnDeliveryPerBlockCost] = useState('');
+  const [ownDeliveryBlockKm, setOwnDeliveryBlockKm] = useState('');
 
   // Facade image
   const [facadeUri, setFacadeUri] = useState<string | null>(null); // local pick URI
@@ -89,6 +94,11 @@ export default function VendorEditProfileScreen() {
         setFreeShippingRadiusKm(p?.freeShippingRadiusKm != null ? String(p.freeShippingRadiusKm) : '');
         setOwnDeliveryEnabled(p?.ownDeliveryEnabled === true);
         setOwnDeliveryCost(p?.ownDeliveryCost != null ? String(p.ownDeliveryCost) : '');
+        setOwnDeliveryPricingMode(p?.ownDeliveryPricingMode === 'PER_KM' ? 'PER_KM' : 'FIXED');
+        setOwnDeliveryBaseFare(p?.ownDeliveryBaseFare != null ? String(p.ownDeliveryBaseFare) : '');
+        setOwnDeliveryBaseKm(p?.ownDeliveryBaseKm != null ? String(p.ownDeliveryBaseKm) : '');
+        setOwnDeliveryPerBlockCost(p?.ownDeliveryPerBlockCost != null ? String(p.ownDeliveryPerBlockCost) : '');
+        setOwnDeliveryBlockKm(p?.ownDeliveryBlockKm != null ? String(p.ownDeliveryBlockKm) : '');
         const models = p?.vehicleModels ?? [];
         const brandIds = [...new Set(models.map((m) => m?.brand?.id).filter(Boolean))] as string[];
         setSelectedModels(models.map((m) => m?.id).filter(Boolean) as string[]);
@@ -201,8 +211,20 @@ export default function VendorEditProfileScreen() {
         if (!isNaN(r) && r > 0) updateData.freeShippingRadiusKm = Math.min(r, 100);
       }
       if (ownDeliveryEnabled) {
-        const c = parseFloat(ownDeliveryCost);
-        if (!isNaN(c) && c >= 0) updateData.ownDeliveryCost = c;
+        updateData.ownDeliveryPricingMode = ownDeliveryPricingMode;
+        if (ownDeliveryPricingMode === 'FIXED') {
+          const c = parseFloat(ownDeliveryCost);
+          if (!isNaN(c) && c >= 0) updateData.ownDeliveryCost = c;
+        } else {
+          const bf = parseFloat(ownDeliveryBaseFare);
+          const bk = parseFloat(ownDeliveryBaseKm);
+          const pb = parseFloat(ownDeliveryPerBlockCost);
+          const blk = parseFloat(ownDeliveryBlockKm);
+          if (!isNaN(bf) && bf >= 0) updateData.ownDeliveryBaseFare = bf;
+          if (!isNaN(bk) && bk >= 0) updateData.ownDeliveryBaseKm = bk;
+          if (!isNaN(pb) && pb >= 0) updateData.ownDeliveryPerBlockCost = pb;
+          if (!isNaN(blk) && blk >= 0.1) updateData.ownDeliveryBlockKm = blk;
+        }
       }
       if (facadeUri) {
         const facadePath = await uploadFile(facadeUri, 'facade.jpg', 'image/jpeg', true);
@@ -381,17 +403,114 @@ export default function VendorEditProfileScreen() {
               />
             </View>
             {ownDeliveryEnabled ? (
-              <View style={styles.shipInputRow}>
-                <Text style={styles.shipInputLabel}>Costo (USD)</Text>
-                <TextInput
-                  value={ownDeliveryCost}
-                  onChangeText={(t) => setOwnDeliveryCost(t.replace(/[^0-9.]/g, ''))}
-                  keyboardType="decimal-pad"
-                  placeholder="Ej. 3.00"
-                  placeholderTextColor={colors.textSecondary}
-                  style={styles.shipInput}
-                  maxLength={7}
-                />
+              <View style={{ marginTop: 4 }}>
+                {/* Selector de modalidad de cobro */}
+                <View style={styles.modeSelector}>
+                  <Pressable
+                    onPress={() => setOwnDeliveryPricingMode('FIXED')}
+                    style={[styles.modeBtn, ownDeliveryPricingMode === 'FIXED' && styles.modeBtnActive]}
+                  >
+                    <Text style={[styles.modeBtnText, ownDeliveryPricingMode === 'FIXED' && styles.modeBtnTextActive]}>
+                      Costo fijo
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setOwnDeliveryPricingMode('PER_KM')}
+                    style={[styles.modeBtn, ownDeliveryPricingMode === 'PER_KM' && styles.modeBtnActive]}
+                  >
+                    <Text style={[styles.modeBtnText, ownDeliveryPricingMode === 'PER_KM' && styles.modeBtnTextActive]}>
+                      Costo por distancia
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {ownDeliveryPricingMode === 'FIXED' ? (
+                  <View style={styles.shipInputRow}>
+                    <Text style={styles.shipInputLabel}>Costo (USD)</Text>
+                    <TextInput
+                      value={ownDeliveryCost}
+                      onChangeText={(t) => setOwnDeliveryCost(t.replace(/[^0-9.]/g, ''))}
+                      keyboardType="decimal-pad"
+                      placeholder="Ej. 3.00"
+                      placeholderTextColor={colors.textSecondary}
+                      style={styles.shipInput}
+                      maxLength={7}
+                    />
+                  </View>
+                ) : (
+                  <View>
+                    <Text style={styles.shipDesc}>
+                      Cobra según la distancia entre tu negocio y el cliente. Se cobra la tarifa base y luego un
+                      monto por cada bloque de kilómetros adicionales.
+                    </Text>
+                    <View style={styles.shipInputRow}>
+                      <Text style={styles.shipInputLabel}>Tarifa base (USD)</Text>
+                      <TextInput
+                        value={ownDeliveryBaseFare}
+                        onChangeText={(t) => setOwnDeliveryBaseFare(t.replace(/[^0-9.]/g, ''))}
+                        keyboardType="decimal-pad"
+                        placeholder="Ej. 2.00"
+                        placeholderTextColor={colors.textSecondary}
+                        style={styles.shipInput}
+                        maxLength={7}
+                      />
+                    </View>
+                    <View style={styles.shipInputRow}>
+                      <Text style={styles.shipInputLabel}>Km incluidos en base</Text>
+                      <TextInput
+                        value={ownDeliveryBaseKm}
+                        onChangeText={(t) => setOwnDeliveryBaseKm(t.replace(/[^0-9.]/g, ''))}
+                        keyboardType="decimal-pad"
+                        placeholder="Ej. 2"
+                        placeholderTextColor={colors.textSecondary}
+                        style={styles.shipInput}
+                        maxLength={5}
+                      />
+                    </View>
+                    <View style={styles.shipInputRow}>
+                      <Text style={styles.shipInputLabel}>Costo por bloque (USD)</Text>
+                      <TextInput
+                        value={ownDeliveryPerBlockCost}
+                        onChangeText={(t) => setOwnDeliveryPerBlockCost(t.replace(/[^0-9.]/g, ''))}
+                        keyboardType="decimal-pad"
+                        placeholder="Ej. 1.00"
+                        placeholderTextColor={colors.textSecondary}
+                        style={styles.shipInput}
+                        maxLength={7}
+                      />
+                    </View>
+                    <View style={styles.shipInputRow}>
+                      <Text style={styles.shipInputLabel}>Tamaño del bloque (km)</Text>
+                      <TextInput
+                        value={ownDeliveryBlockKm}
+                        onChangeText={(t) => setOwnDeliveryBlockKm(t.replace(/[^0-9.]/g, ''))}
+                        keyboardType="decimal-pad"
+                        placeholder="Ej. 1"
+                        placeholderTextColor={colors.textSecondary}
+                        style={styles.shipInput}
+                        maxLength={5}
+                      />
+                    </View>
+                    <View style={styles.previewBox}>
+                      <Ionicons name="calculator-outline" size={16} color={colors.primary} />
+                      <Text style={styles.previewText}>
+                        {(() => {
+                          const bf = parseFloat(ownDeliveryBaseFare) || 0;
+                          const bk = parseFloat(ownDeliveryBaseKm) || 0;
+                          const pb = parseFloat(ownDeliveryPerBlockCost) || 0;
+                          const blkVal = parseFloat(ownDeliveryBlockKm);
+                          const blk = !isNaN(blkVal) && blkVal > 0 ? blkVal : 1;
+                          const calc = (km: number) => {
+                            let c = bf;
+                            if (km > bk) c = bf + Math.ceil((km - bk) / blk) * pb;
+                            return c.toFixed(2);
+                          };
+                          return `Ejemplo:  3 km ≈ USD ${calc(3)}   ·   8 km ≈ USD ${calc(8)}`;
+                        })()}
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </View>
             ) : null}
           </CollapsibleSection>
@@ -460,6 +579,13 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   shipInputRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm, paddingLeft: 2 },
   shipInputLabel: { fontSize: 13, color: c.textSecondary, width: 90 },
   shipInput: { flex: 1, borderWidth: 1, borderColor: c.border, borderRadius: BorderRadius.sm, paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 10 : 6, color: c.textPrimary, backgroundColor: c.backgroundSection, fontSize: 15 },
+  modeSelector: { flexDirection: 'row', backgroundColor: c.backgroundSection, borderRadius: BorderRadius.md, padding: 4, gap: 4, marginTop: 6, marginBottom: Spacing.sm, borderWidth: 1, borderColor: c.border },
+  modeBtn: { flex: 1, paddingVertical: 8, borderRadius: BorderRadius.sm, alignItems: 'center', justifyContent: 'center' },
+  modeBtnActive: { backgroundColor: c.primary },
+  modeBtnText: { fontSize: 13, fontWeight: '600', color: c.textSecondary },
+  modeBtnTextActive: { color: '#121212' },
+  previewBox: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, paddingVertical: 8, paddingHorizontal: 10, backgroundColor: c.chipBg, borderRadius: BorderRadius.sm },
+  previewText: { flex: 1, fontSize: 12, color: c.textPrimary, fontWeight: '500' },
   saveBtn: { marginTop: Spacing.lg },
   deleteLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 40, marginBottom: 20, paddingVertical: 8 },
   deleteLinkText: { fontSize: 13, color: c.textSecondary },

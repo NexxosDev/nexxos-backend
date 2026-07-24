@@ -56,6 +56,11 @@ export class VendorService {
       freeShippingRadiusKm: vendor.freeShippingRadiusKm ?? null,
       ownDeliveryEnabled: vendor.ownDeliveryEnabled ?? false,
       ownDeliveryCost: vendor.ownDeliveryCost ?? null,
+      ownDeliveryPricingMode: vendor.ownDeliveryPricingMode ?? 'FIXED',
+      ownDeliveryBaseFare: vendor.ownDeliveryBaseFare ?? null,
+      ownDeliveryBaseKm: vendor.ownDeliveryBaseKm ?? null,
+      ownDeliveryPerBlockCost: vendor.ownDeliveryPerBlockCost ?? null,
+      ownDeliveryBlockKm: vendor.ownDeliveryBlockKm ?? null,
       vehicleModels: vendor.vendorVehicleModels.map((vvm: any) => ({
         id: vvm.vehicleModel.id,
         name: vvm.vehicleModel.name,
@@ -143,6 +148,11 @@ export class VendorService {
     if (dto.freeShippingRadiusKm !== undefined) data.freeShippingRadiusKm = dto.freeShippingRadiusKm;
     if (dto.ownDeliveryEnabled !== undefined) data.ownDeliveryEnabled = dto.ownDeliveryEnabled;
     if (dto.ownDeliveryCost !== undefined) data.ownDeliveryCost = dto.ownDeliveryCost;
+    if (dto.ownDeliveryPricingMode !== undefined) data.ownDeliveryPricingMode = dto.ownDeliveryPricingMode;
+    if (dto.ownDeliveryBaseFare !== undefined) data.ownDeliveryBaseFare = dto.ownDeliveryBaseFare;
+    if (dto.ownDeliveryBaseKm !== undefined) data.ownDeliveryBaseKm = dto.ownDeliveryBaseKm;
+    if (dto.ownDeliveryPerBlockCost !== undefined) data.ownDeliveryPerBlockCost = dto.ownDeliveryPerBlockCost;
+    if (dto.ownDeliveryBlockKm !== undefined) data.ownDeliveryBlockKm = dto.ownDeliveryBlockKm;
 
     const updated = await this.prisma.vendor.update({ where: { id: vendor.id }, data });
 

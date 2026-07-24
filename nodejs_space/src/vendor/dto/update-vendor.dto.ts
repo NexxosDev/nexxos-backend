@@ -24,6 +24,11 @@ export class UpdateVendorDto {
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) @Max(100) freeShippingRadiusKm?: number;
   @ApiPropertyOptional() @IsOptional() ownDeliveryEnabled?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) ownDeliveryCost?: number;
+  @ApiPropertyOptional({ enum: ['FIXED', 'PER_KM'] }) @IsOptional() @IsString() ownDeliveryPricingMode?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) ownDeliveryBaseFare?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) ownDeliveryBaseKm?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) ownDeliveryPerBlockCost?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0.1) ownDeliveryBlockKm?: number;
   @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @IsUUID('4', { each: true }) vehicleModelIds?: string[];
   @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @IsUUID('4', { each: true }) partSubcategoryIds?: string[];
 }
