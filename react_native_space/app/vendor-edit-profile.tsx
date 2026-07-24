@@ -44,10 +44,7 @@ export default function VendorEditProfileScreen() {
   const [ownDeliveryEnabled, setOwnDeliveryEnabled] = useState(false);
   const [ownDeliveryCost, setOwnDeliveryCost] = useState('');
   const [ownDeliveryPricingMode, setOwnDeliveryPricingMode] = useState<'FIXED' | 'PER_KM'>('FIXED');
-  const [ownDeliveryBaseFare, setOwnDeliveryBaseFare] = useState('');
-  const [ownDeliveryBaseKm, setOwnDeliveryBaseKm] = useState('');
-  const [ownDeliveryPerBlockCost, setOwnDeliveryPerBlockCost] = useState('');
-  const [ownDeliveryBlockKm, setOwnDeliveryBlockKm] = useState('');
+  const [ownDeliveryPerKm, setOwnDeliveryPerKm] = useState('');
 
   // Facade image
   const [facadeUri, setFacadeUri] = useState<string | null>(null); // local pick URI
@@ -95,10 +92,7 @@ export default function VendorEditProfileScreen() {
         setOwnDeliveryEnabled(p?.ownDeliveryEnabled === true);
         setOwnDeliveryCost(p?.ownDeliveryCost != null ? String(p.ownDeliveryCost) : '');
         setOwnDeliveryPricingMode(p?.ownDeliveryPricingMode === 'PER_KM' ? 'PER_KM' : 'FIXED');
-        setOwnDeliveryBaseFare(p?.ownDeliveryBaseFare != null ? String(p.ownDeliveryBaseFare) : '');
-        setOwnDeliveryBaseKm(p?.ownDeliveryBaseKm != null ? String(p.ownDeliveryBaseKm) : '');
-        setOwnDeliveryPerBlockCost(p?.ownDeliveryPerBlockCost != null ? String(p.ownDeliveryPerBlockCost) : '');
-        setOwnDeliveryBlockKm(p?.ownDeliveryBlockKm != null ? String(p.ownDeliveryBlockKm) : '');
+        setOwnDeliveryPerKm(p?.ownDeliveryPerKm != null ? String(p.ownDeliveryPerKm) : '');
         const models = p?.vehicleModels ?? [];
         const brandIds = [...new Set(models.map((m) => m?.brand?.id).filter(Boolean))] as string[];
         setSelectedModels(models.map((m) => m?.id).filter(Boolean) as string[]);
@@ -216,14 +210,8 @@ export default function VendorEditProfileScreen() {
           const c = parseFloat(ownDeliveryCost);
           if (!isNaN(c) && c >= 0) updateData.ownDeliveryCost = c;
         } else {
-          const bf = parseFloat(ownDeliveryBaseFare);
-          const bk = parseFloat(ownDeliveryBaseKm);
-          const pb = parseFloat(ownDeliveryPerBlockCost);
-          const blk = parseFloat(ownDeliveryBlockKm);
-          if (!isNaN(bf) && bf >= 0) updateData.ownDeliveryBaseFare = bf;
-          if (!isNaN(bk) && bk >= 0) updateData.ownDeliveryBaseKm = bk;
-          if (!isNaN(pb) && pb >= 0) updateData.ownDeliveryPerBlockCost = pb;
-          if (!isNaN(blk) && blk >= 0.1) updateData.ownDeliveryBlockKm = blk;
+          const pk = parseFloat(ownDeliveryPerKm);
+          if (!isNaN(pk) && pk >= 0) updateData.ownDeliveryPerKm = pk;
         }
       }
       if (facadeUri) {
@@ -440,38 +428,14 @@ export default function VendorEditProfileScreen() {
                 ) : (
                   <View>
                     <Text style={styles.shipDesc}>
-                      Cobra según la distancia entre tu negocio y el cliente. Se cobra la tarifa base y luego un
-                      monto por cada bloque de kilómetros adicionales.
+                      Cobra según la distancia entre tu negocio y el cliente. El costo se calcula
+                      automáticamente: distancia (km) × costo por km.
                     </Text>
                     <View style={styles.shipInputRow}>
-                      <Text style={styles.shipInputLabel}>Tarifa base (USD)</Text>
+                      <Text style={styles.shipInputLabel}>Costo por km (USD)</Text>
                       <TextInput
-                        value={ownDeliveryBaseFare}
-                        onChangeText={(t) => setOwnDeliveryBaseFare(t.replace(/[^0-9.]/g, ''))}
-                        keyboardType="decimal-pad"
-                        placeholder="Ej. 2.00"
-                        placeholderTextColor={colors.textSecondary}
-                        style={styles.shipInput}
-                        maxLength={7}
-                      />
-                    </View>
-                    <View style={styles.shipInputRow}>
-                      <Text style={styles.shipInputLabel}>Km incluidos en base</Text>
-                      <TextInput
-                        value={ownDeliveryBaseKm}
-                        onChangeText={(t) => setOwnDeliveryBaseKm(t.replace(/[^0-9.]/g, ''))}
-                        keyboardType="decimal-pad"
-                        placeholder="Ej. 2"
-                        placeholderTextColor={colors.textSecondary}
-                        style={styles.shipInput}
-                        maxLength={5}
-                      />
-                    </View>
-                    <View style={styles.shipInputRow}>
-                      <Text style={styles.shipInputLabel}>Costo por bloque (USD)</Text>
-                      <TextInput
-                        value={ownDeliveryPerBlockCost}
-                        onChangeText={(t) => setOwnDeliveryPerBlockCost(t.replace(/[^0-9.]/g, ''))}
+                        value={ownDeliveryPerKm}
+                        onChangeText={(t) => setOwnDeliveryPerKm(t.replace(/[^0-9.]/g, ''))}
                         keyboardType="decimal-pad"
                         placeholder="Ej. 1.00"
                         placeholderTextColor={colors.textSecondary}
@@ -479,33 +443,13 @@ export default function VendorEditProfileScreen() {
                         maxLength={7}
                       />
                     </View>
-                    <View style={styles.shipInputRow}>
-                      <Text style={styles.shipInputLabel}>Tamaño del bloque (km)</Text>
-                      <TextInput
-                        value={ownDeliveryBlockKm}
-                        onChangeText={(t) => setOwnDeliveryBlockKm(t.replace(/[^0-9.]/g, ''))}
-                        keyboardType="decimal-pad"
-                        placeholder="Ej. 1"
-                        placeholderTextColor={colors.textSecondary}
-                        style={styles.shipInput}
-                        maxLength={5}
-                      />
-                    </View>
                     <View style={styles.previewBox}>
                       <Ionicons name="calculator-outline" size={16} color={colors.primary} />
                       <Text style={styles.previewText}>
                         {(() => {
-                          const bf = parseFloat(ownDeliveryBaseFare) || 0;
-                          const bk = parseFloat(ownDeliveryBaseKm) || 0;
-                          const pb = parseFloat(ownDeliveryPerBlockCost) || 0;
-                          const blkVal = parseFloat(ownDeliveryBlockKm);
-                          const blk = !isNaN(blkVal) && blkVal > 0 ? blkVal : 1;
-                          const calc = (km: number) => {
-                            let c = bf;
-                            if (km > bk) c = bf + Math.ceil((km - bk) / blk) * pb;
-                            return c.toFixed(2);
-                          };
-                          return `Ejemplo:  3 km ≈ USD ${calc(3)}   ·   8 km ≈ USD ${calc(8)}`;
+                          const pk = parseFloat(ownDeliveryPerKm) || 0;
+                          const calc = (km: number) => (km * pk).toFixed(2);
+                          return `Ejemplo:  3 km = USD ${calc(3)}   ·   5 km = USD ${calc(5)}`;
                         })()}
                       </Text>
                     </View>

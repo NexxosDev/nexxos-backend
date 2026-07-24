@@ -30,29 +30,21 @@ export class DeliveryService {
   /**
    * Calcula el costo del mensajero propio.
    * Modo FIXED: costo único (ownDeliveryCost).
-   * Modo PER_KM: tarifa base incluye baseKm; luego se cobra perBlockCost por cada bloque de blockKm adicional.
-   * Devuelve { cost, approx } — approx=true si no hay distancia para calcular (se muestra la base).
+   * Modo PER_KM: costo = distancia (km) × costo por km (ownDeliveryPerKm).
+   * Devuelve { cost, approx } — approx=true si no hay distancia para calcular.
    */
   private computeOwnDeliveryCost(v: any, distanceKm: number | null): { cost: number; approx: boolean } {
     const mode = v?.ownDeliveryPricingMode ?? 'FIXED';
     if (mode !== 'PER_KM') {
       return { cost: Math.max(0, v?.ownDeliveryCost ?? 0), approx: false };
     }
-    const baseFare = Math.max(0, v?.ownDeliveryBaseFare ?? 0);
-    const baseKm = Math.max(0, v?.ownDeliveryBaseKm ?? 0);
-    const blockKm = v?.ownDeliveryBlockKm && v.ownDeliveryBlockKm > 0 ? v.ownDeliveryBlockKm : 1;
-    const perBlock = Math.max(0, v?.ownDeliveryPerBlockCost ?? 0);
+    const perKm = Math.max(0, v?.ownDeliveryPerKm ?? 0);
     if (distanceKm == null) {
-      // Sin distancia (faltan coordenadas): mostramos la tarifa base como aproximado.
-      return { cost: Math.round(baseFare * 100) / 100, approx: true };
+      // Sin distancia (faltan coordenadas): no se puede calcular todavía.
+      return { cost: 0, approx: true };
     }
-    let cost = baseFare;
-    if (distanceKm > baseKm) {
-      const extra = distanceKm - baseKm;
-      const blocks = Math.ceil(extra / blockKm);
-      cost = baseFare + blocks * perBlock;
-    }
-    return { cost: Math.round(cost * 100) / 100, approx: false };
+    const cost = Math.round(distanceKm * perKm * 100) / 100;
+    return { cost, approx: false };
   }
 
   /** Verifica acceso al chat y devuelve contexto (chat, roles, vendorRecord) */
@@ -60,7 +52,7 @@ export class DeliveryService {
     const chat = await this.prisma.chat.findUnique({
       where: { id: chatId },
       include: {
-        vendor: { select: { id: true, userId: true, businessName: true, latitude: true, longitude: true, fullAddress: true, freeShippingEnabled: true, freeShippingRadiusKm: true, ownDeliveryEnabled: true, ownDeliveryCost: true, ownDeliveryPricingMode: true, ownDeliveryBaseFare: true, ownDeliveryBaseKm: true, ownDeliveryPerBlockCost: true, ownDeliveryBlockKm: true } },
+        vendor: { select: { id: true, userId: true, businessName: true, latitude: true, longitude: true, fullAddress: true, freeShippingEnabled: true, freeShippingRadiusKm: true, ownDeliveryEnabled: true, ownDeliveryCost: true, ownDeliveryPricingMode: true, ownDeliveryPerKm: true } },
         request: { select: { id: true, latitude: true, longitude: true } },
       },
     });
@@ -126,13 +118,16 @@ export class DeliveryService {
     if (v?.ownDeliveryEnabled === true) {
       const { cost, approx } = this.computeOwnDeliveryCost(v, distanceKm);
       const isPerKm = (v?.ownDeliveryPricingMode ?? 'FIXED') === 'PER_KM';
+      const perKm = Math.max(0, v?.ownDeliveryPerKm ?? 0);
       let description: string;
-      if (cost === 0) {
-        description = 'Envío con mensajero propio (sin costo)';
-      } else if (isPerKm && approx) {
-        description = 'Tarifa según distancia (aprox., se confirma con la ubicación)';
+      if (isPerKm && approx) {
+        description = perKm > 0
+          ? `Tarifa por distancia (USD ${perKm.toFixed(2)}/km, se calcula con tu ubicación)`
+          : 'Tarifa según distancia (se calcula con tu ubicación)';
       } else if (isPerKm && distanceKm != null) {
-        description = `Tarifa por distancia (${distanceKm} km)`;
+        description = `${distanceKm} km × USD ${perKm.toFixed(2)}/km`;
+      } else if (cost === 0) {
+        description = 'Envío con mensajero propio (sin costo)';
       } else {
         description = 'Envío con mensajero propio';
       }
