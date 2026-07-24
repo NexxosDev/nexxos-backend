@@ -6,7 +6,7 @@ export class ConfirmDeliveryDto {
   @IsString()
   chatId!: string;
 
-  @ApiProperty({ description: 'Proveedor/tipo de envío seleccionado', example: 'ESTIMATE', enum: ['FREE_RADIUS', 'OWN_VENDOR', 'ESTIMATE'] })
+  @ApiProperty({ description: 'Proveedor/tipo de envío seleccionado', example: 'OWN_VENDOR', enum: ['FREE_RADIUS', 'OWN_VENDOR'] })
   @IsString()
   provider!: string;
 

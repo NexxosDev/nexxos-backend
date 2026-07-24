@@ -134,10 +134,11 @@ export class ChatService {
     const r = chat.request;
     const requestSummary = `${r.vehicleBrand.name} ${r.vehicleModel.name} - ${r.partCategory.name}${r.partSubcategory ? ' / ' + r.partSubcategory.name : ''}`;
 
-    const vendorBiz = await this.prisma.vendor.findUnique({ where: { id: chat.vendorId }, select: { businessName: true } });
+    const vendorBiz = await this.prisma.vendor.findUnique({ where: { id: chat.vendorId }, select: { businessName: true, freeShippingEnabled: true, ownDeliveryEnabled: true } });
     const otherUserName = isClient
       ? (vendorBiz?.businessName || `${chat.vendor.user.firstName} ${chat.vendor.user.lastName}`)
       : `${chat.client.firstName} ${chat.client.lastName}`;
+    const vendorOffersDelivery = (vendorBiz?.freeShippingEnabled === true) || (vendorBiz?.ownDeliveryEnabled === true);
 
     const unreadCount = await this.prisma.chatMessage.count({
       where: {
@@ -156,6 +157,7 @@ export class ChatService {
       clientId: chat.clientId,
       requestSummary,
       otherUserName,
+      vendorOffersDelivery,
       unreadCount,
       createdAt: chat.createdAt.toISOString(),
     };

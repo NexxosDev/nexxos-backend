@@ -70,8 +70,6 @@ export class DeliveryService {
     }
 
     const currency = await this.appConfig.get('DELIVERY_CURRENCY');
-    const baseFee = parseFloat(await this.appConfig.get('DELIVERY_BASE_FEE')) || 0;
-    const perKm = parseFloat(await this.appConfig.get('DELIVERY_PRICE_PER_KM')) || 0;
 
     const options: Array<{
       provider: string;
@@ -105,18 +103,6 @@ export class DeliveryService {
         description: cost > 0 ? `Envío con mensajero propio` : 'Envío con mensajero propio (sin costo)',
         cost,
         isFree: cost === 0,
-      });
-    }
-
-    // 3) Estimación propia de Nexxos (base + por km)
-    if (distanceKm != null) {
-      const est = Math.round((baseFee + perKm * distanceKm) * 100) / 100;
-      options.push({
-        provider: 'ESTIMATE',
-        label: 'Envío estimado',
-        description: `Estimación Nexxos (${distanceKm} km)`,
-        cost: est,
-        isFree: false,
       });
     }
 

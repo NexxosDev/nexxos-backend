@@ -256,6 +256,7 @@ export interface ChatInfo {
   clientId: string;
   requestSummary: string;
   otherUserName: string;
+  vendorOffersDelivery?: boolean;
   unreadCount?: number;
   createdAt: string;
 }

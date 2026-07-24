@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { Spacing, BorderRadius } from '../theme/colors';
@@ -72,10 +72,27 @@ export default function DeliveryCard({ order, isVendor, busy, onAdvance, onCance
         </View>
       )}
 
-      {order?.dropoffAddress ? (
+      {order?.dropoffAddress || (order?.dropoffLat != null && order?.dropoffLng != null) ? (
+        <Pressable
+          style={styles.addrRow}
+          onPress={order?.dropoffLat != null && order?.dropoffLng != null ? () => {
+            const url = `https://www.google.com/maps/search/?api=1&query=${order.dropoffLat},${order.dropoffLng}`;
+            Linking.openURL(url).catch(() => {});
+          } : undefined}
+          disabled={order?.dropoffLat == null || order?.dropoffLng == null}
+        >
+          <Ionicons name="location-outline" size={13} color={colors.primary} />
+          <Text style={styles.addrText} numberOfLines={2}>{order?.dropoffAddress || 'Ubicación GPS de entrega'}</Text>
+          {order?.dropoffLat != null && order?.dropoffLng != null ? (
+            <Ionicons name="open-outline" size={13} color={colors.primary} />
+          ) : null}
+        </Pressable>
+      ) : null}
+
+      {order?.notes ? (
         <View style={styles.addrRow}>
-          <Ionicons name="location-outline" size={13} color={colors.textSecondary} />
-          <Text style={styles.addrText} numberOfLines={2}>{order.dropoffAddress}</Text>
+          <Ionicons name="reader-outline" size={13} color={colors.textSecondary} />
+          <Text style={styles.addrText} numberOfLines={2}>Ref: {order.notes}</Text>
         </View>
       ) : null}
 

@@ -30,7 +30,7 @@ import ChatMessageComp from '../src/components/ChatMessage';
 import ImageEditorModal from '../src/components/ImageEditorModal';
 import LoadingSpinner from '../src/components/LoadingSpinner';
 import DeliveryCard from '../src/components/DeliveryCard';
-import DeliveryOptionsSheet from '../src/components/DeliveryOptionsSheet';
+import DeliveryOptionsSheet, { DeliveryConfirmData } from '../src/components/DeliveryOptionsSheet';
 import {
   getDeliveryOptions, offerDelivery, confirmDelivery,
   getDeliveryByChat, updateDeliveryStatus, cancelDelivery,
@@ -356,16 +356,19 @@ export default function ChatScreen() {
     }
   }, [chatId, deliveryBusy]);
 
-  const handleConfirmDelivery = useCallback(async (option: DeliveryOption, dropoffAddress: string) => {
+  const handleConfirmDelivery = useCallback(async (option: DeliveryOption, payload: DeliveryConfirmData) => {
     if (!chatId || deliveryBusy) return;
     setDeliveryBusy(true);
     try {
       await confirmDelivery({
         chatId,
-        provider: option?.provider ?? 'ESTIMATE',
+        provider: option?.provider ?? 'OWN_VENDOR',
         cost: option?.cost ?? 0,
         isFree: option?.isFree ?? false,
-        dropoffAddress: dropoffAddress?.trim?.() || undefined,
+        dropoffAddress: payload?.dropoffAddress?.trim?.() || undefined,
+        dropoffLat: payload?.dropoffLat ?? undefined,
+        dropoffLng: payload?.dropoffLng ?? undefined,
+        notes: payload?.notes?.trim?.() || undefined,
       });
       setOptionsSheet(false);
       await refreshDelivery();
@@ -768,7 +771,20 @@ export default function ChatScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </Pressable>
         <View style={styles.headerInfo}>
-          <Text style={styles.headerName} numberOfLines={1}>{chatInfo?.otherUserName ?? 'Chat'}</Text>
+          <View style={styles.headerNameRow}>
+            <Text style={styles.headerName} numberOfLines={1}>{chatInfo?.otherUserName ?? 'Chat'}</Text>
+            {isClient && chatInfo?.vendorOffersDelivery ? (
+              <Pressable
+                style={styles.headerDeliveryBadge}
+                onPress={!isReadOnly && !hasActiveDelivery ? openDeliveryOptions : undefined}
+                disabled={isReadOnly || hasActiveDelivery || deliveryBusy}
+                hitSlop={6}
+              >
+                <Ionicons name="bicycle" size={13} color={colors.accent} />
+                <Text style={styles.headerDeliveryBadgeText}>Ofrece envío</Text>
+              </Pressable>
+            ) : null}
+          </View>
           <Text style={styles.headerSummary} numberOfLines={1}>{chatInfo?.requestSummary ?? ''}</Text>
         </View>
       </View>
@@ -1053,7 +1069,14 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   },
   backBtn: { width: 44, height: 44, justifyContent: 'center' },
   headerInfo: { flex: 1, marginLeft: 4 },
-  headerName: { fontSize: 16, fontWeight: '600', color: c.textPrimary },
+  headerNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerName: { fontSize: 16, fontWeight: '600', color: c.textPrimary, flexShrink: 1 },
+  headerDeliveryBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: c.primary, paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+  },
+  headerDeliveryBadgeText: { fontSize: 11, fontWeight: '700', color: c.accent },
   headerSummary: { fontSize: 12, color: c.textSecondary },
   messageList: { padding: Spacing.sm, paddingBottom: Spacing.md },
   dateSeparator: { alignItems: 'center', marginVertical: 10 },
