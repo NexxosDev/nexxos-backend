@@ -410,6 +410,14 @@ export class RequestsService {
           initialMessage: r.initialMessage,
           chatId: chat?.id ?? null,
           distanceKm,
+          delivery: {
+            offersDelivery: (r.vendor.freeShippingEnabled === true) || (r.vendor.ownDeliveryEnabled === true),
+            freeInRadius:
+              r.vendor.freeShippingEnabled === true &&
+              typeof distanceKm === 'number' &&
+              typeof r.vendor.freeShippingRadiusKm === 'number' &&
+              distanceKm <= r.vendor.freeShippingRadiusKm,
+          },
           tags: tags?.map((t: any) => t?.tag) ?? [],
           createdAt: r.createdAt.toISOString(),
         };

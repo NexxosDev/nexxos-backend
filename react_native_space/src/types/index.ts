@@ -86,6 +86,51 @@ export interface RequestResponseItem {
   distanceKm: number | null;
   tags: ResponseTagValue[];
   createdAt: string;
+  delivery?: { offersDelivery: boolean; freeInRadius: boolean } | null;
+}
+
+export interface DeliveryOption {
+  provider: string;
+  label: string;
+  description: string;
+  cost: number;
+  isFree: boolean;
+}
+
+export interface DeliveryOptionsResponse {
+  chatId: string;
+  distanceKm: number | null;
+  currency: string;
+  pickupAddress: string | null;
+  dropoffAddress: string | null;
+  dropoffLat: number | null;
+  dropoffLng: number | null;
+  options: DeliveryOption[];
+}
+
+export interface DeliveryOrder {
+  id: string;
+  chatId: string;
+  requestId: string;
+  vendorId: string;
+  clientId: string;
+  provider: string;
+  cost: number;
+  currency: string;
+  isFree: boolean;
+  distanceKm: number | null;
+  pickupAddress: string | null;
+  dropoffAddress: string | null;
+  dropoffLat: number | null;
+  dropoffLng: number | null;
+  status: string;
+  notes: string | null;
+  canceledBy: string | null;
+  confirmedAt: string | null;
+  inTransitAt: string | null;
+  deliveredAt: string | null;
+  canceledAt: string | null;
+  createdAt: string | null;
 }
 
 export interface VendorRequestListItem {
@@ -189,6 +234,10 @@ export interface VendorProfile {
   referencePoint: string | null;
   fullAddress: string | null;
   isAvailable: boolean;
+  freeShippingEnabled?: boolean;
+  freeShippingRadiusKm?: number | null;
+  ownDeliveryEnabled?: boolean;
+  ownDeliveryCost?: number | null;
   vehicleModels: { id: string; name: string; brand: { id: string; name: string } }[];
   partSubcategories: { id: string; name: string; category: { id: string; name: string } }[];
   metrics: {

@@ -52,6 +52,10 @@ export class VendorService {
       referencePoint: vendor.referencePoint,
       fullAddress: vendor.fullAddress,
       isAvailable: vendor.isAvailable,
+      freeShippingEnabled: vendor.freeShippingEnabled ?? false,
+      freeShippingRadiusKm: vendor.freeShippingRadiusKm ?? null,
+      ownDeliveryEnabled: vendor.ownDeliveryEnabled ?? false,
+      ownDeliveryCost: vendor.ownDeliveryCost ?? null,
       vehicleModels: vendor.vendorVehicleModels.map((vvm: any) => ({
         id: vvm.vehicleModel.id,
         name: vvm.vehicleModel.name,
@@ -135,6 +139,10 @@ export class VendorService {
     if (dto.longitude !== undefined) data.longitude = dto.longitude;
     if (dto.referencePoint !== undefined) data.referencePoint = dto.referencePoint;
     if (dto.fullAddress !== undefined) data.fullAddress = dto.fullAddress;
+    if (dto.freeShippingEnabled !== undefined) data.freeShippingEnabled = dto.freeShippingEnabled;
+    if (dto.freeShippingRadiusKm !== undefined) data.freeShippingRadiusKm = dto.freeShippingRadiusKm;
+    if (dto.ownDeliveryEnabled !== undefined) data.ownDeliveryEnabled = dto.ownDeliveryEnabled;
+    if (dto.ownDeliveryCost !== undefined) data.ownDeliveryCost = dto.ownDeliveryCost;
 
     const updated = await this.prisma.vendor.update({ where: { id: vendor.id }, data });
 

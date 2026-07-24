@@ -24,6 +24,7 @@ interface ResponseCardProps {
   unreadCount?: number;
   tags?: ResponseTagValue[];
   onTagPress?: () => void;
+  delivery?: { offersDelivery: boolean; freeInRadius: boolean } | null;
 }
 
 function formatDistance(km: number): string {
@@ -41,7 +42,7 @@ function openGoogleMaps(lat: number, lng: number) {
   }
 }
 
-export default function ResponseCard({ businessName, logoUrl, facadeImageUrl, avgRating, initialMessage, distanceKm, vendorLatitude, vendorLongitude, onOpenChat, unreadCount, tags, onTagPress }: ResponseCardProps) {
+export default function ResponseCard({ businessName, logoUrl, facadeImageUrl, avgRating, initialMessage, distanceKm, vendorLatitude, vendorLongitude, onOpenChat, unreadCount, tags, onTagPress, delivery }: ResponseCardProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const hasDistance = typeof distanceKm === 'number' && isFinite(distanceKm);
@@ -112,6 +113,17 @@ export default function ResponseCard({ businessName, logoUrl, facadeImageUrl, av
           </Pressable>
         ) : null}
       </View>
+
+      {delivery?.offersDelivery ? (
+        <View style={styles.deliveryRow}>
+          <View style={[styles.deliveryChip, delivery?.freeInRadius ? styles.deliveryChipFree : styles.deliveryChipPaid]}>
+            <Ionicons name={delivery?.freeInRadius ? 'gift-outline' : 'bicycle-outline'} size={13} color={delivery?.freeInRadius ? '#1B8A3A' : '#0B6BB5'} />
+            <Text style={[styles.deliveryChipText, { color: delivery?.freeInRadius ? '#1B8A3A' : '#0B6BB5' }]}>
+              {delivery?.freeInRadius ? 'Envío gratis' : 'Ofrece envío'}
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       {activeTags.length > 0 ? (
         <View style={styles.tagsRow}>
@@ -185,6 +197,11 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   unreadBadge: { backgroundColor: '#E53935', borderRadius: 10, minWidth: 20, height: 20, paddingHorizontal: 5, justifyContent: 'center', alignItems: 'center' },
   unreadText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   moreBtn: { padding: 4 },
+  deliveryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: Spacing.sm },
+  deliveryChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: BorderRadius.full, gap: 4, borderWidth: 1 },
+  deliveryChipFree: { backgroundColor: 'rgba(27,138,58,0.10)', borderColor: 'rgba(27,138,58,0.35)' },
+  deliveryChipPaid: { backgroundColor: 'rgba(11,107,181,0.10)', borderColor: 'rgba(11,107,181,0.35)' },
+  deliveryChipText: { fontSize: 11, fontWeight: '700' },
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: Spacing.sm },
   tagChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: BorderRadius.full, gap: 4 },
   tagChipEmoji: { fontSize: 12 },

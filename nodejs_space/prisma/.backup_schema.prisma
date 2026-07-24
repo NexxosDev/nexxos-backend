@@ -35,6 +35,7 @@ model User {
   passwordResetTokens     PasswordResetToken[]
   pushTokens              PushToken[]
   requestRatingsGiven     RequestRating[]          @relation("RatingClient")
+  clientDeliveryOrders    DeliveryOrder[]          @relation("ClientDeliveryOrders")
   clientRequests          Request[]
   responseTags            ResponseTag[]
   userRoles               UserRole[]
@@ -101,7 +102,12 @@ model Vendor {
   personalDocUrl          String?                 @map("personal_doc_url")
   selfieUrl               String?                 @map("selfie_url")
   facadeImageUrl          String?                 @map("facade_image_url")
+  freeShippingEnabled     Boolean                 @default(false) @map("free_shipping_enabled")
+  freeShippingRadiusKm    Int?                    @map("free_shipping_radius_km")
+  ownDeliveryEnabled      Boolean                 @default(false) @map("own_delivery_enabled")
+  ownDeliveryCost         Float?                  @map("own_delivery_cost")
   chats                   Chat[]
+  deliveryOrders          DeliveryOrder[]
   quickReplies            QuickReply[]
   requestRatingsReceived  RequestRating[]         @relation("RatingVendor")
   requestResponses        RequestResponse[]
@@ -267,6 +273,7 @@ model Request {
   originalRadiusKm     Int?                 @map("original_radius_km")
   vehicleYear          Int?                 @map("vehicle_year")
   chats                Chat[]
+  deliveryOrders       DeliveryOrder[]
   clientPointLogs      ClientPointLog[]
   requestRating        RequestRating?
   requestResponses     RequestResponse[]
@@ -339,6 +346,7 @@ model Chat {
   clientId     String        @map("client_id") @db.Uuid
   createdAt    DateTime      @default(now()) @map("created_at")
   chatMessages ChatMessage[]
+  deliveryOrders DeliveryOrder[]
   client       User          @relation("ChatClient", fields: [clientId], references: [id])
   request      Request       @relation(fields: [requestId], references: [id])
   vendor       Vendor        @relation(fields: [vendorId], references: [id])
@@ -666,4 +674,39 @@ model PromoPopupView {
   @@unique([popupId, subject, seenDate])
   @@index([subject])
   @@map("promo_popup_views")
+}
+
+model DeliveryOrder {
+  id             String    @id @default(uuid()) @db.Uuid
+  chatId         String    @map("chat_id") @db.Uuid
+  requestId      String    @map("request_id") @db.Uuid
+  vendorId       String    @map("vendor_id") @db.Uuid
+  clientId       String    @map("client_id") @db.Uuid
+  provider       String    @default("ESTIMATE")
+  cost           Float     @default(0)
+  currency       String    @default("USD")
+  isFree         Boolean   @default(false) @map("is_free")
+  distanceKm     Float?    @map("distance_km")
+  pickupAddress  String?   @map("pickup_address")
+  dropoffAddress String?   @map("dropoff_address")
+  dropoffLat     Float?    @map("dropoff_lat")
+  dropoffLng     Float?    @map("dropoff_lng")
+  status         String    @default("SELECTED")
+  notes          String?
+  canceledBy     String?   @map("canceled_by")
+  confirmedAt    DateTime? @map("confirmed_at")
+  inTransitAt    DateTime? @map("in_transit_at")
+  deliveredAt    DateTime? @map("delivered_at")
+  canceledAt     DateTime? @map("canceled_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  chat           Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  request        Request   @relation(fields: [requestId], references: [id])
+  vendor         Vendor    @relation(fields: [vendorId], references: [id])
+  client         User      @relation("ClientDeliveryOrders", fields: [clientId], references: [id])
+
+  @@index([chatId])
+  @@index([vendorId])
+  @@index([clientId])
+  @@map("delivery_orders")
 }

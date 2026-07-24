@@ -29,8 +29,14 @@ import type { ThemeColors } from '../src/theme/colors';
 import ChatMessageComp from '../src/components/ChatMessage';
 import ImageEditorModal from '../src/components/ImageEditorModal';
 import LoadingSpinner from '../src/components/LoadingSpinner';
+import DeliveryCard from '../src/components/DeliveryCard';
+import DeliveryOptionsSheet from '../src/components/DeliveryOptionsSheet';
+import {
+  getDeliveryOptions, offerDelivery, confirmDelivery,
+  getDeliveryByChat, updateDeliveryStatus, cancelDelivery,
+} from '../src/services/delivery';
 import { getDateKey, getDateLabel } from '../src/utils/dateSeparator';
-import type { ChatInfo, ChatMessageItem } from '../src/types';
+import type { ChatInfo, ChatMessageItem, DeliveryOrder, DeliveryOptionsResponse, DeliveryOption } from '../src/types';
 import useChatSounds from '../src/hooks/useChatSounds';
 
 const textureDark = require('../assets/images/texture-chat-dark.png');
@@ -105,6 +111,12 @@ export default function ChatScreen() {
   const inputRef = useRef<TextInput>(null);
   const hasMarkedReadRef = useRef(false);
 
+  // ---------- Delivery ----------
+  const [deliveryOrder, setDeliveryOrder] = useState<DeliveryOrder | null>(null);
+  const [deliveryOptions, setDeliveryOptions] = useState<DeliveryOptionsResponse | null>(null);
+  const [optionsSheet, setOptionsSheet] = useState(false);
+  const [deliveryBusy, setDeliveryBusy] = useState(false);
+
   const messageIndexMap = useMemo(() => {
     const map = new Map<string, number>();
     (messages ?? []).forEach((m, i) => { if (m?.id) map.set(m.id, i); });
@@ -147,11 +159,19 @@ export default function ChatScreen() {
     } catch { }
   }, [chatId, refreshUnread]);
 
+  const refreshDelivery = useCallback(async () => {
+    if (!chatId) return;
+    try {
+      const order = await getDeliveryByChat(chatId);
+      setDeliveryOrder(order ?? null);
+    } catch { }
+  }, [chatId]);
+
   useEffect(() => {
     if (!chatId) return;
     (async () => {
       try {
-        const [info] = await Promise.all([getChatInfo(chatId), fetchMessages()]);
+        const [info] = await Promise.all([getChatInfo(chatId), fetchMessages(), refreshDelivery()]);
         setChatInfo(info ?? null);
       } catch { }
       setLoading(false);
@@ -176,12 +196,13 @@ export default function ChatScreen() {
     intervalRef.current = setInterval(async () => {
       await fetchMessages();
       await markAsDeliveredAndRead();
+      await refreshDelivery();
       // Continuously dismiss any tray notifications for this chat
       // (covers edge cases: push arrived just before presence was reported, background delays, etc.)
       if (chatId) dismissNotificationsForContext({ chatId }).catch(() => {});
     }, 4000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [fetchMessages, markAsDeliveredAndRead, chatId]);
+  }, [fetchMessages, markAsDeliveredAndRead, refreshDelivery, chatId]);
 
   // ---------- Reply ----------
   const activateReply = useCallback((msg: ChatMessageItem) => {
@@ -302,6 +323,101 @@ export default function ChatScreen() {
 
   // ---------- Location ----------
   const isClient = user?.id !== chatInfo?.vendorUserId;
+  const isVendor = !!chatInfo && user?.id === chatInfo?.vendorUserId;
+  const hasActiveDelivery = !!deliveryOrder && !['DELIVERED', 'CANCELED'].includes(deliveryOrder?.status ?? '');
+
+  // ---------- Delivery handlers ----------
+  const handleOfferDelivery = useCallback(async () => {
+    setShowAttachMenu(false);
+    if (!chatId || deliveryBusy) return;
+    setDeliveryBusy(true);
+    try {
+      await offerDelivery(chatId);
+      await fetchMessages();
+      await refreshDelivery();
+    } catch {
+      Alert.alert('Envío', 'No se pudo ofrecer el envío. Verifica tu configuración de envíos e intenta de nuevo.');
+    } finally {
+      setDeliveryBusy(false);
+    }
+  }, [chatId, deliveryBusy, fetchMessages, refreshDelivery]);
+
+  const openDeliveryOptions = useCallback(async () => {
+    if (!chatId || deliveryBusy) return;
+    setDeliveryBusy(true);
+    try {
+      const opts = await getDeliveryOptions(chatId);
+      setDeliveryOptions(opts ?? null);
+      setOptionsSheet(true);
+    } catch {
+      Alert.alert('Envío', 'No se pudieron cargar las opciones de envío.');
+    } finally {
+      setDeliveryBusy(false);
+    }
+  }, [chatId, deliveryBusy]);
+
+  const handleConfirmDelivery = useCallback(async (option: DeliveryOption, dropoffAddress: string) => {
+    if (!chatId || deliveryBusy) return;
+    setDeliveryBusy(true);
+    try {
+      await confirmDelivery({
+        chatId,
+        provider: option?.provider ?? 'ESTIMATE',
+        cost: option?.cost ?? 0,
+        isFree: option?.isFree ?? false,
+        dropoffAddress: dropoffAddress?.trim?.() || undefined,
+      });
+      setOptionsSheet(false);
+      await refreshDelivery();
+      await fetchMessages();
+    } catch {
+      Alert.alert('Envío', 'No se pudo confirmar el envío. Intenta de nuevo.');
+    } finally {
+      setDeliveryBusy(false);
+    }
+  }, [chatId, deliveryBusy, refreshDelivery, fetchMessages]);
+
+  const handleAdvanceDelivery = useCallback(async (status: 'IN_TRANSIT' | 'DELIVERED') => {
+    if (!deliveryOrder?.id || deliveryBusy) return;
+    setDeliveryBusy(true);
+    try {
+      await updateDeliveryStatus(deliveryOrder.id, status);
+      await refreshDelivery();
+      await fetchMessages();
+    } catch {
+      Alert.alert('Envío', 'No se pudo actualizar el estado del envío.');
+    } finally {
+      setDeliveryBusy(false);
+    }
+  }, [deliveryOrder?.id, deliveryBusy, refreshDelivery, fetchMessages]);
+
+  const handleCancelDelivery = useCallback(() => {
+    if (!deliveryOrder?.id) return;
+    Alert.alert(
+      'Cancelar envío',
+      '¿Seguro que deseas cancelar este envío?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Sí, cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            if (deliveryBusy) return;
+            setDeliveryBusy(true);
+            try {
+              await cancelDelivery(deliveryOrder.id);
+              await refreshDelivery();
+              await fetchMessages();
+            } catch {
+              Alert.alert('Envío', 'No se pudo cancelar el envío.');
+            } finally {
+              setDeliveryBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [deliveryOrder?.id, deliveryBusy, refreshDelivery, fetchMessages]);
 
   const handleSendLocation = async () => {
     setShowAttachMenu(false);
@@ -554,6 +670,44 @@ export default function ChatScreen() {
     // or when this is the last (oldest) item — this renders the label visually ABOVE the day group.
     const showSeparator = currentKey && (currentKey !== nextKey);
 
+    // Delivery system messages (centered, non-bubble)
+    const mType = item?.messageType ?? '';
+    if (mType === 'delivery_offer' || mType === 'delivery_update') {
+      const isOffer = mType === 'delivery_offer';
+      const tappable = isOffer && isClient && !isReadOnly && !hasActiveDelivery;
+      return (
+        <>
+          <View style={styles.deliverySysWrap}>
+            <Pressable
+              style={[styles.deliverySysCard, isOffer && styles.deliverySysCardOffer]}
+              onPress={tappable ? openDeliveryOptions : undefined}
+              disabled={!tappable}
+            >
+              <Ionicons
+                name={isOffer ? 'bicycle' : 'cube-outline'}
+                size={18}
+                color={isOffer ? colors.primary : colors.textSecondary}
+              />
+              <Text style={styles.deliverySysText}>{item?.messageText ?? ''}</Text>
+              {tappable ? (
+                <View style={styles.deliverySysCta}>
+                  <Text style={styles.deliverySysCtaText}>Ver opciones</Text>
+                  <Ionicons name="chevron-forward" size={14} color={colors.accent} />
+                </View>
+              ) : null}
+            </Pressable>
+          </View>
+          {showSeparator ? (
+            <View style={styles.dateSeparator}>
+              <View style={styles.dateSeparatorPill}>
+                <Text style={styles.dateSeparatorText}>{getDateLabel(item?.createdAt ?? '')}</Text>
+              </View>
+            </View>
+          ) : null}
+        </>
+      );
+    }
+
     return (
       <>
         <Swipeable
@@ -595,7 +749,7 @@ export default function ChatScreen() {
         ) : null}
       </>
     );
-  }, [user?.id, chatInfo?.vendorUserId, messages, renderLeftActions, activateReply, scrollToMessage, openContextMenu, isReadOnly, styles]);
+  }, [user?.id, chatInfo?.vendorUserId, messages, renderLeftActions, activateReply, scrollToMessage, openContextMenu, isReadOnly, styles, isClient, hasActiveDelivery, openDeliveryOptions, colors]);
 
   if (loading) return <LoadingSpinner />;
 
@@ -648,10 +802,21 @@ export default function ChatScreen() {
         ) : null}
 
         {isReadOnly ? (
-          <View style={styles.readOnlyBar}>
-            <Ionicons name="lock-closed-outline" size={16} color={colors.textSecondary} />
-            <Text style={styles.readOnlyText}>Esta solicitud fue cerrada. Solo lectura.</Text>
-          </View>
+          <>
+            {deliveryOrder ? (
+              <DeliveryCard
+                order={deliveryOrder}
+                isVendor={isVendor}
+                busy={deliveryBusy}
+                onAdvance={handleAdvanceDelivery}
+                onCancel={handleCancelDelivery}
+              />
+            ) : null}
+            <View style={styles.readOnlyBar}>
+              <Ionicons name="lock-closed-outline" size={16} color={colors.textSecondary} />
+              <Text style={styles.readOnlyText}>Esta solicitud fue cerrada. Solo lectura.</Text>
+            </View>
+          </>
         ) : (
           <>
             {showAttachMenu ? (
@@ -677,8 +842,26 @@ export default function ChatScreen() {
                       <Text style={styles.attachOptionText}>Ubicación</Text>
                     </Pressable>
                   ) : null}
+                  {isVendor && !hasActiveDelivery ? (
+                    <Pressable style={styles.attachOption} onPress={handleOfferDelivery} disabled={deliveryBusy}>
+                      <View style={[styles.attachCircle, { backgroundColor: '#FF9800' }]}>
+                        <Ionicons name="bicycle" size={24} color="#fff" />
+                      </View>
+                      <Text style={styles.attachOptionText}>Ofrecer envío</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               </View>
+            ) : null}
+
+            {deliveryOrder ? (
+              <DeliveryCard
+                order={deliveryOrder}
+                isVendor={isVendor}
+                busy={deliveryBusy}
+                onAdvance={handleAdvanceDelivery}
+                onCancel={handleCancelDelivery}
+              />
             ) : null}
 
             {isEditMode ? (
@@ -766,6 +949,15 @@ export default function ChatScreen() {
           </>
         )}
       </KeyboardAvoidingView>
+
+      {/* Delivery options (client) */}
+      <DeliveryOptionsSheet
+        visible={optionsSheet}
+        data={deliveryOptions}
+        busy={deliveryBusy}
+        onConfirm={handleConfirmDelivery}
+        onClose={() => setOptionsSheet(false)}
+      />
 
       {/* Image Editor */}
       <Modal visible={!!editorImageUri} animationType="slide" onRequestClose={() => setEditorImageUri(null)}>
@@ -867,6 +1059,21 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   dateSeparator: { alignItems: 'center', marginVertical: 10 },
   dateSeparatorPill: { backgroundColor: c.chipBg, paddingHorizontal: 14, paddingVertical: 5, borderRadius: BorderRadius.full },
   dateSeparatorText: { fontSize: 12, fontWeight: '600', color: c.textSecondary },
+  deliverySysWrap: { alignItems: 'center', marginVertical: 8, paddingHorizontal: 24 },
+  deliverySysCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: c.chipBg, paddingHorizontal: 14, paddingVertical: 10,
+    borderRadius: BorderRadius.lg, maxWidth: '92%',
+    borderWidth: 1, borderColor: c.border,
+  },
+  deliverySysCardOffer: { borderColor: c.primary },
+  deliverySysText: { flexShrink: 1, fontSize: 13, color: c.textSecondary, fontWeight: '500' },
+  deliverySysCta: {
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    backgroundColor: c.primary, paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: BorderRadius.full, marginLeft: 4,
+  },
+  deliverySysCtaText: { fontSize: 12, fontWeight: '700', color: c.accent },
   emptyChat: { textAlign: 'center', color: c.textSecondary, padding: Spacing.xl },
   readOnlyBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,

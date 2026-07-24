@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable, Alert, Modal, Switch, TextInput } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,6 +37,12 @@ export default function VendorEditProfileScreen() {
 
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
+
+  // Envíos / delivery
+  const [freeShippingEnabled, setFreeShippingEnabled] = useState(false);
+  const [freeShippingRadiusKm, setFreeShippingRadiusKm] = useState('');
+  const [ownDeliveryEnabled, setOwnDeliveryEnabled] = useState(false);
+  const [ownDeliveryCost, setOwnDeliveryCost] = useState('');
 
   // Facade image
   const [facadeUri, setFacadeUri] = useState<string | null>(null); // local pick URI
@@ -79,6 +85,10 @@ export default function VendorEditProfileScreen() {
         const p = await getVendorProfile();
         setProfile(p ?? null);
         if (p?.facadeImageUrl) setFacadeRemoteUrl(p.facadeImageUrl);
+        setFreeShippingEnabled(p?.freeShippingEnabled === true);
+        setFreeShippingRadiusKm(p?.freeShippingRadiusKm != null ? String(p.freeShippingRadiusKm) : '');
+        setOwnDeliveryEnabled(p?.ownDeliveryEnabled === true);
+        setOwnDeliveryCost(p?.ownDeliveryCost != null ? String(p.ownDeliveryCost) : '');
         const models = p?.vehicleModels ?? [];
         const brandIds = [...new Set(models.map((m) => m?.brand?.id).filter(Boolean))] as string[];
         setSelectedModels(models.map((m) => m?.id).filter(Boolean) as string[]);
@@ -183,7 +193,17 @@ export default function VendorEditProfileScreen() {
       const updateData: Record<string, unknown> = {
         vehicleModelIds: selectedModels ?? [],
         partSubcategoryIds: selectedSubcategories ?? [],
+        freeShippingEnabled,
+        ownDeliveryEnabled,
       };
+      if (freeShippingEnabled) {
+        const r = parseInt(freeShippingRadiusKm, 10);
+        if (!isNaN(r) && r > 0) updateData.freeShippingRadiusKm = Math.min(r, 100);
+      }
+      if (ownDeliveryEnabled) {
+        const c = parseFloat(ownDeliveryCost);
+        if (!isNaN(c) && c >= 0) updateData.ownDeliveryCost = c;
+      }
       if (facadeUri) {
         const facadePath = await uploadFile(facadeUri, 'facade.jpg', 'image/jpeg', true);
         if (facadePath) updateData.facadeImagePath = facadePath;
@@ -308,6 +328,74 @@ export default function VendorEditProfileScreen() {
             />
           </CollapsibleSection>
 
+          {/* Envíos — cerrado por defecto */}
+          <CollapsibleSection
+            icon="bicycle-outline"
+            iconColor="#0B6BB5"
+            title="Envíos"
+            badge={freeShippingEnabled || ownDeliveryEnabled ? 'Activo' : 'Inactivo'}
+          >
+            <Text style={styles.sectionHint}>
+              Configura si ofreces envío a tus clientes. Podrás ofrecerlo dentro de cada chat.
+            </Text>
+
+            <View style={styles.shipRow}>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={styles.shipLabel}>Envío gratis por cercanía</Text>
+                <Text style={styles.shipDesc}>Absorbes el costo del envío para clientes dentro de un radio.</Text>
+              </View>
+              <Switch
+                value={freeShippingEnabled}
+                onValueChange={setFreeShippingEnabled}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor="#fff"
+              />
+            </View>
+            {freeShippingEnabled ? (
+              <View style={styles.shipInputRow}>
+                <Text style={styles.shipInputLabel}>Radio (km)</Text>
+                <TextInput
+                  value={freeShippingRadiusKm}
+                  onChangeText={(t) => setFreeShippingRadiusKm(t.replace(/[^0-9]/g, ''))}
+                  keyboardType="number-pad"
+                  placeholder="Ej. 10"
+                  placeholderTextColor={colors.textSecondary}
+                  style={styles.shipInput}
+                  maxLength={3}
+                />
+              </View>
+            ) : null}
+
+            <View style={styles.divider} />
+
+            <View style={styles.shipRow}>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={styles.shipLabel}>Mensajero propio</Text>
+                <Text style={styles.shipDesc}>Tienes tu propio delivery. Indica el costo (0 = gratis).</Text>
+              </View>
+              <Switch
+                value={ownDeliveryEnabled}
+                onValueChange={setOwnDeliveryEnabled}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor="#fff"
+              />
+            </View>
+            {ownDeliveryEnabled ? (
+              <View style={styles.shipInputRow}>
+                <Text style={styles.shipInputLabel}>Costo (USD)</Text>
+                <TextInput
+                  value={ownDeliveryCost}
+                  onChangeText={(t) => setOwnDeliveryCost(t.replace(/[^0-9.]/g, ''))}
+                  keyboardType="decimal-pad"
+                  placeholder="Ej. 3.00"
+                  placeholderTextColor={colors.textSecondary}
+                  style={styles.shipInput}
+                  maxLength={7}
+                />
+              </View>
+            ) : null}
+          </CollapsibleSection>
+
           {/* Respuestas rápidas — cerrado por defecto */}
           <CollapsibleSection
             icon="flash-outline"
@@ -366,6 +454,12 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   addressRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 2 },
   divider: { height: 1, backgroundColor: c.border, marginVertical: 4 },
   sectionHint: { fontSize: 13, color: c.textSecondary, marginBottom: Spacing.sm },
+  shipRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
+  shipLabel: { fontSize: 14, fontWeight: '600', color: c.textPrimary },
+  shipDesc: { fontSize: 12, color: c.textSecondary, marginTop: 2, lineHeight: 16 },
+  shipInputRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm, paddingLeft: 2 },
+  shipInputLabel: { fontSize: 13, color: c.textSecondary, width: 90 },
+  shipInput: { flex: 1, borderWidth: 1, borderColor: c.border, borderRadius: BorderRadius.sm, paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 10 : 6, color: c.textPrimary, backgroundColor: c.backgroundSection, fontSize: 15 },
   saveBtn: { marginTop: Spacing.lg },
   deleteLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 40, marginBottom: 20, paddingVertical: 8 },
   deleteLinkText: { fontSize: 13, color: c.textSecondary },

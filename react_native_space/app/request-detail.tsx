@@ -196,6 +196,7 @@ export default function RequestDetailScreen() {
               vendorLatitude={resp?.vendor?.latitude}
               vendorLongitude={resp?.vendor?.longitude}
               tags={resp?.tags}
+              delivery={resp?.delivery}
               onTagPress={() => handleOpenTagSheet(resp)}
               onOpenChat={() => {
                 const base = `/chat?chatId=${resp?.chatId ?? ''}`;

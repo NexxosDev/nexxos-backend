@@ -5,6 +5,9 @@ import { clearConfigCache } from '../lib/config-helper';
 /** Default values for app_config keys */
 const DEFAULTS: Record<string, string> = {
   PLANS_MODE: 'free', // 'free' | 'production'
+  DELIVERY_BASE_FEE: '2.00',
+  DELIVERY_PRICE_PER_KM: '1.00',
+  DELIVERY_CURRENCY: 'USD',
 };
 
 @Injectable()
