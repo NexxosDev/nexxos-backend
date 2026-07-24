@@ -1,11 +1,12 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, ScrollView, TextInput, ActivityIndicator, Platform, Alert, Linking } from 'react-native';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, Modal, Pressable, ScrollView, TextInput, ActivityIndicator, Platform, Alert, Linking, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useTheme } from '../contexts/ThemeContext';
 import { Spacing, BorderRadius } from '../theme/colors';
 import type { ThemeColors } from '../theme/colors';
 import type { DeliveryOptionsResponse, DeliveryOption } from '../types';
+import { quoteDelivery } from '../services/delivery';
 
 export interface DeliveryConfirmData {
   dropoffLat: number | null;
@@ -22,32 +23,132 @@ interface Props {
   onClose: () => void;
 }
 
+const ownCostOf = (opts?: DeliveryOption[] | null): number | null => {
+  const o = opts?.find?.((x) => x?.provider === 'OWN_VENDOR');
+  return o ? (o?.cost ?? 0) : null;
+};
+
 export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, onClose }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const [activeData, setActiveData] = useState<DeliveryOptionsResponse | null>(data);
   const [selected, setSelected] = useState<number>(0);
   const [notes, setNotes] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [address, setAddress] = useState('');
+  const [searchText, setSearchText] = useState('');
   const [locating, setLocating] = useState(false);
+  const [quoting, setQuoting] = useState(false);
+
+  // Alerta de variación de costo (Req B)
+  const [variation, setVariation] = useState(false);
+  const [needsAccept, setNeedsAccept] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+  const bannerOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
+      setActiveData(data);
       setSelected(0);
       setNotes('');
-      setCoords(null);
+      setSearchText('');
       setAddress('');
       setLocating(false);
+      setQuoting(false);
+      setVariation(false);
+      setNeedsAccept(false);
+      setAccepted(false);
+      bannerOpacity.setValue(0);
+      const dLat = data?.dropoffLat;
+      const dLng = data?.dropoffLng;
+      setCoords(dLat != null && dLng != null ? { lat: dLat, lng: dLng } : null);
     }
-  }, [visible]);
+  }, [visible, data, bannerOpacity]);
 
-  const options = data?.options ?? [];
-  const currency = data?.currency ?? 'USD';
+  useEffect(() => {
+    if (variation) {
+      Animated.timing(bannerOpacity, { toValue: 1, duration: 260, useNativeDriver: true }).start();
+    }
+  }, [variation, bannerOpacity]);
+
+  const options = activeData?.options ?? [];
+  const currency = activeData?.currency ?? 'USD';
+  const distanceKm = activeData?.distanceKm ?? null;
   const chosen = options?.[selected] ?? null;
   const hasLocation = coords != null;
+  const chatId = activeData?.chatId ?? data?.chatId ?? '';
+
+  const applyQuote = useCallback((resp: DeliveryOptionsResponse | null) => {
+    if (!resp) return;
+    const oldCost = ownCostOf(activeData?.options);
+    const newCost = ownCostOf(resp?.options);
+    setActiveData(resp);
+    if (resp?.dropoffLat != null && resp?.dropoffLng != null) {
+      setCoords({ lat: resp.dropoffLat, lng: resp.dropoffLng });
+    }
+    if (oldCost != null && newCost != null && Math.abs(newCost - oldCost) >= 0.005) {
+      setVariation(true);
+      const considerable = (newCost - oldCost) >= 1.0 || newCost >= oldCost * 1.5;
+      if (considerable) {
+        setNeedsAccept(true);
+        setAccepted(false);
+      } else {
+        setNeedsAccept(false);
+        setAccepted(true);
+      }
+    }
+  }, [activeData]);
+
+  const runQuote = useCallback(async (body: { dropoffLat?: number; dropoffLng?: number; mapUrl?: string }) => {
+    if (!chatId) return;
+    setQuoting(true);
+    try {
+      const resp = await quoteDelivery(chatId, body);
+      applyQuote(resp);
+    } catch (e) {
+      const msg = (e as any)?.response?.data?.message ?? 'No pudimos recalcular el costo con esa ubicación. Intenta de nuevo.';
+      Alert.alert('Ubicación de entrega', typeof msg === 'string' ? msg : 'No pudimos recalcular el costo.');
+    } finally {
+      setQuoting(false);
+    }
+  }, [chatId, applyQuote]);
+
+  const handleSearchSubmit = useCallback(async () => {
+    const val = searchText?.trim?.() ?? '';
+    if (!val || quoting || locating) return;
+    if (/https?:\/\//i.test(val)) {
+      // Es un enlace de Google Maps / WhatsApp → extraer coordenadas en el servidor
+      await runQuote({ mapUrl: val });
+      return;
+    }
+    // Texto libre → geocodificar (no disponible en web)
+    if (Platform.OS === 'web') {
+      Alert.alert('Búsqueda', 'La búsqueda por texto no está disponible en la versión web. Pega un enlace de Google Maps o usa el GPS.');
+      return;
+    }
+    setQuoting(true);
+    let found: { latitude: number; longitude: number } | null = null;
+    try {
+      const results = await Location.geocodeAsync(val);
+      const first = results?.[0];
+      if (first?.latitude != null && first?.longitude != null) {
+        found = { latitude: first.latitude, longitude: first.longitude };
+      }
+    } catch {
+      // geocodificación no disponible
+    }
+    setQuoting(false);
+    if (!found) {
+      Alert.alert('Búsqueda', 'No encontramos esa dirección. Intenta pegar un enlace de Google Maps.');
+      return;
+    }
+    setAddress(val);
+    await runQuote({ dropoffLat: found.latitude, dropoffLng: found.longitude });
+  }, [searchText, quoting, locating, runQuote]);
 
   const captureLocation = useCallback(async () => {
-    if (locating) return;
+    if (locating || quoting) return;
     setLocating(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -64,8 +165,6 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
         setLocating(false);
         return;
       }
-      setCoords({ lat, lng });
-      // Intentar geocodificación inversa para mostrar una dirección legible
       let readable = '';
       try {
         const places = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
@@ -77,15 +176,17 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
             .join(', ');
         }
       } catch {
-        // Geocodificación no disponible (p. ej. web): usar coordenadas
+        // Geocodificación inversa no disponible (p. ej. web)
       }
       setAddress(readable || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+      setSearchText('');
+      setLocating(false);
+      await runQuote({ dropoffLat: lat, dropoffLng: lng });
     } catch {
       Alert.alert('Ubicación', 'No se pudo obtener tu ubicación. Verifica que el GPS esté activo.');
-    } finally {
       setLocating(false);
     }
-  }, [locating]);
+  }, [locating, quoting, runQuote]);
 
   const openInMaps = useCallback(() => {
     if (!coords) return;
@@ -93,10 +194,16 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
     Linking.openURL(url).catch(() => {});
   }, [coords]);
 
+  const blockConfirm = needsAccept && !accepted;
+
   const handleConfirm = useCallback(() => {
     if (!chosen) return;
     if (!coords) {
-      Alert.alert('Ubicación de entrega', 'Por favor comparte tu ubicación GPS antes de confirmar el envío.');
+      Alert.alert('Ubicación de entrega', 'Por favor indica tu ubicación de entrega antes de confirmar el envío.');
+      return;
+    }
+    if (blockConfirm) {
+      Alert.alert('Nueva tarifa', 'La tarifa de envío cambió. Toca "Aceptar nueva tarifa" para continuar.');
       return;
     }
     onConfirm(chosen, {
@@ -105,7 +212,7 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
       dropoffAddress: address?.trim?.() ?? '',
       notes: notes?.trim?.() ?? '',
     });
-  }, [chosen, coords, address, notes, onConfirm]);
+  }, [chosen, coords, address, notes, blockConfirm, onConfirm]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -116,11 +223,18 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
             <Ionicons name="bicycle-outline" size={22} color={colors.primary} />
             <Text style={styles.title}>Opciones de envío</Text>
           </View>
-          {typeof data?.distanceKm === 'number' ? (
-            <Text style={styles.distance}>Distancia aprox: {data.distanceKm} km</Text>
+          {typeof distanceKm === 'number' ? (
+            <Text style={styles.distance}>Distancia aprox: {distanceKm} km</Text>
           ) : null}
 
-          <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+          {variation ? (
+            <Animated.View style={[styles.variationBanner, { opacity: bannerOpacity }]}>
+              <Ionicons name="alert-circle" size={18} color="#8A6D00" />
+              <Text style={styles.variationText}>El costo de envío ha variado debido a la modificación de la ubicación de entrega.</Text>
+            </Animated.View>
+          ) : null}
+
+          <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {options.length === 0 ? (
               <Text style={styles.empty}>Este vendedor no tiene opciones de envío disponibles en este momento.</Text>
             ) : (
@@ -145,36 +259,58 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
 
             {options.length > 0 ? (
               <>
-                {/* Ubicación de entrega por GPS */}
+                {/* Buscador inteligente de ubicación (Req A) */}
                 <View style={styles.addrBlock}>
-                  <Text style={styles.addrLabel}>Ubicación de entrega (GPS)</Text>
+                  <Text style={styles.addrLabel}>Ubicación de entrega</Text>
+                  <View style={styles.searchRow}>
+                    <Ionicons name="search" size={18} color={colors.textSecondary} style={{ marginLeft: 10 }} />
+                    <TextInput
+                      value={searchText}
+                      onChangeText={setSearchText}
+                      onSubmitEditing={handleSearchSubmit}
+                      placeholder="Buscar dirección o pegar enlace de mapa"
+                      placeholderTextColor={colors.textSecondary}
+                      style={styles.searchInput}
+                      returnKeyType="search"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      editable={!quoting && !locating}
+                    />
+                    {searchText?.length > 0 ? (
+                      <Pressable onPress={handleSearchSubmit} hitSlop={8} style={styles.searchGoBtn} disabled={quoting || locating}>
+                        <Ionicons name="arrow-forward-circle" size={24} color={colors.primary} />
+                      </Pressable>
+                    ) : null}
+                    <Pressable onPress={captureLocation} hitSlop={8} style={styles.gpsIconBtn} disabled={quoting || locating}>
+                      {locating ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      ) : (
+                        <Ionicons name="navigate" size={20} color={colors.primary} />
+                      )}
+                    </Pressable>
+                  </View>
+                  <Text style={styles.searchHint}>Pega un enlace de Google Maps o WhatsApp, o usa el ícono de GPS.</Text>
+
+                  {quoting ? (
+                    <View style={styles.quotingRow}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                      <Text style={styles.quotingText}>Recalculando distancia y costo...</Text>
+                    </View>
+                  ) : null}
+
                   {hasLocation ? (
                     <View style={styles.locCard}>
-                      <Ionicons name="location" size={20} color={colors.primary} />
+                      <Ionicons name="location" size={18} color={colors.primary} />
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.locAddr} numberOfLines={2}>{address}</Text>
+                        <Text style={styles.locAddr} numberOfLines={2}>
+                          {address || (coords ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : '')}
+                        </Text>
                         <Pressable onPress={openInMaps} hitSlop={6}>
                           <Text style={styles.locMapLink}>Ver en Google Maps</Text>
                         </Pressable>
                       </View>
-                      <Pressable onPress={captureLocation} hitSlop={8} disabled={locating}>
-                        {locating ? (
-                          <ActivityIndicator size="small" color={colors.primary} />
-                        ) : (
-                          <Ionicons name="refresh" size={20} color={colors.textSecondary} />
-                        )}
-                      </Pressable>
                     </View>
-                  ) : (
-                    <Pressable style={styles.gpsBtn} onPress={captureLocation} disabled={locating}>
-                      {locating ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
-                      ) : (
-                        <Ionicons name="navigate" size={18} color={colors.primary} />
-                      )}
-                      <Text style={styles.gpsBtnText}>{locating ? 'Obteniendo ubicación...' : 'Usar mi ubicación (GPS)'}</Text>
-                    </Pressable>
-                  )}
+                  ) : null}
                 </View>
 
                 {/* Puntos de referencia */}
@@ -189,6 +325,14 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
                     multiline
                   />
                 </View>
+
+                {/* Confirmación de nueva tarifa (Req B) */}
+                {needsAccept && !accepted ? (
+                  <Pressable style={styles.acceptBtn} onPress={() => setAccepted(true)}>
+                    <Ionicons name="checkmark-circle" size={18} color={colors.accent} />
+                    <Text style={styles.acceptText}>Aceptar nueva tarifa</Text>
+                  </Pressable>
+                ) : null}
               </>
             ) : null}
           </ScrollView>
@@ -199,9 +343,9 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
             </Pressable>
             {options.length > 0 ? (
               <Pressable
-                style={[styles.confirmBtn, (busy || !chosen || !hasLocation) && { opacity: 0.6 }]}
+                style={[styles.confirmBtn, (busy || !chosen || !hasLocation || quoting || blockConfirm) && { opacity: 0.6 }]}
                 onPress={handleConfirm}
-                disabled={busy || !chosen || !hasLocation}
+                disabled={busy || !chosen || !hasLocation || quoting || blockConfirm}
               >
                 {busy ? <ActivityIndicator size="small" color={colors.accent} /> : <Text style={styles.confirmText}>Confirmar envío</Text>}
               </Pressable>
@@ -221,6 +365,8 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   title: { fontSize: 18, fontWeight: '700', color: c.textPrimary },
   distance: { fontSize: 13, color: c.textSecondary, marginBottom: Spacing.sm },
   empty: { fontSize: 14, color: c.textSecondary, paddingVertical: Spacing.lg, textAlign: 'center' },
+  variationBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: BorderRadius.md, backgroundColor: '#FFF4CC', borderWidth: 1, borderColor: '#F0D26E', marginBottom: Spacing.sm },
+  variationText: { flex: 1, fontSize: 12.5, fontWeight: '600', color: '#8A6D00', lineHeight: 17 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: Spacing.md, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: c.border, marginBottom: Spacing.sm },
   optionActive: { borderColor: c.primary, backgroundColor: c.backgroundSection },
   radioOuter: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: c.primary, justifyContent: 'center', alignItems: 'center' },
@@ -231,11 +377,18 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   addrBlock: { marginTop: Spacing.sm },
   addrLabel: { fontSize: 13, color: c.textSecondary, marginBottom: 6 },
   addrInput: { borderWidth: 1, borderColor: c.border, borderRadius: BorderRadius.sm, padding: 12, color: c.textPrimary, backgroundColor: c.backgroundSection, minHeight: 60, textAlignVertical: 'top', fontSize: 15 },
-  gpsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: BorderRadius.md, borderWidth: 1.5, borderColor: c.primary, backgroundColor: c.backgroundSection },
-  gpsBtnText: { fontSize: 15, fontWeight: '700', color: c.primary },
-  locCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: c.primary, backgroundColor: c.backgroundSection },
+  searchRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: c.border, borderRadius: BorderRadius.md, backgroundColor: c.backgroundSection },
+  searchInput: { flex: 1, paddingVertical: 12, paddingHorizontal: 8, color: c.textPrimary, fontSize: 15 },
+  searchGoBtn: { paddingHorizontal: 4, paddingVertical: 8 },
+  gpsIconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderLeftWidth: 1, borderLeftColor: c.border },
+  searchHint: { fontSize: 11.5, color: c.textSecondary, marginTop: 6 },
+  quotingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  quotingText: { fontSize: 13, color: c.textSecondary },
+  locCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: c.primary, backgroundColor: c.backgroundSection, marginTop: 10 },
   locAddr: { fontSize: 14, fontWeight: '600', color: c.textPrimary },
   locMapLink: { fontSize: 12, fontWeight: '600', color: c.primary, marginTop: 3 },
+  acceptBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: Spacing.md, paddingVertical: 13, borderRadius: BorderRadius.md, backgroundColor: c.primary },
+  acceptText: { fontSize: 15, fontWeight: '700', color: c.accent },
   footer: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md },
   cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: c.border, alignItems: 'center' },
   cancelText: { fontSize: 15, fontWeight: '600', color: c.textSecondary },

@@ -90,7 +90,22 @@ export class DeliveryService {
     }
 
     const currency = await this.appConfig.get('DELIVERY_CURRENCY');
+    const options = this.buildOptions(v, distanceKm);
 
+    return {
+      chatId,
+      distanceKm,
+      currency,
+      pickupAddress: v?.fullAddress ?? null,
+      dropoffAddress: null,
+      dropoffLat: r?.latitude ?? null,
+      dropoffLng: r?.longitude ?? null,
+      options,
+    };
+  }
+
+  /** Construye la lista de opciones de envío para un vendedor y una distancia dada. */
+  private buildOptions(v: any, distanceKm: number | null) {
     const options: Array<{
       provider: string;
       label: string;
@@ -140,14 +155,119 @@ export class DeliveryService {
       });
     }
 
+    return options;
+  }
+
+  /** Sigue redirecciones de enlaces cortos (goo.gl, maps.app.goo.gl) hasta obtener la URL final. */
+  private async resolveShortUrl(url: string): Promise<string> {
+    let current = url;
+    for (let i = 0; i < 5; i++) {
+      try {
+        const res = await fetch(current, { method: 'GET', redirect: 'manual' as RequestRedirect });
+        const status = res.status;
+        if (status >= 300 && status < 400) {
+          const loc = res.headers.get('location');
+          if (!loc) break;
+          current = loc.startsWith('http') ? loc : new URL(loc, current).toString();
+          continue;
+        }
+        // Algunos enlaces cortos responden 200 con la URL final ya resuelta
+        if ((res as any).url && (res as any).url !== current) {
+          current = (res as any).url;
+        }
+        break;
+      } catch {
+        break;
+      }
+    }
+    return current;
+  }
+
+  /**
+   * Extrae coordenadas (lat, lng) de un enlace de Google Maps / WhatsApp.
+   * Soporta enlaces cortos (goo.gl, maps.app.goo.gl) siguiendo redirecciones.
+   */
+  private async extractCoordsFromUrl(rawUrl: string): Promise<{ lat: number; lng: number } | null> {
+    if (!rawUrl || typeof rawUrl !== 'string') return null;
+    let url = rawUrl.trim();
+
+    const isShort = /goo\.gl|maps\.app\.goo\.gl|g\.co/i.test(url);
+    if (isShort) {
+      url = await this.resolveShortUrl(url);
+    }
+
+    const tryParse = (a: string, b: string): { lat: number; lng: number } | null => {
+      const lat = parseFloat(a);
+      const lng = parseFloat(b);
+      if (!isFinite(lat) || !isFinite(lng)) return null;
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+      return { lat, lng };
+    };
+
+    // Patrones ordenados por prioridad
+    const patterns: RegExp[] = [
+      /[!]3d(-?\d+\.\d+)[!]4d(-?\d+\.\d+)/, // !3dLAT!4dLNG
+      /[?&](?:q|query|ll|center|destination|daddr|saddr)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/i,
+      /[/@](-?\d+\.\d+),\s*(-?\d+\.\d+)/, // /@LAT,LNG
+      /\/(-?\d+\.\d+),\s*(-?\d+\.\d+)/, // /LAT,LNG (dir)
+    ];
+    for (const re of patterns) {
+      const m = url.match(re);
+      if (m) {
+        const parsed = tryParse(m[1], m[2]);
+        if (parsed) return parsed;
+      }
+    }
+
+    // Último recurso: primer par "lat,lng" en cualquier parte
+    const generic = url.match(/(-?\d{1,2}\.\d{3,}),\s*(-?\d{1,3}\.\d{3,})/);
+    if (generic) {
+      const parsed = tryParse(generic[1], generic[2]);
+      if (parsed) return parsed;
+    }
+    return null;
+  }
+
+  /**
+   * Recalcula las opciones y el costo de envío para un nuevo punto de entrega.
+   * Acepta coordenadas directas (dropoffLat/dropoffLng) o un enlace de mapa (mapUrl).
+   */
+  async quote(chatId: string, userId: string, dto: { dropoffLat?: number; dropoffLng?: number; mapUrl?: string }) {
+    const { chat } = await this.verifyAccess(chatId, userId);
+    const v = chat.vendor;
+
+    let lat = dto?.dropoffLat ?? null;
+    let lng = dto?.dropoffLng ?? null;
+
+    if ((lat == null || lng == null) && dto?.mapUrl) {
+      const coords = await this.extractCoordsFromUrl(dto.mapUrl);
+      if (!coords) {
+        throw new BadRequestException('No pudimos extraer la ubicación del enlace. Verifica que sea un enlace válido de Google Maps.');
+      }
+      lat = coords.lat;
+      lng = coords.lng;
+    }
+
+    if (lat == null || lng == null) {
+      throw new BadRequestException('Debes indicar una ubicación de entrega (coordenadas o enlace de mapa).');
+    }
+
+    let distanceKm: number | null = null;
+    if (v?.latitude != null && v?.longitude != null) {
+      distanceKm = Math.round(this.haversineKm(v.latitude, v.longitude, lat, lng) * 10) / 10;
+    }
+
+    const currency = await this.appConfig.get('DELIVERY_CURRENCY');
+    const options = this.buildOptions(v, distanceKm);
+
     return {
       chatId,
       distanceKm,
       currency,
       pickupAddress: v?.fullAddress ?? null,
       dropoffAddress: null,
-      dropoffLat: r?.latitude ?? null,
-      dropoffLng: r?.longitude ?? null,
+      dropoffLat: lat,
+      dropoffLng: lng,
       options,
     };
   }

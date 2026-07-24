@@ -4,6 +4,7 @@ import { DeliveryService } from './delivery.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { ConfirmDeliveryDto } from './dto/confirm-delivery.dto';
+import { QuoteDeliveryDto } from './dto/quote-delivery.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 
 @ApiTags('Delivery')
@@ -30,6 +31,12 @@ export class DeliveryController {
   @ApiOperation({ summary: 'El cliente confirma el envío y crea la orden' })
   confirm(@CurrentUser('id') userId: string, @Body() dto: ConfirmDeliveryDto) {
     return this.deliveryService.confirm(userId, dto);
+  }
+
+  @Post(':chatId/quote')
+  @ApiOperation({ summary: 'Recalcula el costo de envío para un nuevo punto de entrega (coordenadas o enlace de mapa)' })
+  quote(@CurrentUser('id') userId: string, @Param('chatId') chatId: string, @Body() dto: QuoteDeliveryDto) {
+    return this.deliveryService.quote(chatId, userId, dto);
   }
 
   @Get('chat/:chatId')

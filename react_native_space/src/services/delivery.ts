@@ -27,6 +27,17 @@ export async function confirmDelivery(payload: ConfirmDeliveryPayload): Promise<
   return res?.data;
 }
 
+export interface QuoteDeliveryBody {
+  dropoffLat?: number;
+  dropoffLng?: number;
+  mapUrl?: string;
+}
+
+export async function quoteDelivery(chatId: string, body: QuoteDeliveryBody): Promise<DeliveryOptionsResponse> {
+  const res = await api.post(`/delivery/${encodeURIComponent(chatId)}/quote`, body);
+  return res?.data;
+}
+
 export async function getDeliveryByChat(chatId: string): Promise<DeliveryOrder | null> {
   const res = await api.get(`/delivery/chat/${encodeURIComponent(chatId)}`);
   return res?.data ?? null;
