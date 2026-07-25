@@ -422,8 +422,9 @@ export class DeliveryService {
   async cancel(orderId: string, userId: string) {
     const order = await this.prisma.deliveryOrder.findUnique({ where: { id: orderId } });
     if (!order) throw new NotFoundException('Orden de envío no encontrada');
-    const { chat, isClient, isVendor } = await this.verifyAccess(order.chatId, userId);
+    const { chat, isClient } = await this.verifyAccess(order.chatId, userId);
 
+    if (!isClient) throw new ForbiddenException('Solo el cliente puede cancelar el envío');
     if (order.status === 'CANCELED') throw new BadRequestException('La orden ya está cancelada');
     if (order.status === 'DELIVERED') throw new BadRequestException('No se puede cancelar un envío entregado');
 

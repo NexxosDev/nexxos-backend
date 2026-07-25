@@ -116,9 +116,11 @@ export default function DeliveryCard({ order, isVendor, busy, onAdvance, onCance
               {busy ? <ActivityIndicator size="small" color={colors.accent} /> : <Text style={styles.primaryBtnText}>Marcar entregado</Text>}
             </Pressable>
           ) : null}
-          <Pressable style={styles.cancelBtn} onPress={onCancel} disabled={busy}>
-            <Text style={styles.cancelBtnText}>Cancelar envío</Text>
-          </Pressable>
+          {!isVendor ? (
+            <Pressable style={styles.cancelBtn} onPress={onCancel} disabled={busy}>
+              <Text style={styles.cancelBtnText}>Cancelar envío</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 

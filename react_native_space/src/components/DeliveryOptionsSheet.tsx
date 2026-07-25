@@ -250,18 +250,25 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
         setLocating(false);
         return;
       }
+      // Detecta "Plus Codes" de Google (p. ej. "H8QV+5MH") para no mostrarlos como dirección.
+      const isPlusCode = (s: string) => /[A-Z0-9]{2,}\+[A-Z0-9]{2,}/i.test(s ?? '');
       let readable = '';
       try {
         const places = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
         const p = places?.[0];
         if (p) {
           readable = [p.street, p.name, p.district, p.city, p.region]
-            .filter((x) => !!x)
+            .filter((x) => !!x && !isPlusCode(x))
             .filter((x, i, arr) => arr.indexOf(x) === i)
             .join(', ');
         }
       } catch {
         // Geocodificación inversa no disponible (p. ej. web)
+      }
+      // Si no hay una dirección legible (o solo un Plus Code), usa Nominatim (OSM) como respaldo.
+      if (!readable || isPlusCode(readable)) {
+        const osm = await reverseGeocodeOSM(lat, lng);
+        if (osm) readable = osm;
       }
       setAddress(readable || '');
       setUsedGps(true);
@@ -272,7 +279,7 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
       Alert.alert('Ubicación', 'No se pudo obtener tu ubicación. Verifica que el GPS esté activo.');
       setLocating(false);
     }
-  }, [locating, quoting, runQuote]);
+  }, [locating, quoting, runQuote, reverseGeocodeOSM]);
 
   // Al abrir el modal, tomar automáticamente la ubicación actual del cliente (GPS) por defecto.
   useEffect(() => {
