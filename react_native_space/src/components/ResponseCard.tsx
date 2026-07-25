@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Platform, Pressable, Linking, Alert, Modal } from 'react-native';
 import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { Spacing, BorderRadius } from '../theme/colors';
 import type { ThemeColors } from '../theme/colors';
@@ -113,7 +113,11 @@ export default function ResponseCard({ businessName, logoUrl, facadeImageUrl, av
             ) : null}
             {offersDelivery ? (
               <View style={[styles.deliveryChip, { backgroundColor: freeDelivery ? 'rgba(27,138,58,0.10)' : 'rgba(124,58,237,0.10)', borderColor: freeDelivery ? 'rgba(27,138,58,0.35)' : 'rgba(124,58,237,0.35)' }]}>
-                <Ionicons name={freeDelivery ? 'gift-outline' : 'bicycle-outline'} size={12} color={deliveryColor} />
+                {freeDelivery ? (
+                  <Ionicons name="gift-outline" size={12} color={deliveryColor} />
+                ) : (
+                  <MaterialCommunityIcons name="motorbike" size={12} color={deliveryColor} />
+                )}
                 <Text style={[styles.deliveryChipText, { color: deliveryColor }]}>
                   {freeDelivery ? 'Envío Gratis' : 'Ofrece envío'}
                 </Text>

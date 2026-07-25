@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Modal, Pressable, ScrollView, TextInput, ActivityIndicator, Platform, Alert, Linking, Animated, Dimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useTheme } from '../contexts/ThemeContext';
 import { Spacing, BorderRadius } from '../theme/colors';
@@ -314,7 +314,7 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
         <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
           <View style={styles.handle} />
           <View style={styles.headerRow}>
-            <Ionicons name="bicycle-outline" size={22} color={colors.primary} />
+            <MaterialCommunityIcons name="motorbike" size={22} color={colors.primary} />
             <Text style={styles.title}>Opciones de envío</Text>
           </View>
           {typeof distanceKm === 'number' ? (

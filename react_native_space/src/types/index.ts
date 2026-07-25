@@ -207,6 +207,7 @@ export interface VendorDashboard {
       clientFirstName: string;
       clientLastName?: string;
       clientLevel?: ClientLevel;
+      delivery?: { confirmed: boolean; isFree: boolean } | null;
     };
     status: string;
     deliveredAt: string | null;

@@ -9,7 +9,7 @@ import { directUpload as directUploadFile } from '../src/services/upload';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { Audio } from 'expo-av';
@@ -686,11 +686,11 @@ export default function ChatScreen() {
               onPress={tappable ? openDeliveryOptions : undefined}
               disabled={!tappable}
             >
-              <Ionicons
-                name={isOffer ? 'bicycle' : 'cube-outline'}
-                size={18}
-                color={isOffer ? colors.primary : colors.textSecondary}
-              />
+              {isOffer ? (
+                <MaterialCommunityIcons name="motorbike" size={18} color={colors.primary} />
+              ) : (
+                <Ionicons name="cube-outline" size={18} color={colors.textSecondary} />
+              )}
               <Text style={styles.deliverySysText}>{item?.messageText ?? ''}</Text>
               {tappable ? (
                 <View style={styles.deliverySysCta}>
@@ -780,7 +780,11 @@ export default function ChatScreen() {
                 disabled={isReadOnly || hasActiveDelivery || deliveryBusy}
                 hitSlop={6}
               >
-                <Ionicons name={chatInfo?.vendorFreeInRadius ? 'gift' : 'bicycle'} size={13} color="#FFFFFF" />
+                {chatInfo?.vendorFreeInRadius ? (
+                  <Ionicons name="gift" size={13} color="#FFFFFF" />
+                ) : (
+                  <MaterialCommunityIcons name="motorbike" size={13} color="#FFFFFF" />
+                )}
                 <Text style={[styles.headerDeliveryBadgeText, { color: '#FFFFFF' }]}>{chatInfo?.vendorFreeInRadius ? 'Envío Gratis' : 'Ofrece envío'}</Text>
               </Pressable>
             ) : null}
@@ -861,7 +865,7 @@ export default function ChatScreen() {
                   {isVendor && !hasActiveDelivery ? (
                     <Pressable style={styles.attachOption} onPress={handleOfferDelivery} disabled={deliveryBusy}>
                       <View style={[styles.attachCircle, { backgroundColor: '#FF9800' }]}>
-                        <Ionicons name="bicycle" size={24} color="#fff" />
+                        <MaterialCommunityIcons name="motorbike" size={24} color="#fff" />
                       </View>
                       <Text style={styles.attachOptionText}>Ofrecer envío</Text>
                     </Pressable>

@@ -358,7 +358,8 @@ export default function VendorEditProfileScreen() {
 
           {/* Envíos — cerrado por defecto */}
           <CollapsibleSection
-            icon="bicycle-outline"
+            icon="motorbike"
+            iconFamily="material"
             iconColor="#0B6BB5"
             title="Envíos"
             badge={freeShippingEnabled || ownDeliveryEnabled ? 'Activo' : 'Inactivo'}

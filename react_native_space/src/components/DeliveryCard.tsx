@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, Linking } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { Spacing, BorderRadius } from '../theme/colors';
 import type { ThemeColors } from '../theme/colors';
@@ -42,7 +42,11 @@ export default function DeliveryCard({ order, isVendor, busy, onAdvance, onCance
     <View style={[styles.card, canceled && styles.cardCanceled]}>
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <Ionicons name={canceled ? 'close-circle' : 'bicycle-outline'} size={18} color={canceled ? '#E53935' : colors.primary} />
+          {canceled ? (
+            <Ionicons name="close-circle" size={18} color="#E53935" />
+          ) : (
+            <MaterialCommunityIcons name="motorbike" size={18} color={colors.primary} />
+          )}
           <Text style={styles.title}>{canceled ? 'Envío cancelado' : 'Envío'}</Text>
         </View>
         <Text style={[styles.cost, order?.isFree && { color: '#1B8A3A' }]}>{costLabel}</Text>
@@ -61,7 +65,11 @@ export default function DeliveryCard({ order, isVendor, busy, onAdvance, onCance
               <React.Fragment key={s.key}>
                 <View style={styles.stepCol}>
                   <View style={[styles.stepCircle, done && styles.stepCircleDone]}>
-                    <Ionicons name={s.icon} size={14} color={done ? colors.accent : colors.textSecondary} />
+                    {s.key === 'IN_TRANSIT' ? (
+                      <MaterialCommunityIcons name="motorbike" size={14} color={done ? colors.accent : colors.textSecondary} />
+                    ) : (
+                      <Ionicons name={s.icon} size={14} color={done ? colors.accent : colors.textSecondary} />
+                    )}
                   </View>
                   <Text style={[styles.stepLabel, done && styles.stepLabelDone]}>{s.label}</Text>
                 </View>

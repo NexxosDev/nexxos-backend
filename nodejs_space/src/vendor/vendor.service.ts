@@ -224,6 +224,19 @@ export class VendorService {
     });
     if (!vendor) throw new NotFoundException('Vendor profile not found');
 
+    const dashReqIds = vendor.requestVendorMatches.map((m: any) => m.request?.id).filter(Boolean);
+    const deliveryByReq: Record<string, { confirmed: boolean; isFree: boolean }> = {};
+    try {
+      const orders = await this.prisma.deliveryOrder.findMany({
+        where: { requestId: { in: dashReqIds }, vendorId: vendor.id, status: { in: ['CONFIRMED', 'IN_TRANSIT', 'DELIVERED'] } },
+        orderBy: { createdAt: 'desc' },
+        select: { requestId: true, isFree: true },
+      });
+      for (const o of orders) {
+        if (!deliveryByReq[o.requestId]) deliveryByReq[o.requestId] = { confirmed: true, isFree: !!o.isFree };
+      }
+    } catch { /* ignore delivery lookup errors */ }
+
     return {
       businessName: vendor.businessName,
       isAvailable: vendor.isAvailable,
@@ -267,6 +280,7 @@ export class VendorService {
             clientFirstName: m.request.client?.firstName ?? '',
             clientLastName: m.request.client?.lastName ?? '',
             clientLevel,
+            delivery: deliveryByReq[m.request.id] ?? null,
           },
           status,
           deliveredAt,

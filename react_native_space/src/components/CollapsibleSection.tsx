@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform, type StyleProp, type ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../contexts/ThemeContext';
@@ -9,6 +9,7 @@ import { Spacing, BorderRadius } from '../theme/colors';
 
 interface CollapsibleSectionProps {
   icon: string;
+  iconFamily?: 'ionicons' | 'material';
   iconColor?: string;
   title: string;
   badge?: string;
@@ -18,7 +19,7 @@ interface CollapsibleSectionProps {
 }
 
 export default function CollapsibleSection({
-  icon, iconColor, title, badge, defaultOpen = false, children, style,
+  icon, iconFamily = 'ionicons', iconColor, title, badge, defaultOpen = false, children, style,
 }: CollapsibleSectionProps) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -40,7 +41,11 @@ export default function CollapsibleSection({
     <View style={[s.container, style]}>
       <Pressable onPress={toggle} style={s.header}>
         <View style={s.headerLeft}>
-          <Ionicons name={icon as any} size={20} color={iconColor ?? colors.primary} />
+          {iconFamily === 'material' ? (
+            <MaterialCommunityIcons name={icon as any} size={20} color={iconColor ?? colors.primary} />
+          ) : (
+            <Ionicons name={icon as any} size={20} color={iconColor ?? colors.primary} />
+          )}
           <Text style={s.headerTitle}>{title}</Text>
         </View>
         <View style={s.headerRight}>

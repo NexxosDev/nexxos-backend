@@ -336,6 +336,7 @@ export default function VendorHome() {
               timeLabelColor={timeInfo?.color}
               clientName={`${item?.request?.clientFirstName ?? ''}${item?.request?.clientLastName ? ` ${item.request.clientLastName}` : ''}`}
               clientLevel={item?.request?.clientLevel}
+              delivery={item?.request?.delivery ?? null}
               onPress={() => router.push(`/vendor-request-detail?matchId=${item?.matchId ?? ''}`)}
             />
           );
