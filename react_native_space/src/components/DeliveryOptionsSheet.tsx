@@ -430,18 +430,26 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
 
                   {hasLocation && MapView && Marker && Platform.OS !== 'web' && coords ? (
                     <View style={styles.mapWrap}>
-                      <MapView
-                        style={styles.map}
-                        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-                        region={{ latitude: coords.lat, longitude: coords.lng, latitudeDelta: 0.008, longitudeDelta: 0.008 }}
-                      >
-                        <Marker
-                          coordinate={{ latitude: coords.lat, longitude: coords.lng }}
-                          draggable
-                          onDragEnd={handlePinDrag}
-                        />
-                      </MapView>
-                      <Text style={styles.mapHint}>Arrastra el pin para ajustar el punto exacto de entrega.</Text>
+                      <View style={styles.mapClip}>
+                        <MapView
+                          style={styles.map}
+                          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+                          region={{ latitude: coords.lat, longitude: coords.lng, latitudeDelta: 0.008, longitudeDelta: 0.008 }}
+                          scrollEnabled={false}
+                          rotateEnabled={false}
+                          pitchEnabled={false}
+                          zoomEnabled={true}
+                          toolbarEnabled={false}
+                          moveOnMarkerPress={false}
+                        >
+                          <Marker
+                            coordinate={{ latitude: coords.lat, longitude: coords.lng }}
+                            draggable
+                            onDragEnd={handlePinDrag}
+                          />
+                        </MapView>
+                      </View>
+                      <Text style={styles.mapHint}>Arrastra el pin para ajustar el punto exacto. Usa dos dedos para acercar o alejar.</Text>
                     </View>
                   ) : null}
                 </View>
@@ -522,8 +530,9 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   predictionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 11, paddingHorizontal: 12 },
   predictionDivider: { borderBottomWidth: 1, borderBottomColor: c.border },
   predictionText: { flex: 1, fontSize: 13.5, color: c.textPrimary, lineHeight: 18 },
-  mapWrap: { marginTop: 12 },
-  map: { width: '100%', height: 200, borderRadius: BorderRadius.md },
+  mapWrap: { marginTop: 12, width: '100%', maxWidth: '100%' },
+  mapClip: { width: '100%', maxWidth: '100%', height: 200, borderRadius: BorderRadius.md, overflow: 'hidden', alignSelf: 'stretch', borderWidth: 1, borderColor: c.border },
+  map: { ...StyleSheet.absoluteFillObject },
   mapHint: { fontSize: 11.5, color: c.textSecondary, marginTop: 6, textAlign: 'center' },
   locCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: c.primary, backgroundColor: c.backgroundSection, marginTop: 10 },
   locAddr: { fontSize: 14, fontWeight: '600', color: c.textPrimary },
