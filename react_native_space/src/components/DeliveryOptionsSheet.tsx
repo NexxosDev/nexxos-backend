@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, ScrollView, TextInput, ActivityIndicator, Platform, Alert, Linking, Animated } from 'react-native';
+import { View, Text, StyleSheet, Modal, Pressable, ScrollView, TextInput, ActivityIndicator, Platform, Alert, Linking, Animated, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useTheme } from '../contexts/ThemeContext';
@@ -16,6 +16,8 @@ if (Platform.OS !== 'web') {
 }
 
 interface Prediction { label: string; lat: number; lng: number; }
+
+const SCREEN_H = Dimensions.get('window').height;
 
 export interface DeliveryConfirmData {
   dropoffLat: number | null;
@@ -53,6 +55,7 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [searching, setSearching] = useState(false);
   const skipNextSearch = useRef(false);
+  const autoLocatedRef = useRef(false);
 
   // Alerta de variación de costo (Req B)
   const [variation, setVariation] = useState(false);
@@ -75,6 +78,7 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
       setVariation(false);
       setNeedsAccept(false);
       setAccepted(false);
+      autoLocatedRef.current = false;
       bannerOpacity.setValue(0);
       const dLat = data?.dropoffLat;
       const dLng = data?.dropoffLng;
@@ -270,6 +274,14 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
     }
   }, [locating, quoting, runQuote]);
 
+  // Al abrir el modal, tomar automáticamente la ubicación actual del cliente (GPS) por defecto.
+  useEffect(() => {
+    if (visible && chatId && !autoLocatedRef.current) {
+      autoLocatedRef.current = true;
+      captureLocation();
+    }
+  }, [visible, chatId, captureLocation]);
+
   const openInMaps = useCallback(() => {
     if (!coords) return;
     const url = `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`;
@@ -316,7 +328,7 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
             </Animated.View>
           ) : null}
 
-          <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <ScrollView style={{ maxHeight: SCREEN_H * 0.6 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: Spacing.sm }}>
             {options.length === 0 ? (
               <Text style={styles.empty}>Este vendedor no tiene opciones de envío disponibles en este momento.</Text>
             ) : (
@@ -329,7 +341,9 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.optLabel}>{opt?.label ?? 'Envío'}</Text>
-                      <Text style={styles.optDesc}>{opt?.description ?? ''}</Text>
+                      {opt?.provider !== 'OWN_VENDOR' && opt?.description ? (
+                        <Text style={styles.optDesc}>{opt.description}</Text>
+                      ) : null}
                     </View>
                     <Text style={[styles.optCost, opt?.isFree && { color: '#1B8A3A' }]}>
                       {opt?.isFree ? 'Gratis' : `${currency} ${(opt?.cost ?? 0).toFixed(2)}`}
@@ -363,15 +377,13 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
                         <Ionicons name="arrow-forward-circle" size={24} color={colors.primary} />
                       </Pressable>
                     ) : null}
-                    <Pressable onPress={captureLocation} hitSlop={8} style={styles.gpsIconBtn} disabled={quoting || locating}>
-                      {locating ? (
+                    {locating ? (
+                      <View style={styles.gpsIconBtn}>
                         <ActivityIndicator size="small" color={colors.primary} />
-                      ) : (
-                        <Ionicons name="navigate" size={20} color={colors.primary} />
-                      )}
-                    </Pressable>
+                      </View>
+                    ) : null}
                   </View>
-                  <Text style={styles.searchHint}>Escribe una dirección y elige de la lista, pega un enlace de mapa, o usa el ícono de GPS.</Text>
+                  <Text style={styles.searchHint}>Tomamos tu ubicación actual automáticamente. Para cambiarla, escribe una dirección y elige de la lista, pega un enlace de mapa, o arrastra el pin del mapa.</Text>
 
                   {searching ? (
                     <View style={styles.searchingRow}>
@@ -480,7 +492,7 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
 
 const createStyles = (c: ThemeColors) => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: c.cardBg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: Spacing.lg, paddingBottom: Platform.OS === 'ios' ? 34 : Spacing.lg } as any,
+  sheet: { backgroundColor: c.cardBg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: Spacing.lg, paddingBottom: Platform.OS === 'ios' ? 34 : Spacing.lg, maxHeight: '92%' } as any,
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: c.border, marginBottom: Spacing.md },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   title: { fontSize: 18, fontWeight: '700', color: c.textPrimary },
