@@ -1,6 +1,6 @@
 import React, { useRef, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { Spacing, BorderRadius } from '../theme/colors';
 import type { ThemeColors } from '../theme/colors';
@@ -26,12 +26,13 @@ interface RequestCardProps {
   clientName?: string;
   clientLevel?: ClientLevel;
   emphasizePending?: boolean;
+  delivery?: { confirmed: boolean; isFree: boolean } | null;
   onPress?: () => void;
 }
 
 export default function RequestCard({
   vehicleBrand, vehicleModel, vehicleYear, partCategory, status,
-  responseCount, hasRating, municipality, state, createdAt, timeLabel, timeLabelColor, unreadCount, clientName, clientLevel, emphasizePending, onPress,
+  responseCount, hasRating, municipality, state, createdAt, timeLabel, timeLabelColor, unreadCount, clientName, clientLevel, emphasizePending, delivery, onPress,
 }: RequestCardProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -111,6 +112,11 @@ export default function RequestCard({
             {typeof responseCount === 'number' ? (
               <Text style={styles.responses}>{responseCount} resp.</Text>
             ) : null}
+            {delivery?.confirmed ? (
+              <View style={[styles.motoBadge, { backgroundColor: delivery?.isFree ? 'rgba(27, 138, 58, 0.12)' : 'rgba(124, 58, 237, 0.12)' }]}>
+                <MaterialCommunityIcons name="motorbike" size={16} color={delivery?.isFree ? '#1B8A3A' : '#7C3AED'} />
+              </View>
+            ) : null}
             <Text style={styles.date}>{formatDate(createdAt ?? '')}</Text>
             {(unreadCount ?? 0) > 0 ? (
               <View style={styles.unreadBadge}>
@@ -177,6 +183,10 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   clientName: { fontSize: 11, color: c.textSecondary },
   right: { alignItems: 'flex-end', gap: 4 },
   responses: { fontSize: 11, color: c.textSecondary },
+  motoBadge: {
+    width: 28, height: 28, borderRadius: 14,
+    justifyContent: 'center', alignItems: 'center',
+  },
   date: { fontSize: 11, color: c.textSecondary },
   unreadBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 3,

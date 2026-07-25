@@ -136,6 +136,7 @@ export default function VendorRequests() {
               unreadCount={byRequestId?.[item?.request?.id ?? ''] ?? 0}
               clientName={`${item?.request?.clientFirstName ?? ''}${item?.request?.clientLastName ? ` ${item.request.clientLastName}` : ''}`}
               clientLevel={item?.request?.clientLevel}
+              delivery={item?.request?.delivery ?? null}
               onPress={() => router.push(`/vendor-request-detail?matchId=${item?.matchId ?? ''}`)}
             />
           )}

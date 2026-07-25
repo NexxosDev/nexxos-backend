@@ -47,6 +47,7 @@ export interface RequestListItem {
   municipality: string;
   lastMessageAt: string | null;
   createdAt: string;
+  delivery?: { confirmed: boolean; isFree: boolean } | null;
 }
 
 export interface RequestDetail {
@@ -151,6 +152,7 @@ export interface VendorRequestListItem {
     clientFirstName: string;
     clientLastName?: string;
     clientLevel?: ClientLevel;
+    delivery?: { confirmed: boolean; isFree: boolean } | null;
   };
   status: string;
   respondedAt: string | null;
