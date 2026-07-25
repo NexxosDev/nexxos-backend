@@ -8,6 +8,15 @@ import type { ThemeColors } from '../theme/colors';
 import type { DeliveryOptionsResponse, DeliveryOption } from '../types';
 import { quoteDelivery } from '../services/delivery';
 
+let MapView: any = null;
+let Marker: any = null;
+let PROVIDER_GOOGLE: any = undefined;
+if (Platform.OS !== 'web') {
+  try { const Maps = require('react-native-maps'); MapView = Maps.default; Marker = Maps.Marker; PROVIDER_GOOGLE = Maps.PROVIDER_GOOGLE; } catch (e) { console.warn('react-native-maps not available'); }
+}
+
+interface Prediction { label: string; lat: number; lng: number; }
+
 export interface DeliveryConfirmData {
   dropoffLat: number | null;
   dropoffLng: number | null;
@@ -41,6 +50,9 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
   const [locating, setLocating] = useState(false);
   const [quoting, setQuoting] = useState(false);
   const [usedGps, setUsedGps] = useState(false);
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [searching, setSearching] = useState(false);
+  const skipNextSearch = useRef(false);
 
   // Alerta de variación de costo (Req B)
   const [variation, setVariation] = useState(false);
@@ -58,6 +70,8 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
       setLocating(false);
       setQuoting(false);
       setUsedGps(false);
+      setPredictions([]);
+      setSearching(false);
       setVariation(false);
       setNeedsAccept(false);
       setAccepted(false);
@@ -115,6 +129,69 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
       setQuoting(false);
     }
   }, [chatId, applyQuote]);
+
+  // Geocodificación inversa gratuita (OpenStreetMap / Nominatim) para mostrar una dirección amigable.
+  const reverseGeocodeOSM = useCallback(async (lat: number, lng: number): Promise<string> => {
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`;
+      const res = await fetch(url, { headers: { 'User-Agent': 'NEXXOS-App/1.0' } });
+      if (!res?.ok) return '';
+      const d = await res.json();
+      const a = d?.address ?? {};
+      const parts = [a?.road ?? a?.neighbourhood ?? a?.suburb, a?.city ?? a?.town ?? a?.village, a?.state]
+        .filter((x: any) => !!x)
+        .filter((x: string, i: number, arr: string[]) => arr.indexOf(x) === i);
+      return parts.join(', ') || (typeof d?.display_name === 'string' ? d.display_name : '');
+    } catch {
+      return '';
+    }
+  }, []);
+
+  // Buscador con predicciones (OpenStreetMap / Nominatim) — gratis, sin Google Places.
+  useEffect(() => {
+    const val = searchText?.trim?.() ?? '';
+    if (skipNextSearch.current) { skipNextSearch.current = false; return; }
+    if (!val || val.length < 3 || /https?:\/\//i.test(val)) { setPredictions([]); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=ve&q=${encodeURIComponent(val)}`;
+        const res = await fetch(url, { headers: { 'User-Agent': 'NEXXOS-App/1.0' } });
+        const data = res?.ok ? await res.json() : [];
+        if (cancelled) return;
+        const preds: Prediction[] = (Array.isArray(data) ? data : [])
+          .map((d: any) => ({ label: typeof d?.display_name === 'string' ? d.display_name : '', lat: parseFloat(d?.lat), lng: parseFloat(d?.lon) }))
+          .filter((p: Prediction) => !!p.label && isFinite(p.lat) && isFinite(p.lng));
+        setPredictions(preds);
+      } catch {
+        if (!cancelled) setPredictions([]);
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }, 550);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [searchText]);
+
+  const pickPrediction = useCallback(async (p: Prediction) => {
+    skipNextSearch.current = true;
+    setSearchText(p.label.length > 48 ? p.label.slice(0, 48) + '…' : p.label);
+    setPredictions([]);
+    setAddress(p.label);
+    setUsedGps(false);
+    setCoords({ lat: p.lat, lng: p.lng });
+    await runQuote({ dropoffLat: p.lat, dropoffLng: p.lng });
+  }, [runQuote]);
+
+  const handlePinDrag = useCallback(async (e: any) => {
+    const c = e?.nativeEvent?.coordinate;
+    if (!c || typeof c.latitude !== 'number' || typeof c.longitude !== 'number') return;
+    setUsedGps(false);
+    setCoords({ lat: c.latitude, lng: c.longitude });
+    const readable = await reverseGeocodeOSM(c.latitude, c.longitude);
+    setAddress(readable);
+    await runQuote({ dropoffLat: c.latitude, dropoffLng: c.longitude });
+  }, [runQuote, reverseGeocodeOSM]);
 
   const handleSearchSubmit = useCallback(async () => {
     const val = searchText?.trim?.() ?? '';
@@ -294,7 +371,29 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
                       )}
                     </Pressable>
                   </View>
-                  <Text style={styles.searchHint}>Pega un enlace de Google Maps o WhatsApp, o usa el ícono de GPS.</Text>
+                  <Text style={styles.searchHint}>Escribe una dirección y elige de la lista, pega un enlace de mapa, o usa el ícono de GPS.</Text>
+
+                  {searching ? (
+                    <View style={styles.searchingRow}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                      <Text style={styles.quotingText}>Buscando direcciones...</Text>
+                    </View>
+                  ) : null}
+
+                  {predictions.length > 0 ? (
+                    <View style={styles.predictionsBox}>
+                      {predictions.map((p, i) => (
+                        <Pressable
+                          key={`${p.lat}-${p.lng}-${i}`}
+                          style={[styles.predictionRow, i < predictions.length - 1 && styles.predictionDivider]}
+                          onPress={() => pickPrediction(p)}
+                        >
+                          <Ionicons name="location-outline" size={16} color={colors.textSecondary} style={{ marginTop: 1 }} />
+                          <Text style={styles.predictionText} numberOfLines={2}>{p.label}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
 
                   {quoting ? (
                     <View style={styles.quotingRow}>
@@ -314,6 +413,23 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
                           <Text style={styles.locMapLink}>Ver en Google Maps</Text>
                         </Pressable>
                       </View>
+                    </View>
+                  ) : null}
+
+                  {hasLocation && MapView && Marker && Platform.OS !== 'web' && coords ? (
+                    <View style={styles.mapWrap}>
+                      <MapView
+                        style={styles.map}
+                        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+                        region={{ latitude: coords.lat, longitude: coords.lng, latitudeDelta: 0.008, longitudeDelta: 0.008 }}
+                      >
+                        <Marker
+                          coordinate={{ latitude: coords.lat, longitude: coords.lng }}
+                          draggable
+                          onDragEnd={handlePinDrag}
+                        />
+                      </MapView>
+                      <Text style={styles.mapHint}>Arrastra el pin para ajustar el punto exacto de entrega.</Text>
                     </View>
                   ) : null}
                 </View>
@@ -388,7 +504,15 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   gpsIconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderLeftWidth: 1, borderLeftColor: c.border },
   searchHint: { fontSize: 11.5, color: c.textSecondary, marginTop: 6 },
   quotingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  searchingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   quotingText: { fontSize: 13, color: c.textSecondary },
+  predictionsBox: { marginTop: 8, borderWidth: 1, borderColor: c.border, borderRadius: BorderRadius.md, backgroundColor: c.backgroundSection, overflow: 'hidden' },
+  predictionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 11, paddingHorizontal: 12 },
+  predictionDivider: { borderBottomWidth: 1, borderBottomColor: c.border },
+  predictionText: { flex: 1, fontSize: 13.5, color: c.textPrimary, lineHeight: 18 },
+  mapWrap: { marginTop: 12 },
+  map: { width: '100%', height: 200, borderRadius: BorderRadius.md },
+  mapHint: { fontSize: 11.5, color: c.textSecondary, marginTop: 6, textAlign: 'center' },
   locCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: c.primary, backgroundColor: c.backgroundSection, marginTop: 10 },
   locAddr: { fontSize: 14, fontWeight: '600', color: c.textPrimary },
   locMapLink: { fontSize: 12, fontWeight: '600', color: c.primary, marginTop: 3 },
