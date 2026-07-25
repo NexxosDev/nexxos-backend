@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.abacusai.nexxosmvp.t1776194339",
-      "buildNumber": "27",
+      "buildNumber": "28",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "NEXXOS necesita acceso a tu ubicación para mostrarte vendedores cercanos y actualizar tu dirección automáticamente.",
         "NSCameraUsageDescription": "NEXXOS necesita acceso a la cámara para tomar fotos de repuestos, verificar tu identidad y enviar imágenes en el chat.",
@@ -34,7 +34,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.abacusai.nexxosmvp.t1776194339",
-      "versionCode": 27,
+      "versionCode": 28,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
