@@ -28,23 +28,31 @@ export class DeliveryService {
   }
 
   /**
-   * Calcula el costo del mensajero propio.
+   * Calcula el costo del servicio de entrega.
    * Modo FIXED: costo único (ownDeliveryCost).
-   * Modo PER_KM: costo = distancia (km) × costo por km (ownDeliveryPerKm).
-   * Devuelve { cost, approx } — approx=true si no hay distancia para calcular.
+   * Modo PER_KM: costo = distancia (km) × costo por km (ownDeliveryPerKm),
+   *   salvo que la distancia iguale o supere ownDeliveryFlatFromKm: en ese caso
+   *   se aplica la tarifa plana especial (ownDeliveryFlatCost).
+   * Devuelve { cost, approx, flatApplied } — approx=true si no hay distancia para calcular.
    */
-  private computeOwnDeliveryCost(v: any, distanceKm: number | null): { cost: number; approx: boolean } {
+  private computeOwnDeliveryCost(v: any, distanceKm: number | null): { cost: number; approx: boolean; flatApplied: boolean } {
     const mode = v?.ownDeliveryPricingMode ?? 'FIXED';
     if (mode !== 'PER_KM') {
-      return { cost: Math.max(0, v?.ownDeliveryCost ?? 0), approx: false };
+      return { cost: Math.max(0, v?.ownDeliveryCost ?? 0), approx: false, flatApplied: false };
     }
     const perKm = Math.max(0, v?.ownDeliveryPerKm ?? 0);
     if (distanceKm == null) {
       // Sin distancia (faltan coordenadas): no se puede calcular todavía.
-      return { cost: 0, approx: true };
+      return { cost: 0, approx: true, flatApplied: false };
+    }
+    // Tarifa plana especial: a partir de X km, cobrar monto fijo.
+    const flatFromKm = v?.ownDeliveryFlatFromKm ?? null;
+    const flatCost = v?.ownDeliveryFlatCost ?? null;
+    if (flatFromKm != null && flatCost != null && flatFromKm > 0 && distanceKm >= flatFromKm) {
+      return { cost: Math.max(0, Math.round(flatCost * 100) / 100), approx: false, flatApplied: true };
     }
     const cost = Math.round(distanceKm * perKm * 100) / 100;
-    return { cost, approx: false };
+    return { cost, approx: false, flatApplied: false };
   }
 
   /** Verifica acceso al chat y devuelve contexto (chat, roles, vendorRecord) */
@@ -52,7 +60,7 @@ export class DeliveryService {
     const chat = await this.prisma.chat.findUnique({
       where: { id: chatId },
       include: {
-        vendor: { select: { id: true, userId: true, businessName: true, latitude: true, longitude: true, fullAddress: true, freeShippingEnabled: true, freeShippingRadiusKm: true, ownDeliveryEnabled: true, ownDeliveryCost: true, ownDeliveryPricingMode: true, ownDeliveryPerKm: true } },
+        vendor: { select: { id: true, userId: true, businessName: true, latitude: true, longitude: true, fullAddress: true, freeShippingEnabled: true, freeShippingRadiusKm: true, ownDeliveryEnabled: true, ownDeliveryCost: true, ownDeliveryPricingMode: true, ownDeliveryPerKm: true, ownDeliveryMaxKm: true, ownDeliveryFlatFromKm: true, ownDeliveryFlatCost: true } },
         request: { select: { id: true, latitude: true, longitude: true } },
       },
     });
@@ -129,30 +137,37 @@ export class DeliveryService {
       }
     }
 
-    // 2) Mensajero propio del vendedor
+    // 2) Servicio de entrega del vendedor
     if (v?.ownDeliveryEnabled === true) {
-      const { cost, approx } = this.computeOwnDeliveryCost(v, distanceKm);
       const isPerKm = (v?.ownDeliveryPricingMode ?? 'FIXED') === 'PER_KM';
-      const perKm = Math.max(0, v?.ownDeliveryPerKm ?? 0);
-      let description: string;
-      if (isPerKm && approx) {
-        description = perKm > 0
-          ? `Tarifa por distancia (USD ${perKm.toFixed(2)}/km, se calcula con tu ubicación)`
-          : 'Tarifa según distancia (se calcula con tu ubicación)';
-      } else if (isPerKm && distanceKm != null) {
-        description = `${distanceKm} km × USD ${perKm.toFixed(2)}/km`;
-      } else if (cost === 0) {
-        description = 'Envío con mensajero propio (sin costo)';
-      } else {
-        description = 'Envío con mensajero propio';
+      const maxKm = v?.ownDeliveryMaxKm ?? null;
+      // Filtro de distancia máxima: si supera el límite, no se ofrece el servicio.
+      const beyondMax = isPerKm && maxKm != null && maxKm > 0 && distanceKm != null && distanceKm > maxKm;
+      if (!beyondMax) {
+        const { cost, approx, flatApplied } = this.computeOwnDeliveryCost(v, distanceKm);
+        const perKm = Math.max(0, v?.ownDeliveryPerKm ?? 0);
+        let description: string;
+        if (isPerKm && approx) {
+          description = perKm > 0
+            ? `Tarifa por distancia (USD ${perKm.toFixed(2)}/km, se calcula con tu ubicación)`
+            : 'Tarifa según distancia (se calcula con tu ubicación)';
+        } else if (isPerKm && flatApplied) {
+          description = `Tarifa plana desde ${v.ownDeliveryFlatFromKm} km (${distanceKm} km)`;
+        } else if (isPerKm && distanceKm != null) {
+          description = `${distanceKm} km × USD ${perKm.toFixed(2)}/km`;
+        } else if (cost === 0) {
+          description = 'Servicio de entrega (sin costo)';
+        } else {
+          description = 'Servicio de entrega del vendedor';
+        }
+        options.push({
+          provider: 'OWN_VENDOR',
+          label: 'Servicio de Entrega',
+          description,
+          cost,
+          isFree: cost === 0,
+        });
       }
-      options.push({
-        provider: 'OWN_VENDOR',
-        label: 'Mensajero del vendedor',
-        description,
-        cost,
-        isFree: cost === 0,
-      });
     }
 
     return options;

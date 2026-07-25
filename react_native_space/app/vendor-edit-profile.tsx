@@ -45,6 +45,9 @@ export default function VendorEditProfileScreen() {
   const [ownDeliveryCost, setOwnDeliveryCost] = useState('');
   const [ownDeliveryPricingMode, setOwnDeliveryPricingMode] = useState<'FIXED' | 'PER_KM'>('FIXED');
   const [ownDeliveryPerKm, setOwnDeliveryPerKm] = useState('');
+  const [ownDeliveryMaxKm, setOwnDeliveryMaxKm] = useState('');
+  const [ownDeliveryFlatFromKm, setOwnDeliveryFlatFromKm] = useState('');
+  const [ownDeliveryFlatCost, setOwnDeliveryFlatCost] = useState('');
 
   // Facade image
   const [facadeUri, setFacadeUri] = useState<string | null>(null); // local pick URI
@@ -93,6 +96,9 @@ export default function VendorEditProfileScreen() {
         setOwnDeliveryCost(p?.ownDeliveryCost != null ? String(p.ownDeliveryCost) : '');
         setOwnDeliveryPricingMode(p?.ownDeliveryPricingMode === 'PER_KM' ? 'PER_KM' : 'FIXED');
         setOwnDeliveryPerKm(p?.ownDeliveryPerKm != null ? String(p.ownDeliveryPerKm) : '');
+        setOwnDeliveryMaxKm(p?.ownDeliveryMaxKm != null ? String(p.ownDeliveryMaxKm) : '');
+        setOwnDeliveryFlatFromKm(p?.ownDeliveryFlatFromKm != null ? String(p.ownDeliveryFlatFromKm) : '');
+        setOwnDeliveryFlatCost(p?.ownDeliveryFlatCost != null ? String(p.ownDeliveryFlatCost) : '');
         const models = p?.vehicleModels ?? [];
         const brandIds = [...new Set(models.map((m) => m?.brand?.id).filter(Boolean))] as string[];
         setSelectedModels(models.map((m) => m?.id).filter(Boolean) as string[]);
@@ -212,6 +218,18 @@ export default function VendorEditProfileScreen() {
         } else {
           const pk = parseFloat(ownDeliveryPerKm);
           if (!isNaN(pk) && pk >= 0) updateData.ownDeliveryPerKm = pk;
+          const mx = parseFloat(ownDeliveryMaxKm);
+          updateData.ownDeliveryMaxKm = !isNaN(mx) && mx > 0 ? mx : null;
+          const ffk = parseFloat(ownDeliveryFlatFromKm);
+          const fc = parseFloat(ownDeliveryFlatCost);
+          // La tarifa plana requiere AMBOS valores; si falta alguno, se limpia.
+          if (!isNaN(ffk) && ffk > 0 && !isNaN(fc) && fc >= 0) {
+            updateData.ownDeliveryFlatFromKm = ffk;
+            updateData.ownDeliveryFlatCost = fc;
+          } else {
+            updateData.ownDeliveryFlatFromKm = null;
+            updateData.ownDeliveryFlatCost = null;
+          }
         }
       }
       if (facadeUri) {
@@ -380,8 +398,8 @@ export default function VendorEditProfileScreen() {
 
             <View style={styles.shipRow}>
               <View style={{ flex: 1, paddingRight: 12 }}>
-                <Text style={styles.shipLabel}>Mensajero propio</Text>
-                <Text style={styles.shipDesc}>Tienes tu propio delivery. Indica el costo (0 = gratis).</Text>
+                <Text style={styles.shipLabel}>Servicio de Entrega</Text>
+                <Text style={styles.shipDesc}>Repartidores propios o delivery externo. Indica el costo (0 = gratis).</Text>
               </View>
               <Switch
                 value={ownDeliveryEnabled}
@@ -443,13 +461,69 @@ export default function VendorEditProfileScreen() {
                         maxLength={7}
                       />
                     </View>
+
+                    <View style={styles.shipInputRow}>
+                      <Text style={styles.shipInputLabel}>Distancia máxima (km)</Text>
+                      <TextInput
+                        value={ownDeliveryMaxKm}
+                        onChangeText={(t) => setOwnDeliveryMaxKm(t.replace(/[^0-9.]/g, ''))}
+                        keyboardType="decimal-pad"
+                        placeholder="Ej. 10"
+                        placeholderTextColor={colors.textSecondary}
+                        style={styles.shipInput}
+                        maxLength={6}
+                      />
+                    </View>
+                    <Text style={styles.shipHint}>
+                      Si el cliente está más lejos de este límite, no se le ofrece el servicio de entrega. Déjalo vacío para no poner límite.
+                    </Text>
+
+                    <View style={styles.divider} />
+                    <Text style={styles.shipLabel}>Tarifa plana especial (opcional)</Text>
+                    <Text style={styles.shipDesc}>
+                      Evita costos excesivos en distancias medianas o largas. A partir de cierta distancia, se cobra un monto fijo en vez del cálculo por km.
+                    </Text>
+                    <View style={styles.shipInputRow}>
+                      <Text style={styles.shipInputLabel}>A partir de (km)</Text>
+                      <TextInput
+                        value={ownDeliveryFlatFromKm}
+                        onChangeText={(t) => setOwnDeliveryFlatFromKm(t.replace(/[^0-9.]/g, ''))}
+                        keyboardType="decimal-pad"
+                        placeholder="Ej. 5"
+                        placeholderTextColor={colors.textSecondary}
+                        style={styles.shipInput}
+                        maxLength={6}
+                      />
+                    </View>
+                    <View style={styles.shipInputRow}>
+                      <Text style={styles.shipInputLabel}>Tarifa fija (USD)</Text>
+                      <TextInput
+                        value={ownDeliveryFlatCost}
+                        onChangeText={(t) => setOwnDeliveryFlatCost(t.replace(/[^0-9.]/g, ''))}
+                        keyboardType="decimal-pad"
+                        placeholder="Ej. 6.00"
+                        placeholderTextColor={colors.textSecondary}
+                        style={styles.shipInput}
+                        maxLength={7}
+                      />
+                    </View>
+
                     <View style={styles.previewBox}>
                       <Ionicons name="calculator-outline" size={16} color={colors.primary} />
                       <Text style={styles.previewText}>
                         {(() => {
                           const pk = parseFloat(ownDeliveryPerKm) || 0;
-                          const calc = (km: number) => (km * pk).toFixed(2);
-                          return `Ejemplo:  3 km = USD ${calc(3)}   ·   5 km = USD ${calc(5)}`;
+                          const mx = parseFloat(ownDeliveryMaxKm);
+                          const ffk = parseFloat(ownDeliveryFlatFromKm);
+                          const fc = parseFloat(ownDeliveryFlatCost);
+                          const hasFlat = !isNaN(ffk) && ffk > 0 && !isNaN(fc) && fc >= 0;
+                          const hasMax = !isNaN(mx) && mx > 0;
+                          const calc = (km: number): string => {
+                            if (hasMax && km > mx) return 'no disponible';
+                            if (hasFlat && km >= ffk) return `USD ${fc.toFixed(2)} (fija)`;
+                            return `USD ${(km * pk).toFixed(2)}`;
+                          };
+                          return `Ejemplo:  3 km = ${calc(3)}   ·   7 km = ${calc(7)}   ·   12 km = ${calc(12)}`;
                         })()}
                       </Text>
                     </View>
@@ -520,6 +594,7 @@ const createStyles = (c: ThemeColors) => StyleSheet.create({
   shipRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
   shipLabel: { fontSize: 14, fontWeight: '600', color: c.textPrimary },
   shipDesc: { fontSize: 12, color: c.textSecondary, marginTop: 2, lineHeight: 16 },
+  shipHint: { fontSize: 12, color: c.textSecondary, marginTop: -2, marginBottom: 6, lineHeight: 16, paddingLeft: 2 },
   shipInputRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm, paddingLeft: 2 },
   shipInputLabel: { fontSize: 13, color: c.textSecondary, width: 90 },
   shipInput: { flex: 1, borderWidth: 1, borderColor: c.border, borderRadius: BorderRadius.sm, paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 10 : 6, color: c.textPrimary, backgroundColor: c.backgroundSection, fontSize: 15 },

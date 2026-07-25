@@ -58,6 +58,9 @@ export class VendorService {
       ownDeliveryCost: vendor.ownDeliveryCost ?? null,
       ownDeliveryPricingMode: vendor.ownDeliveryPricingMode ?? 'FIXED',
       ownDeliveryPerKm: vendor.ownDeliveryPerKm ?? null,
+      ownDeliveryMaxKm: vendor.ownDeliveryMaxKm ?? null,
+      ownDeliveryFlatFromKm: vendor.ownDeliveryFlatFromKm ?? null,
+      ownDeliveryFlatCost: vendor.ownDeliveryFlatCost ?? null,
       vehicleModels: vendor.vendorVehicleModels.map((vvm: any) => ({
         id: vvm.vehicleModel.id,
         name: vvm.vehicleModel.name,
@@ -147,6 +150,9 @@ export class VendorService {
     if (dto.ownDeliveryCost !== undefined) data.ownDeliveryCost = dto.ownDeliveryCost;
     if (dto.ownDeliveryPricingMode !== undefined) data.ownDeliveryPricingMode = dto.ownDeliveryPricingMode;
     if (dto.ownDeliveryPerKm !== undefined) data.ownDeliveryPerKm = dto.ownDeliveryPerKm;
+    if (dto.ownDeliveryMaxKm !== undefined) data.ownDeliveryMaxKm = dto.ownDeliveryMaxKm;
+    if (dto.ownDeliveryFlatFromKm !== undefined) data.ownDeliveryFlatFromKm = dto.ownDeliveryFlatFromKm;
+    if (dto.ownDeliveryFlatCost !== undefined) data.ownDeliveryFlatCost = dto.ownDeliveryFlatCost;
 
     const updated = await this.prisma.vendor.update({ where: { id: vendor.id }, data });
 

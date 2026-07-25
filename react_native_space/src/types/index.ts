@@ -240,6 +240,9 @@ export interface VendorProfile {
   ownDeliveryCost?: number | null;
   ownDeliveryPricingMode?: string | null;
   ownDeliveryPerKm?: number | null;
+  ownDeliveryMaxKm?: number | null;
+  ownDeliveryFlatFromKm?: number | null;
+  ownDeliveryFlatCost?: number | null;
   vehicleModels: { id: string; name: string; brand: { id: string; name: string } }[];
   partSubcategories: { id: string; name: string; category: { id: string; name: string } }[];
   metrics: {
