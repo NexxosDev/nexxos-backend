@@ -828,6 +828,7 @@ export default function ChatScreen() {
                 order={deliveryOrder}
                 isVendor={isVendor}
                 busy={deliveryBusy}
+                readOnly
                 onAdvance={handleAdvanceDelivery}
                 onCancel={handleCancelDelivery}
               />

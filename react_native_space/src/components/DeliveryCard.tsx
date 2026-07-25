@@ -10,6 +10,7 @@ interface Props {
   order: DeliveryOrder;
   isVendor: boolean;
   busy?: boolean;
+  readOnly?: boolean;
   onAdvance: (status: 'IN_TRANSIT' | 'DELIVERED') => void;
   onCancel: () => void;
 }
@@ -27,7 +28,7 @@ function stepIndex(status: string): number {
   return -1;
 }
 
-export default function DeliveryCard({ order, isVendor, busy, onAdvance, onCancel }: Props) {
+export default function DeliveryCard({ order, isVendor, busy, readOnly, onAdvance, onCancel }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -104,7 +105,7 @@ export default function DeliveryCard({ order, isVendor, busy, onAdvance, onCance
         </View>
       ) : null}
 
-      {!canceled && !delivered ? (
+      {!readOnly && !canceled && !delivered ? (
         <View style={styles.actions}>
           {isVendor && status === 'CONFIRMED' ? (
             <Pressable style={styles.primaryBtn} onPress={() => onAdvance('IN_TRANSIT')} disabled={busy}>
@@ -116,7 +117,7 @@ export default function DeliveryCard({ order, isVendor, busy, onAdvance, onCance
               {busy ? <ActivityIndicator size="small" color={colors.accent} /> : <Text style={styles.primaryBtnText}>Marcar entregado</Text>}
             </Pressable>
           ) : null}
-          {!isVendor ? (
+          {!isVendor && status === 'CONFIRMED' ? (
             <Pressable style={styles.cancelBtn} onPress={onCancel} disabled={busy}>
               <Text style={styles.cancelBtnText}>Cancelar envío</Text>
             </Pressable>

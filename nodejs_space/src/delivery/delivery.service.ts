@@ -427,6 +427,7 @@ export class DeliveryService {
     if (!isClient) throw new ForbiddenException('Solo el cliente puede cancelar el envío');
     if (order.status === 'CANCELED') throw new BadRequestException('La orden ya está cancelada');
     if (order.status === 'DELIVERED') throw new BadRequestException('No se puede cancelar un envío entregado');
+    if (order.status === 'IN_TRANSIT') throw new BadRequestException('No se puede cancelar un envío que ya está en camino');
 
     const now = new Date();
     const canceledBy = isClient ? 'CLIENT' : 'VENDOR';
