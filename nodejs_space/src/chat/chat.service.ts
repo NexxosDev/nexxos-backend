@@ -100,6 +100,17 @@ export class ChatService {
     private readonly chatPresence: ChatPresenceService,
   ) {}
 
+  private haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371;
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
   private async verifyAccess(chatId: string, userId: string) {
     const chat = await this.prisma.chat.findUnique({
       where: { id: chatId },
@@ -134,10 +145,25 @@ export class ChatService {
     const r = chat.request;
     const requestSummary = `${r.vehicleBrand.name} ${r.vehicleModel.name} - ${r.partCategory.name}${r.partSubcategory ? ' / ' + r.partSubcategory.name : ''}`;
 
-    const vendorBiz = await this.prisma.vendor.findUnique({ where: { id: chat.vendorId }, select: { businessName: true } });
+    const vendorBiz = await this.prisma.vendor.findUnique({ where: { id: chat.vendorId }, select: { businessName: true, freeShippingEnabled: true, freeShippingRadiusKm: true, ownDeliveryEnabled: true, latitude: true, longitude: true } });
     const otherUserName = isClient
       ? (vendorBiz?.businessName || `${chat.vendor.user.firstName} ${chat.vendor.user.lastName}`)
       : `${chat.client.firstName} ${chat.client.lastName}`;
+    const vendorOffersDelivery = (vendorBiz?.freeShippingEnabled === true) || (vendorBiz?.ownDeliveryEnabled === true);
+
+    // ¿El cliente cae dentro del radio de envío gratis? (verde vs púrpura en la UI)
+    let vendorFreeInRadius = false;
+    if (
+      vendorBiz?.freeShippingEnabled === true &&
+      typeof vendorBiz?.freeShippingRadiusKm === 'number' &&
+      typeof r.latitude === 'number' &&
+      typeof r.longitude === 'number' &&
+      typeof vendorBiz?.latitude === 'number' &&
+      typeof vendorBiz?.longitude === 'number'
+    ) {
+      const distKm = this.haversineKm(r.latitude, r.longitude, vendorBiz.latitude, vendorBiz.longitude);
+      vendorFreeInRadius = distKm <= vendorBiz.freeShippingRadiusKm;
+    }
 
     const unreadCount = await this.prisma.chatMessage.count({
       where: {
@@ -156,6 +182,8 @@ export class ChatService {
       clientId: chat.clientId,
       requestSummary,
       otherUserName,
+      vendorOffersDelivery,
+      vendorFreeInRadius,
       unreadCount,
       createdAt: chat.createdAt.toISOString(),
     };

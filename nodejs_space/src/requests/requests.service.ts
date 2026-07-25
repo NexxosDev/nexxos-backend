@@ -270,6 +270,10 @@ export class RequestsService {
       this.prisma.request.count({ where }),
     ]);
 
+    // Envíos confirmados (Servicio de Entrega) por solicitud → para mostrar el ícono de moto
+    const reqIds = items.map((r: any) => r.id);
+    const deliveryByReq = await this.confirmedDeliveryMap(reqIds, { clientId });
+
     return {
       items: items.map((r: any) => ({
         id: r.id,
@@ -289,9 +293,45 @@ export class RequestsService {
         municipality: r.municipality?.name ?? null,
         lastMessageAt: r.lastMessageAt?.toISOString?.() ?? null,
         createdAt: r.createdAt.toISOString(),
+        delivery: deliveryByReq[r.id] ?? null,
       })),
       total,
     };
+  }
+
+  /**
+   * Devuelve un mapa requestId -> { confirmed: true, isFree } para las solicitudes
+   * que tienen un envío (Servicio de Entrega) confirmado, en tránsito o entregado.
+   * `scope` permite filtrar por clientId (vista cliente) o vendorId (vista vendedor).
+   */
+  private async confirmedDeliveryMap(
+    requestIds: string[],
+    scope: { clientId?: string; vendorId?: string },
+  ): Promise<Record<string, { confirmed: boolean; isFree: boolean }>> {
+    const result: Record<string, { confirmed: boolean; isFree: boolean }> = {};
+    if (!requestIds || requestIds.length === 0) return result;
+    try {
+      const where: any = {
+        requestId: { in: requestIds },
+        status: { in: ['CONFIRMED', 'IN_TRANSIT', 'DELIVERED'] },
+      };
+      if (scope?.clientId) where.clientId = scope.clientId;
+      if (scope?.vendorId) where.vendorId = scope.vendorId;
+      const orders = await this.prisma.deliveryOrder.findMany({
+        where,
+        select: { requestId: true, isFree: true, confirmedAt: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      for (const o of orders as any[]) {
+        // Conservar el más reciente por solicitud
+        if (!result[o.requestId]) {
+          result[o.requestId] = { confirmed: true, isFree: !!o.isFree };
+        }
+      }
+    } catch {
+      // Si falla la consulta, simplemente no mostramos el ícono
+    }
+    return result;
   }
 
   // ── Client: Get request detail ──
@@ -410,6 +450,14 @@ export class RequestsService {
           initialMessage: r.initialMessage,
           chatId: chat?.id ?? null,
           distanceKm,
+          delivery: {
+            offersDelivery: (r.vendor.freeShippingEnabled === true) || (r.vendor.ownDeliveryEnabled === true),
+            freeInRadius:
+              r.vendor.freeShippingEnabled === true &&
+              typeof distanceKm === 'number' &&
+              typeof r.vendor.freeShippingRadiusKm === 'number' &&
+              distanceKm <= r.vendor.freeShippingRadiusKm,
+          },
           tags: tags?.map((t: any) => t?.tag) ?? [],
           createdAt: r.createdAt.toISOString(),
         };
@@ -711,6 +759,10 @@ export class RequestsService {
       }),
     );
 
+    // Envíos confirmados (Servicio de Entrega) por solicitud para este vendedor → ícono de moto
+    const vendorReqIds = matches.map((m: any) => m.request?.id).filter(Boolean);
+    const deliveryByReq = await this.confirmedDeliveryMap(vendorReqIds, { vendorId: vendor.id });
+
     return {
       items: matches.map((m: any) => ({
         matchId: m.id,
@@ -730,6 +782,7 @@ export class RequestsService {
           clientFirstName: m.request.client.firstName,
           clientLastName: m.request.client.lastName ?? '',
           clientLevel: clientLevels[m.request?.clientId] ?? { level: 'NUEVO', emoji: '🔵', label: 'Nuevo' },
+          delivery: deliveryByReq[m.request.id] ?? null,
         },
         status: m.request.status === 'CERRADA' ? 'CERRADA' : m.declined ? 'DECLINED' : m.responded ? 'RESPONDED' : 'PENDING',
         respondedAt: m.respondedAt?.toISOString() ?? null,

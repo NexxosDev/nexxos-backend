@@ -133,6 +133,6 @@ export class CampaignService {
       select: { id: true },
     });
 
-    return users.map((u) => u.id);
+    return users.map((u: { id: string }) => u.id);
   }
 }

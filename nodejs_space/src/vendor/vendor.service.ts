@@ -52,6 +52,15 @@ export class VendorService {
       referencePoint: vendor.referencePoint,
       fullAddress: vendor.fullAddress,
       isAvailable: vendor.isAvailable,
+      freeShippingEnabled: vendor.freeShippingEnabled ?? false,
+      freeShippingRadiusKm: vendor.freeShippingRadiusKm ?? null,
+      ownDeliveryEnabled: vendor.ownDeliveryEnabled ?? false,
+      ownDeliveryCost: vendor.ownDeliveryCost ?? null,
+      ownDeliveryPricingMode: vendor.ownDeliveryPricingMode ?? 'FIXED',
+      ownDeliveryPerKm: vendor.ownDeliveryPerKm ?? null,
+      ownDeliveryMaxKm: vendor.ownDeliveryMaxKm ?? null,
+      ownDeliveryFlatFromKm: vendor.ownDeliveryFlatFromKm ?? null,
+      ownDeliveryFlatCost: vendor.ownDeliveryFlatCost ?? null,
       vehicleModels: vendor.vendorVehicleModels.map((vvm: any) => ({
         id: vvm.vehicleModel.id,
         name: vvm.vehicleModel.name,
@@ -135,6 +144,15 @@ export class VendorService {
     if (dto.longitude !== undefined) data.longitude = dto.longitude;
     if (dto.referencePoint !== undefined) data.referencePoint = dto.referencePoint;
     if (dto.fullAddress !== undefined) data.fullAddress = dto.fullAddress;
+    if (dto.freeShippingEnabled !== undefined) data.freeShippingEnabled = dto.freeShippingEnabled;
+    if (dto.freeShippingRadiusKm !== undefined) data.freeShippingRadiusKm = dto.freeShippingRadiusKm;
+    if (dto.ownDeliveryEnabled !== undefined) data.ownDeliveryEnabled = dto.ownDeliveryEnabled;
+    if (dto.ownDeliveryCost !== undefined) data.ownDeliveryCost = dto.ownDeliveryCost;
+    if (dto.ownDeliveryPricingMode !== undefined) data.ownDeliveryPricingMode = dto.ownDeliveryPricingMode;
+    if (dto.ownDeliveryPerKm !== undefined) data.ownDeliveryPerKm = dto.ownDeliveryPerKm;
+    if (dto.ownDeliveryMaxKm !== undefined) data.ownDeliveryMaxKm = dto.ownDeliveryMaxKm;
+    if (dto.ownDeliveryFlatFromKm !== undefined) data.ownDeliveryFlatFromKm = dto.ownDeliveryFlatFromKm;
+    if (dto.ownDeliveryFlatCost !== undefined) data.ownDeliveryFlatCost = dto.ownDeliveryFlatCost;
 
     const updated = await this.prisma.vendor.update({ where: { id: vendor.id }, data });
 
@@ -206,6 +224,19 @@ export class VendorService {
     });
     if (!vendor) throw new NotFoundException('Vendor profile not found');
 
+    const dashReqIds = vendor.requestVendorMatches.map((m: any) => m.request?.id).filter(Boolean);
+    const deliveryByReq: Record<string, { confirmed: boolean; isFree: boolean }> = {};
+    try {
+      const orders = await this.prisma.deliveryOrder.findMany({
+        where: { requestId: { in: dashReqIds }, vendorId: vendor.id, status: { in: ['CONFIRMED', 'IN_TRANSIT', 'DELIVERED'] } },
+        orderBy: { createdAt: 'desc' },
+        select: { requestId: true, isFree: true },
+      });
+      for (const o of orders) {
+        if (!deliveryByReq[o.requestId]) deliveryByReq[o.requestId] = { confirmed: true, isFree: !!o.isFree };
+      }
+    } catch { /* ignore delivery lookup errors */ }
+
     return {
       businessName: vendor.businessName,
       isAvailable: vendor.isAvailable,
@@ -249,6 +280,7 @@ export class VendorService {
             clientFirstName: m.request.client?.firstName ?? '',
             clientLastName: m.request.client?.lastName ?? '',
             clientLevel,
+            delivery: deliveryByReq[m.request.id] ?? null,
           },
           status,
           deliveredAt,

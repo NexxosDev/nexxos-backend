@@ -20,6 +20,15 @@ export class UpdateVendorDto {
   @ApiPropertyOptional() @IsOptional() @IsNumber() longitude?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() referencePoint?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() fullAddress?: string;
+  @ApiPropertyOptional() @IsOptional() freeShippingEnabled?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) @Max(100) freeShippingRadiusKm?: number;
+  @ApiPropertyOptional() @IsOptional() ownDeliveryEnabled?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) ownDeliveryCost?: number;
+  @ApiPropertyOptional({ enum: ['FIXED', 'PER_KM'] }) @IsOptional() @IsString() ownDeliveryPricingMode?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) ownDeliveryPerKm?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) ownDeliveryMaxKm?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) ownDeliveryFlatFromKm?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) ownDeliveryFlatCost?: number;
   @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @IsUUID('4', { each: true }) vehicleModelIds?: string[];
   @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @IsUUID('4', { each: true }) partSubcategoryIds?: string[];
 }

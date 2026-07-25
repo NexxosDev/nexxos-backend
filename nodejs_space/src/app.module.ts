@@ -20,6 +20,7 @@ import { AppConfigModule } from './app-config/app-config.module';
 import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module';
 import { CampaignModule } from './campaign/campaign.module';
 import { PromoPopupModule } from './promo-popup/promo-popup.module';
+import { DeliveryModule } from './delivery/delivery.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { PromoPopupModule } from './promo-popup/promo-popup.module';
     SuggestionsModule,
     CampaignModule,
     PromoPopupModule,
+    DeliveryModule,
   ],
   controllers: [AppController],
 })

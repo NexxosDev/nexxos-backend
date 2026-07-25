@@ -58,13 +58,13 @@ export class PromoPopupService {
       where: {
         subject,
         seenDate: today,
-        popupId: { in: candidates.map((c) => c.id) },
+        popupId: { in: candidates.map((c: { id: string }) => c.id) },
       },
       select: { popupId: true },
     });
-    const seenSet = new Set((seen ?? []).map((s) => s.popupId));
+    const seenSet = new Set((seen ?? []).map((s: { popupId: string }) => s.popupId));
 
-    const unseen = candidates.find((c) => !seenSet.has(c.id));
+    const unseen = candidates.find((c: { id: string }) => !seenSet.has(c.id));
     if (!unseen) {
       return { popup: null };
     }
