@@ -10,6 +10,8 @@ import { getTagDef } from '../utils/responseTags';
 import Button from './Button';
 
 const LINK_COLOR = '#07a0ff';
+const DELIVERY_PURPLE = '#7C3AED';
+const DELIVERY_GREEN = '#1B8A3A';
 
 interface ResponseCardProps {
   businessName: string;
@@ -49,6 +51,10 @@ export default function ResponseCard({ businessName, logoUrl, facadeImageUrl, av
   const hasCoords = typeof vendorLatitude === 'number' && typeof vendorLongitude === 'number';
   const canNavigate = hasDistance && hasCoords;
   const unread = unreadCount ?? 0;
+  const offersDelivery = !!delivery?.offersDelivery;
+  const freeDelivery = offersDelivery && !!delivery?.freeInRadius;
+  const deliveryColor = freeDelivery ? DELIVERY_GREEN : DELIVERY_PURPLE;
+  const unreadColor = offersDelivery ? deliveryColor : '#E53935';
   const activeTags = (tags ?? []).filter(Boolean);
   const [logoError, setLogoError] = useState(false);
   const [logoModal, setLogoModal] = useState(false);
@@ -80,7 +86,7 @@ export default function ResponseCard({ businessName, logoUrl, facadeImageUrl, av
               <Text style={styles.name} numberOfLines={1}>{businessName ?? ''}</Text>
             )}
             {unread > 0 ? (
-              <View style={styles.unreadBadge}>
+              <View style={[styles.unreadBadge, { backgroundColor: unreadColor }]}>
                 <Text style={styles.unreadText}>{unread > 99 ? '99+' : String(unread)}</Text>
               </View>
             ) : null}
@@ -105,6 +111,14 @@ export default function ResponseCard({ businessName, logoUrl, facadeImageUrl, av
                 </View>
               )
             ) : null}
+            {offersDelivery ? (
+              <View style={[styles.deliveryChip, { backgroundColor: freeDelivery ? 'rgba(27,138,58,0.10)' : 'rgba(124,58,237,0.10)', borderColor: freeDelivery ? 'rgba(27,138,58,0.35)' : 'rgba(124,58,237,0.35)' }]}>
+                <Ionicons name={freeDelivery ? 'gift-outline' : 'bicycle-outline'} size={12} color={deliveryColor} />
+                <Text style={[styles.deliveryChipText, { color: deliveryColor }]}>
+                  {freeDelivery ? 'Envío Gratis' : 'Ofrece envío'}
+                </Text>
+              </View>
+            ) : null}
           </View>
         </View>
         {onTagPress ? (
@@ -113,17 +127,6 @@ export default function ResponseCard({ businessName, logoUrl, facadeImageUrl, av
           </Pressable>
         ) : null}
       </View>
-
-      {delivery?.offersDelivery ? (
-        <View style={styles.deliveryRow}>
-          <View style={[styles.deliveryChip, delivery?.freeInRadius ? styles.deliveryChipFree : styles.deliveryChipPaid]}>
-            <Ionicons name={delivery?.freeInRadius ? 'gift-outline' : 'bicycle-outline'} size={13} color={delivery?.freeInRadius ? '#1B8A3A' : '#0B6BB5'} />
-            <Text style={[styles.deliveryChipText, { color: delivery?.freeInRadius ? '#1B8A3A' : '#0B6BB5' }]}>
-              {delivery?.freeInRadius ? 'Envío gratis' : 'Ofrece envío'}
-            </Text>
-          </View>
-        </View>
-      ) : null}
 
       {activeTags.length > 0 ? (
         <View style={styles.tagsRow}>
