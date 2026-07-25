@@ -40,6 +40,7 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
   const [searchText, setSearchText] = useState('');
   const [locating, setLocating] = useState(false);
   const [quoting, setQuoting] = useState(false);
+  const [usedGps, setUsedGps] = useState(false);
 
   // Alerta de variación de costo (Req B)
   const [variation, setVariation] = useState(false);
@@ -56,6 +57,7 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
       setAddress('');
       setLocating(false);
       setQuoting(false);
+      setUsedGps(false);
       setVariation(false);
       setNeedsAccept(false);
       setAccepted(false);
@@ -119,6 +121,7 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
     if (!val || quoting || locating) return;
     if (/https?:\/\//i.test(val)) {
       // Es un enlace de Google Maps / WhatsApp → extraer coordenadas en el servidor
+      setUsedGps(false);
       await runQuote({ mapUrl: val });
       return;
     }
@@ -144,6 +147,7 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
       return;
     }
     setAddress(val);
+    setUsedGps(false);
     await runQuote({ dropoffLat: found.latitude, dropoffLng: found.longitude });
   }, [searchText, quoting, locating, runQuote]);
 
@@ -178,7 +182,8 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
       } catch {
         // Geocodificación inversa no disponible (p. ej. web)
       }
-      setAddress(readable || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+      setAddress(readable || '');
+      setUsedGps(true);
       setSearchText('');
       setLocating(false);
       await runQuote({ dropoffLat: lat, dropoffLng: lng });
@@ -303,7 +308,7 @@ export default function DeliveryOptionsSheet({ visible, data, busy, onConfirm, o
                       <Ionicons name="location" size={18} color={colors.primary} />
                       <View style={{ flex: 1 }}>
                         <Text style={styles.locAddr} numberOfLines={2}>
-                          {address || (coords ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : '')}
+                          {usedGps ? 'Mi ubicación actual' : (address || 'Ubicación seleccionada')}
                         </Text>
                         <Pressable onPress={openInMaps} hitSlop={6}>
                           <Text style={styles.locMapLink}>Ver en Google Maps</Text>

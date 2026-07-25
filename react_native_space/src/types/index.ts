@@ -262,6 +262,7 @@ export interface ChatInfo {
   requestSummary: string;
   otherUserName: string;
   vendorOffersDelivery?: boolean;
+  vendorFreeInRadius?: boolean;
   unreadCount?: number;
   createdAt: string;
 }

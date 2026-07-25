@@ -775,13 +775,13 @@ export default function ChatScreen() {
             <Text style={styles.headerName} numberOfLines={1}>{chatInfo?.otherUserName ?? 'Chat'}</Text>
             {isClient && chatInfo?.vendorOffersDelivery ? (
               <Pressable
-                style={styles.headerDeliveryBadge}
+                style={[styles.headerDeliveryBadge, { backgroundColor: chatInfo?.vendorFreeInRadius ? '#1B8A3A' : '#7C3AED' }]}
                 onPress={!isReadOnly && !hasActiveDelivery ? openDeliveryOptions : undefined}
                 disabled={isReadOnly || hasActiveDelivery || deliveryBusy}
                 hitSlop={6}
               >
-                <Ionicons name="bicycle" size={13} color={colors.accent} />
-                <Text style={styles.headerDeliveryBadgeText}>Ofrece envío</Text>
+                <Ionicons name={chatInfo?.vendorFreeInRadius ? 'gift' : 'bicycle'} size={13} color="#FFFFFF" />
+                <Text style={[styles.headerDeliveryBadgeText, { color: '#FFFFFF' }]}>{chatInfo?.vendorFreeInRadius ? 'Envío Gratis' : 'Ofrece envío'}</Text>
               </Pressable>
             ) : null}
           </View>
