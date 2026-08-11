@@ -21,6 +21,9 @@ import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module';
 import { CampaignModule } from './campaign/campaign.module';
 import { PromoPopupModule } from './promo-popup/promo-popup.module';
 import { DeliveryModule } from './delivery/delivery.module';
+import { SavedAddressModule } from './saved-address/saved-address.module';
+import { UserVehicleModule } from './user-vehicle/user-vehicle.module';
+import { PlacesModule } from './places/places.module';
 
 @Module({
   imports: [
@@ -45,6 +48,9 @@ import { DeliveryModule } from './delivery/delivery.module';
     CampaignModule,
     PromoPopupModule,
     DeliveryModule,
+    SavedAddressModule,
+    UserVehicleModule,
+    PlacesModule,
   ],
   controllers: [AppController],
 })

@@ -451,7 +451,7 @@ export class RequestsService {
           chatId: chat?.id ?? null,
           distanceKm,
           delivery: {
-            offersDelivery: (r.vendor.freeShippingEnabled === true) || (r.vendor.ownDeliveryEnabled === true),
+            offersDelivery: r.vendor.deliveryEnabled !== false && ((r.vendor.freeShippingEnabled === true) || (r.vendor.ownDeliveryEnabled === true)),
             freeInRadius:
               r.vendor.freeShippingEnabled === true &&
               typeof distanceKm === 'number' &&
@@ -955,6 +955,14 @@ export class RequestsService {
       create: { vendorId: vendor.id, totalRequestsAnswered: 1, lastActivityAt: new Date() },
     });
 
+    // If ALL matched vendors have now declined (and none responded), expand
+    // the search radius immediately instead of waiting for the 15-min cron.
+    try {
+      await this.maybeExpandAfterDecline(match.requestId);
+    } catch (err) {
+      this.logger.error('maybeExpandAfterDecline error', err as any);
+    }
+
     return { success: true };
   }
 
@@ -1022,131 +1030,9 @@ export class RequestsService {
 
     for (const request of eligible) {
       try {
-        const currentRadius = request.searchRadiusKm ?? request.originalRadiusKm ?? 5;
-        const newRadius = Math.min(currentRadius + RequestsService.EXPANSION_STEP_KM, RequestsService.MAX_RADIUS_KM);
-        const newExpansionCount = request.expansionCount + 1;
-        const hitMax = newRadius >= RequestsService.MAX_RADIUS_KM;
-
-        // Find NEW vendors in expanded radius (exclude already matched)
-        const alreadyMatchedIds = (request.requestVendorMatches ?? []).map((m: any) => m.vendorId);
-        const matchingConditions: any = {
-          isAvailable: true,
-          vendorVehicleModels: { some: { vehicleModelId: request.vehicleModelId } },
-          userId: { not: request.clientId },
-        };
-        if (alreadyMatchedIds.length > 0) {
-          matchingConditions.id = { notIn: alreadyMatchedIds };
-        }
-        if (request.partSubcategoryId) {
-          matchingConditions.vendorPartSubcategories = {
-            some: { partSubcategoryId: request.partSubcategoryId },
-          };
-        } else {
-          const subcats = await this.prisma.partSubcategory.findMany({
-            where: { categoryId: request.partCategoryId },
-            select: { id: true },
-          });
-          if (subcats.length > 0) {
-            matchingConditions.vendorPartSubcategories = {
-              some: { partSubcategoryId: { in: subcats.map((s: any) => s.id) } },
-            };
-          }
-        }
-
-        const candidates = await this.prisma.vendor.findMany({
-          where: matchingConditions,
-          select: { id: true, latitude: true, longitude: true, userId: true },
-        });
-
-        const clientLat = request.latitude as number;
-        const clientLng = request.longitude as number;
-
-        // Filter by new radius but exclude those within old radius (they weren't matched for a reason — plan limits etc.)
-        // Actually we should include all in new radius that aren't already matched
-        const newVendors = candidates.filter(
-          (v: any) =>
-            typeof v.latitude === 'number' &&
-            typeof v.longitude === 'number' &&
-            this.haversineKm(clientLat, clientLng, v.latitude, v.longitude) <= newRadius,
-        );
-
-        // Filter by plan limits
-        const eligibleNew: typeof newVendors = [];
-        for (const v of newVendors) {
-          const canReceive = await this.plansService.canReceiveRequests(v.id);
-          if (canReceive) eligibleNew.push(v);
-        }
-
-        // Update request radius
-        await this.prisma.request.update({
-          where: { id: request.id },
-          data: {
-            searchRadiusKm: newRadius,
-            expansionCount: newExpansionCount,
-            lastExpansionAt: new Date(),
-          },
-        });
-
-        // Create matches for new vendors
-        if (eligibleNew.length > 0) {
-          await this.prisma.requestVendorMatch.createMany({
-            data: eligibleNew.map((v: any) => ({
-              requestId: request.id,
-              vendorId: v.id,
-            })),
-            skipDuplicates: true,
-          });
-
-          // Increment metrics
-          await this.prisma.vendorMetrics.updateMany({
-            where: { vendorId: { in: eligibleNew.map((v: any) => v.id) } },
-            data: { totalRequestsReceived: { increment: 1 } },
-          });
-          for (const v of eligibleNew) {
-            this.plansService.incrementMonthlyCount(v.id).catch((err) =>
-              this.logger.error(`Failed to increment monthly count for vendor ${v.id}`, err),
-            );
-          }
-
-          // Push to new vendors
-          const vendorUserIds = eligibleNew.map((v: any) => v.userId);
-          const summary = `${request.vehicleBrand?.name ?? ''} ${request.vehicleModel?.name ?? ''} - ${request.partCategory?.name ?? ''}`;
-          const clientUser = await this.prisma.user.findUnique({
-            where: { id: request.clientId },
-            select: { firstName: true, lastName: true },
-          });
-          const clientName = `${clientUser?.firstName ?? ''} ${clientUser?.lastName ?? ''}`.trim() || 'Un cliente';
-          this.notificationService.sendToMultiple(
-            vendorUserIds,
-            `📩 ${clientName} creó una solicitud`,
-            summary,
-            { type: 'NEW_REQUEST', requestId: request.id },
-          ).catch((err) => this.logger.error('Push error (expansion new vendors)', err));
-        }
-
-        // Push to client about expansion
-        const originalKm = request.originalRadiusKm ?? currentRadius;
-        if (!hitMax) {
-          this.notificationService.sendToUser(
-            request.clientId,
-            '🔍 Ampliamos tu búsqueda',
-            `No encontramos vendedores en ${currentRadius} km. Ampliamos la búsqueda a ${newRadius} km para ayudarte.`,
-            { type: 'RADIUS_EXPANDED', requestId: request.id },
-          ).catch((err) => this.logger.error('Push error (expansion client)', err));
-        } else {
-          this.notificationService.sendToUser(
-            request.clientId,
-            '🌍 Última ampliación',
-            `Ahora buscamos en ${newRadius} km (máximo). Si no hay respuestas, te sugerimos crear otra solicitud.`,
-            { type: 'RADIUS_MAX_REACHED', requestId: request.id },
-          ).catch((err) => this.logger.error('Push error (expansion max)', err));
-          maxReached++;
-        }
-
-        this.logger.log(
-          `[RadiusExpansion] Request ${request.id}: ${currentRadius}km → ${newRadius}km, ${eligibleNew.length} new vendors matched`,
-        );
-        expanded++;
+        const res = await this.performExpansion(request);
+        if (res.expanded) expanded++;
+        if (res.hitMax) maxReached++;
       } catch (err) {
         this.logger.error(`[RadiusExpansion] Error expanding request ${request.id}`, err);
       }
@@ -1154,5 +1040,179 @@ export class RequestsService {
 
     this.logger.log(`[RadiusExpansion] Done: ${expanded} expanded, ${maxReached} hit max`);
     return { expanded, maxReached };
+  }
+
+  // Realiza UN paso de ampliación para una solicitud ya cargada (con includes:
+  // vehicleBrand, vehicleModel, partCategory, requestVendorMatches[{vendorId}]).
+  // Usada tanto por el cron (por tiempo) como por el disparo inmediato al declinar.
+  private async performExpansion(request: any): Promise<{ expanded: boolean; hitMax: boolean }> {
+    const currentRadius = request.searchRadiusKm ?? request.originalRadiusKm ?? 5;
+    const newRadius = Math.min(currentRadius + RequestsService.EXPANSION_STEP_KM, RequestsService.MAX_RADIUS_KM);
+    const newExpansionCount = request.expansionCount + 1;
+    const hitMax = newRadius >= RequestsService.MAX_RADIUS_KM;
+
+    // Find NEW vendors in expanded radius (exclude already matched)
+    const alreadyMatchedIds = (request.requestVendorMatches ?? []).map((m: any) => m.vendorId);
+    const matchingConditions: any = {
+      isAvailable: true,
+      vendorVehicleModels: { some: { vehicleModelId: request.vehicleModelId } },
+      userId: { not: request.clientId },
+    };
+    if (alreadyMatchedIds.length > 0) {
+      matchingConditions.id = { notIn: alreadyMatchedIds };
+    }
+    if (request.partSubcategoryId) {
+      matchingConditions.vendorPartSubcategories = {
+        some: { partSubcategoryId: request.partSubcategoryId },
+      };
+    } else {
+      const subcats = await this.prisma.partSubcategory.findMany({
+        where: { categoryId: request.partCategoryId },
+        select: { id: true },
+      });
+      if (subcats.length > 0) {
+        matchingConditions.vendorPartSubcategories = {
+          some: { partSubcategoryId: { in: subcats.map((s: any) => s.id) } },
+        };
+      }
+    }
+
+    const candidates = await this.prisma.vendor.findMany({
+      where: matchingConditions,
+      select: { id: true, latitude: true, longitude: true, userId: true },
+    });
+
+    const clientLat = request.latitude as number;
+    const clientLng = request.longitude as number;
+
+    // Todos los vendedores dentro del nuevo radio que aún no estaban emparejados.
+    const newVendors = candidates.filter(
+      (v: any) =>
+        typeof v.latitude === 'number' &&
+        typeof v.longitude === 'number' &&
+        this.haversineKm(clientLat, clientLng, v.latitude, v.longitude) <= newRadius,
+    );
+
+    // Filter by plan limits
+    const eligibleNew: typeof newVendors = [];
+    for (const v of newVendors) {
+      const canReceive = await this.plansService.canReceiveRequests(v.id);
+      if (canReceive) eligibleNew.push(v);
+    }
+
+    // Update request radius
+    await this.prisma.request.update({
+      where: { id: request.id },
+      data: {
+        searchRadiusKm: newRadius,
+        expansionCount: newExpansionCount,
+        lastExpansionAt: new Date(),
+      },
+    });
+
+    // Create matches for new vendors
+    if (eligibleNew.length > 0) {
+      await this.prisma.requestVendorMatch.createMany({
+        data: eligibleNew.map((v: any) => ({
+          requestId: request.id,
+          vendorId: v.id,
+        })),
+        skipDuplicates: true,
+      });
+
+      // Increment metrics
+      await this.prisma.vendorMetrics.updateMany({
+        where: { vendorId: { in: eligibleNew.map((v: any) => v.id) } },
+        data: { totalRequestsReceived: { increment: 1 } },
+      });
+      for (const v of eligibleNew) {
+        this.plansService.incrementMonthlyCount(v.id).catch((err) =>
+          this.logger.error(`Failed to increment monthly count for vendor ${v.id}`, err),
+        );
+      }
+
+      // Push to new vendors
+      const vendorUserIds = eligibleNew.map((v: any) => v.userId);
+      const summary = `${request.vehicleBrand?.name ?? ''} ${request.vehicleModel?.name ?? ''} - ${request.partCategory?.name ?? ''}`;
+      const clientUser = await this.prisma.user.findUnique({
+        where: { id: request.clientId },
+        select: { firstName: true, lastName: true },
+      });
+      const clientName = `${clientUser?.firstName ?? ''} ${clientUser?.lastName ?? ''}`.trim() || 'Un cliente';
+      this.notificationService.sendToMultiple(
+        vendorUserIds,
+        `📩 ${clientName} creó una solicitud`,
+        summary,
+        { type: 'NEW_REQUEST', requestId: request.id },
+      ).catch((err) => this.logger.error('Push error (expansion new vendors)', err));
+    }
+
+    // Push to client about expansion
+    if (!hitMax) {
+      this.notificationService.sendToUser(
+        request.clientId,
+        '🔍 Ampliamos tu búsqueda',
+        `No encontramos vendedores en ${currentRadius} km. Ampliamos la búsqueda a ${newRadius} km para ayudarte.`,
+        { type: 'RADIUS_EXPANDED', requestId: request.id },
+      ).catch((err) => this.logger.error('Push error (expansion client)', err));
+    } else {
+      this.notificationService.sendToUser(
+        request.clientId,
+        '🌍 Última ampliación',
+        `Ahora buscamos en ${newRadius} km (máximo). Si no hay respuestas, te sugerimos crear otra solicitud.`,
+        { type: 'RADIUS_MAX_REACHED', requestId: request.id },
+      ).catch((err) => this.logger.error('Push error (expansion max)', err));
+    }
+
+    this.logger.log(
+      `[RadiusExpansion] Request ${request.id}: ${currentRadius}km → ${newRadius}km, ${eligibleNew.length} new vendors matched`,
+    );
+    return { expanded: true, hitMax };
+  }
+
+  // Reacción inmediata cuando TODOS los vendedores emparejados declinaron y nadie
+  // respondió positivamente: amplía el radio de una vez (sin esperar los 15 min del
+  // cron) o, si ya se llegó al radio máximo, avisa al cliente que no hay más vendedores.
+  private async maybeExpandAfterDecline(requestId: string): Promise<void> {
+    const request = await this.prisma.request.findUnique({
+      where: { id: requestId },
+      include: {
+        vehicleBrand: true,
+        vehicleModel: true,
+        partCategory: true,
+        partSubcategory: true,
+        requestVendorMatches: { select: { vendorId: true, declined: true, responded: true } },
+      },
+    });
+    if (!request) return;
+    // Solo solicitudes abiertas/en proceso, basadas en GPS (radio) y con coordenadas.
+    if (request.status !== 'ABIERTA' && request.status !== 'EN_PROCESO') return;
+    if (request.originalRadiusKm == null || request.latitude == null || request.longitude == null) return;
+
+    const matches = request.requestVendorMatches ?? [];
+    if (matches.length === 0) return;
+    const anyResponded = matches.some((m: any) => m.responded);
+    const anyPending = matches.some((m: any) => !m.declined && !m.responded);
+    // Si alguien respondió, o todavía hay vendedores que pueden responder, no hacemos nada.
+    if (anyResponded || anyPending) return;
+
+    const currentRadius = request.searchRadiusKm ?? request.originalRadiusKm ?? 5;
+    const canExpand =
+      request.expansionCount < RequestsService.MAX_EXPANSIONS &&
+      currentRadius < RequestsService.MAX_RADIUS_KM;
+
+    if (canExpand) {
+      this.logger.log(`[Decline] Request ${requestId}: todos declinaron → ampliación inmediata`);
+      await this.performExpansion(request);
+    } else {
+      // Ya estamos en el radio máximo (o se agotaron las ampliaciones) y todos declinaron.
+      this.logger.log(`[Decline] Request ${requestId}: todos declinaron en radio máximo (${currentRadius} km)`);
+      this.notificationService.sendToUser(
+        request.clientId,
+        '😔 Sin vendedores disponibles',
+        `Todos los vendedores dentro de ${currentRadius} km declinaron tu solicitud y ya llegamos al radio máximo de búsqueda. Te sugerimos crear otra solicitud o intentar más tarde.`,
+        { type: 'NO_VENDORS_AVAILABLE', requestId },
+      ).catch((err) => this.logger.error('Push error (no vendors after decline)', err));
+    }
   }
 }

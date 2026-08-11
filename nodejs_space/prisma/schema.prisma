@@ -39,6 +39,8 @@ model User {
   clientRequests          Request[]
   responseTags            ResponseTag[]
   userRoles               UserRole[]
+  savedAddresses          SavedAddress[]
+  userVehicles            UserVehicle[]
   vendor                  Vendor?
 
   @@map("users")
@@ -105,6 +107,7 @@ model Vendor {
   freeShippingEnabled     Boolean                 @default(false) @map("free_shipping_enabled")
   freeShippingRadiusKm    Int?                    @map("free_shipping_radius_km")
   ownDeliveryEnabled      Boolean                 @default(false) @map("own_delivery_enabled")
+  deliveryEnabled         Boolean                 @default(true) @map("delivery_enabled")
   ownDeliveryCost         Float?                  @map("own_delivery_cost")
   ownDeliveryPricingMode  String?                 @default("FIXED") @map("own_delivery_pricing_mode")
   ownDeliveryPerKm        Float?                  @map("own_delivery_per_km")
@@ -152,6 +155,7 @@ model VehicleBrand {
   origin        String?
   requests      Request[]
   vehicleModels VehicleModel[]
+  userVehicles  UserVehicle[]
 
   @@map("vehicle_brands")
 }
@@ -163,6 +167,7 @@ model VehicleModel {
   requests            Request[]
   brand               VehicleBrand         @relation(fields: [brandId], references: [id])
   vendorVehicleModels VendorVehicleModel[]
+  userVehicles        UserVehicle[]
 
   @@unique([brandId, name])
   @@map("vehicle_models")
@@ -718,4 +723,38 @@ model DeliveryOrder {
   @@index([vendorId])
   @@index([clientId])
   @@map("delivery_orders")
+}
+
+model SavedAddress {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  label     String
+  address   String?
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, label])
+  @@index([userId])
+  @@map("saved_addresses")
+}
+
+model UserVehicle {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  vehicleBrandId String       @map("vehicle_brand_id") @db.Uuid
+  vehicleModelId String       @map("vehicle_model_id") @db.Uuid
+  year           Int?
+  nickname       String?
+  isDefault      Boolean      @default(false) @map("is_default")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleBrand   VehicleBrand @relation(fields: [vehicleBrandId], references: [id])
+  vehicleModel   VehicleModel @relation(fields: [vehicleModelId], references: [id])
+
+  @@index([userId])
+  @@map("user_vehicles")
 }

@@ -7,6 +7,7 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { AvailabilityDto } from './dto/availability.dto';
+import { DeliveryEnabledDto } from './dto/delivery-enabled.dto';
 import { CreateQuickReplyDto, UpdateQuickReplyDto, ReorderQuickRepliesDto } from './dto/quick-reply.dto';
 
 @ApiTags('Vendor')
@@ -35,6 +36,13 @@ export class VendorController {
   @ApiOperation({ summary: 'Toggle vendor availability' })
   toggleAvailability(@CurrentUser('id') userId: string, @Body() dto: AvailabilityDto) {
     return this.vendorService.toggleAvailability(userId, dto.isAvailable);
+  }
+
+  @Patch('delivery-enabled')
+  @Roles('VENDEDOR')
+  @ApiOperation({ summary: 'Toggle vendor delivery (envíos) master switch' })
+  toggleDeliveryEnabled(@CurrentUser('id') userId: string, @Body() dto: DeliveryEnabledDto) {
+    return this.vendorService.toggleDeliveryEnabled(userId, dto.deliveryEnabled);
   }
 
   @Get('dashboard')

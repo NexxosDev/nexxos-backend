@@ -52,6 +52,7 @@ export class VendorService {
       referencePoint: vendor.referencePoint,
       fullAddress: vendor.fullAddress,
       isAvailable: vendor.isAvailable,
+      deliveryEnabled: vendor.deliveryEnabled ?? true,
       freeShippingEnabled: vendor.freeShippingEnabled ?? false,
       freeShippingRadiusKm: vendor.freeShippingRadiusKm ?? null,
       ownDeliveryEnabled: vendor.ownDeliveryEnabled ?? false,
@@ -198,6 +199,16 @@ export class VendorService {
     return { isAvailable: updated.isAvailable };
   }
 
+  async toggleDeliveryEnabled(userId: string, deliveryEnabled: boolean) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
+    if (!vendor) throw new NotFoundException('Vendor profile not found');
+    const updated = await this.prisma.vendor.update({
+      where: { id: vendor.id },
+      data: { deliveryEnabled },
+    });
+    return { deliveryEnabled: updated.deliveryEnabled };
+  }
+
   async getDashboard(userId: string) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { userId },
@@ -240,6 +251,7 @@ export class VendorService {
     return {
       businessName: vendor.businessName,
       isAvailable: vendor.isAvailable,
+      deliveryEnabled: vendor.deliveryEnabled ?? true,
       metrics: vendor.vendorMetrics
         ? {
             totalRequestsReceived: vendor.vendorMetrics.totalRequestsReceived,

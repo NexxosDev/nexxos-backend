@@ -60,7 +60,7 @@ export class DeliveryService {
     const chat = await this.prisma.chat.findUnique({
       where: { id: chatId },
       include: {
-        vendor: { select: { id: true, userId: true, businessName: true, latitude: true, longitude: true, fullAddress: true, freeShippingEnabled: true, freeShippingRadiusKm: true, ownDeliveryEnabled: true, ownDeliveryCost: true, ownDeliveryPricingMode: true, ownDeliveryPerKm: true, ownDeliveryMaxKm: true, ownDeliveryFlatFromKm: true, ownDeliveryFlatCost: true } },
+        vendor: { select: { id: true, userId: true, businessName: true, latitude: true, longitude: true, fullAddress: true, deliveryEnabled: true, freeShippingEnabled: true, freeShippingRadiusKm: true, ownDeliveryEnabled: true, ownDeliveryCost: true, ownDeliveryPricingMode: true, ownDeliveryPerKm: true, ownDeliveryMaxKm: true, ownDeliveryFlatFromKm: true, ownDeliveryFlatCost: true } },
         request: { select: { id: true, latitude: true, longitude: true } },
       },
     });
@@ -122,11 +122,19 @@ export class DeliveryService {
       isFree: boolean;
     }> = [];
 
+    // Switch maestro de envíos: si el vendedor deshabilitó los envíos,
+    // no se ofrece NINGUNA opción, sin importar la configuración detallada.
+    if (v?.deliveryEnabled === false) {
+      return options;
+    }
+
     // 1) Envío gratis por radio (el vendedor lo absorbe)
+    let freeApplied = false;
     if (v?.freeShippingEnabled === true) {
       const radius = v.freeShippingRadiusKm ?? null;
       const withinRadius = distanceKm != null && radius != null ? distanceKm <= radius : false;
       if (withinRadius) {
+        freeApplied = true;
         options.push({
           provider: 'FREE_RADIUS',
           label: 'Envío gratis',
@@ -137,8 +145,11 @@ export class DeliveryService {
       }
     }
 
-    // 2) Servicio de entrega del vendedor
-    if (v?.ownDeliveryEnabled === true) {
+    // 2) Servicio de entrega del vendedor.
+    // Mutuamente excluyente con el envío gratis: si el cliente cae dentro del
+    // radio de envío gratis, NO se ofrece el servicio de entrega (pago), y
+    // viceversa (si no aplica gratis, solo se muestra el servicio de entrega).
+    if (v?.ownDeliveryEnabled === true && !freeApplied) {
       const isPerKm = (v?.ownDeliveryPricingMode ?? 'FIXED') === 'PER_KM';
       const maxKm = v?.ownDeliveryMaxKm ?? null;
       // Filtro de distancia máxima: si supera el límite, no se ofrece el servicio.
@@ -328,7 +339,7 @@ export class DeliveryService {
 
     // Evitar duplicados: una orden activa por chat
     const existing = await this.prisma.deliveryOrder.findFirst({
-      where: { chatId: dto.chatId, status: { in: ['SELECTED', 'CONFIRMED', 'IN_TRANSIT'] } },
+      where: { chatId: dto.chatId, status: { in: ['SELECTED', 'CONFIRMED'] } },
     });
     if (existing) throw new BadRequestException('Ya existe una orden de envío activa para este chat');
 
@@ -380,40 +391,36 @@ export class DeliveryService {
     return this.formatOrder(order);
   }
 
-  /** El vendedor avanza el estado del envío: CONFIRMED → IN_TRANSIT → DELIVERED */
+  /** El cliente marca el envío como entregado: CONFIRMED → DELIVERED */
   async updateStatus(orderId: string, userId: string, status: string) {
     const order = await this.prisma.deliveryOrder.findUnique({ where: { id: orderId } });
     if (!order) throw new NotFoundException('Orden de envío no encontrada');
-    const { chat, isVendor } = await this.verifyAccess(order.chatId, userId);
-    if (!isVendor) throw new ForbiddenException('Solo el vendedor puede actualizar el estado del envío');
+    const { chat, isClient } = await this.verifyAccess(order.chatId, userId);
+    if (!isClient) throw new ForbiddenException('Solo el cliente puede marcar el envío como entregado');
 
     if (order.status === 'CANCELED' || order.status === 'DELIVERED') {
       throw new BadRequestException('La orden ya está finalizada');
     }
 
-    const now = new Date();
-    const data: any = { status };
-    let label = '';
-    if (status === 'IN_TRANSIT') {
-      if (order.status !== 'CONFIRMED') throw new BadRequestException('Transición de estado inválida');
-      data.inTransitAt = now;
-      label = '🚚 Envío en camino';
-    } else if (status === 'DELIVERED') {
-      if (order.status !== 'IN_TRANSIT' && order.status !== 'CONFIRMED') throw new BadRequestException('Transición de estado inválida');
-      data.deliveredAt = now;
-      label = '📦 Envío entregado';
-    } else {
-      throw new BadRequestException('Estado inválido');
+    if (status !== 'DELIVERED') throw new BadRequestException('Estado inválido');
+    // Se admite CONFIRMED (o IN_TRANSIT heredado) como estado previo válido
+    if (order.status !== 'CONFIRMED' && order.status !== 'IN_TRANSIT') {
+      throw new BadRequestException('Transición de estado inválida');
     }
 
-    const updated = await this.prisma.deliveryOrder.update({ where: { id: orderId }, data });
+    const now = new Date();
+    const label = '📦 Envío entregado';
+    const updated = await this.prisma.deliveryOrder.update({
+      where: { id: orderId },
+      data: { status: 'DELIVERED', deliveredAt: now },
+    });
 
     await this.prisma.chatMessage.create({
       data: { chatId: order.chatId, senderId: userId, messageText: label, messageType: 'delivery_update', status: 'sent' },
     });
     await this.prisma.request.update({ where: { id: order.requestId }, data: { lastMessageAt: now } });
 
-    await this.pushIfAway(chat.clientId, order.chatId, 'Estado del envío', label, { type: 'NEW_MESSAGE', chatId: order.chatId });
+    await this.pushIfAway(chat.vendor?.userId, order.chatId, 'Estado del envío', label, { type: 'NEW_MESSAGE', chatId: order.chatId });
 
     return this.formatOrder(updated);
   }
@@ -427,7 +434,6 @@ export class DeliveryService {
     if (!isClient) throw new ForbiddenException('Solo el cliente puede cancelar el envío');
     if (order.status === 'CANCELED') throw new BadRequestException('La orden ya está cancelada');
     if (order.status === 'DELIVERED') throw new BadRequestException('No se puede cancelar un envío entregado');
-    if (order.status === 'IN_TRANSIT') throw new BadRequestException('No se puede cancelar un envío que ya está en camino');
 
     const now = new Date();
     const canceledBy = isClient ? 'CLIENT' : 'VENDOR';

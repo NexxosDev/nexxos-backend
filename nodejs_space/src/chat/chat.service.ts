@@ -145,11 +145,11 @@ export class ChatService {
     const r = chat.request;
     const requestSummary = `${r.vehicleBrand.name} ${r.vehicleModel.name} - ${r.partCategory.name}${r.partSubcategory ? ' / ' + r.partSubcategory.name : ''}`;
 
-    const vendorBiz = await this.prisma.vendor.findUnique({ where: { id: chat.vendorId }, select: { businessName: true, freeShippingEnabled: true, freeShippingRadiusKm: true, ownDeliveryEnabled: true, latitude: true, longitude: true } });
+    const vendorBiz = await this.prisma.vendor.findUnique({ where: { id: chat.vendorId }, select: { businessName: true, deliveryEnabled: true, freeShippingEnabled: true, freeShippingRadiusKm: true, ownDeliveryEnabled: true, latitude: true, longitude: true } });
     const otherUserName = isClient
       ? (vendorBiz?.businessName || `${chat.vendor.user.firstName} ${chat.vendor.user.lastName}`)
       : `${chat.client.firstName} ${chat.client.lastName}`;
-    const vendorOffersDelivery = (vendorBiz?.freeShippingEnabled === true) || (vendorBiz?.ownDeliveryEnabled === true);
+    const vendorOffersDelivery = vendorBiz?.deliveryEnabled !== false && ((vendorBiz?.freeShippingEnabled === true) || (vendorBiz?.ownDeliveryEnabled === true));
 
     // ¿El cliente cae dentro del radio de envío gratis? (verde vs púrpura en la UI)
     let vendorFreeInRadius = false;
