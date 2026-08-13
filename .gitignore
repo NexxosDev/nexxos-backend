@@ -22,3 +22,7 @@ out
 # Firebase credentials (secrets only - google-services.json is public config, must be tracked)
 .abacusai/fcm-service-account.json
 react_native_space/fcm-service-account.json
+
+# Secrets: never commit real .env (keep .env.example templates)
+**/.env
+!**/.env.example
