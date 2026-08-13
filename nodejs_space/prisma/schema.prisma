@@ -42,6 +42,10 @@ model User {
   savedAddresses          SavedAddress[]
   userVehicles            UserVehicle[]
   vendor                  Vendor?
+  blocksMade              UserBlock[]              @relation("BlocksMade")
+  blocksReceived          UserBlock[]              @relation("BlocksReceived")
+  reportsMade             Report[]                 @relation("ReportsMade")
+  reportsReceived         Report[]                 @relation("ReportsReceived")
 
   @@map("users")
 }
@@ -757,4 +761,37 @@ model UserVehicle {
 
   @@index([userId])
   @@map("user_vehicles")
+}
+
+model UserBlock {
+  id        String   @id @default(uuid()) @db.Uuid
+  blockerId String   @map("blocker_id") @db.Uuid
+  blockedId String   @map("blocked_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  blocker   User     @relation("BlocksMade", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("BlocksReceived", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+  @@map("user_blocks")
+}
+
+model Report {
+  id             String   @id @default(uuid()) @db.Uuid
+  reporterId     String   @map("reporter_id") @db.Uuid
+  reportedUserId String?  @map("reported_user_id") @db.Uuid
+  targetType     String   @map("target_type")
+  targetId       String?  @map("target_id")
+  reason         String
+  details        String?
+  status         String   @default("pending")
+  createdAt      DateTime @default(now()) @map("created_at")
+  reporter       User     @relation("ReportsMade", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser   User?    @relation("ReportsReceived", fields: [reportedUserId], references: [id], onDelete: SetNull)
+
+  @@index([reporterId])
+  @@index([reportedUserId])
+  @@index([status])
+  @@map("reports")
 }

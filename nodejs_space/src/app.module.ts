@@ -24,6 +24,7 @@ import { DeliveryModule } from './delivery/delivery.module';
 import { SavedAddressModule } from './saved-address/saved-address.module';
 import { UserVehicleModule } from './user-vehicle/user-vehicle.module';
 import { PlacesModule } from './places/places.module';
+import { ModerationModule } from './moderation/moderation.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { PlacesModule } from './places/places.module';
     SavedAddressModule,
     UserVehicleModule,
     PlacesModule,
+    ModerationModule,
   ],
   controllers: [AppController],
 })

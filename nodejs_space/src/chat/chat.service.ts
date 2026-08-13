@@ -219,6 +219,31 @@ export class ChatService {
   async sendMessage(chatId: string, userId: string, messageText: string, messageType = 'text', imageUrl?: string, replyToId?: string, latitude?: number, longitude?: number, addressText?: string, audioUrl?: string, audioDuration?: number) {
     const { chat, isClient, isVendor, vendorRecord } = await this.verifyAccess(chatId, userId);
 
+    // Bloqueo (UGC): no permitir enviar si existe bloqueo en cualquier dirección.
+    const otherUserId = isClient ? chat.vendor?.userId : chat.clientId;
+    if (otherUserId) {
+      let blocked: { id: string } | null = null;
+      try {
+        blocked = await this.prisma.userBlock.findFirst({
+          where: {
+            OR: [
+              { blockerId: userId, blockedId: otherUserId },
+              { blockerId: otherUserId, blockedId: userId },
+            ],
+          },
+          select: { id: true },
+        });
+      } catch (e) {
+        // Si la tabla de bloqueos aún no existe en el entorno (ej. migración pendiente),
+        // no interrumpimos el envío de mensajes: registramos y continuamos.
+        this.logger.warn(`No se pudo verificar bloqueo (¿tabla user_blocks pendiente?): ${(e as Error)?.message ?? e}`);
+        blocked = null;
+      }
+      if (blocked) {
+        throw new ForbiddenException('No puedes enviar mensajes en esta conversación porque existe un bloqueo entre los usuarios.');
+      }
+    }
+
     const now = new Date();
     const [message] = await this.prisma.$transaction([
       this.prisma.chatMessage.create({
