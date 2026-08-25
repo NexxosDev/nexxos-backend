@@ -18,6 +18,10 @@ async function bootstrap() {
     bodyParser: true,
   });
 
+  // Trust the reverse proxy (Render/Cloudflare) so req.ip reflects the real
+  // client IP — required for per-IP rate limiting to work correctly.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   // Increase body size limit to 50MB for base64 image uploads (identity verification)
   app.use(require('express').json({ limit: '50mb' }));
   app.use(require('express').urlencoded({ extended: true, limit: '50mb' }));

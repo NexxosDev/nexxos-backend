@@ -151,11 +151,61 @@ export class AuthService {
     });
     if (!user) throw new UnauthorizedException('Credenciales inválidas');
 
+    // ── Bloqueo temporal por intentos fallidos ──
+    const LOCK_THRESHOLD = 5; // intentos antes de bloquear
+    const LOCK_MINUTES = 15; // duración del bloqueo
+    const lockedUntil: Date | null = (user as any).lockedUntil ?? null;
+    if (lockedUntil && lockedUntil > new Date()) {
+      const minsLeft = Math.max(1, Math.ceil((lockedUntil.getTime() - Date.now()) / 60000));
+      throw new UnauthorizedException(
+        `Cuenta bloqueada temporalmente por demasiados intentos fallidos. Intenta de nuevo en ${minsLeft} minuto(s) o restablece tu contraseña.`,
+      );
+    }
+
     const valid = await bcrypt.compare(dto.password, user.password);
-    if (!valid) throw new UnauthorizedException('Credenciales inválidas');
+    if (!valid) {
+      // Incrementa contador y bloquea al alcanzar el umbral. Envuelto en
+      // try/catch para degradar con gracia si las columnas aún no existen.
+      try {
+        const currentFails = ((user as any).failedLoginAttempts ?? 0) + 1;
+        if (currentFails >= LOCK_THRESHOLD) {
+          await this.prisma.user.update({
+            where: { id: user.id },
+            data: {
+              failedLoginAttempts: 0,
+              lockedUntil: new Date(Date.now() + LOCK_MINUTES * 60000),
+            } as any,
+          });
+          this.logger.warn(`Account locked after ${currentFails} failed attempts: ${user.email}`);
+          throw new UnauthorizedException(
+            `Cuenta bloqueada temporalmente por demasiados intentos fallidos. Intenta de nuevo en ${LOCK_MINUTES} minutos o restablece tu contraseña.`,
+          );
+        }
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { failedLoginAttempts: currentFails } as any,
+        });
+      } catch (e: any) {
+        if (e instanceof UnauthorizedException) throw e;
+        this.logger.warn(`No se pudo actualizar failedLoginAttempts (¿columnas faltantes?): ${e?.message ?? e}`);
+      }
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
 
     if (user.deletedAt) throw new UnauthorizedException('Esta cuenta ha sido eliminada');
     if (!user.isActive) throw new UnauthorizedException('Tu cuenta ha sido desactivada');
+
+    // Login exitoso: reinicia el contador/bloqueo si hacía falta.
+    if (((user as any).failedLoginAttempts ?? 0) > 0 || lockedUntil) {
+      try {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { failedLoginAttempts: 0, lockedUntil: null } as any,
+        });
+      } catch (e: any) {
+        this.logger.warn(`No se pudo reiniciar failedLoginAttempts: ${e?.message ?? e}`);
+      }
+    }
 
     const token = this.generateToken(user.id, user.email);
     this.logger.log(`User logged in: ${user.email}`);

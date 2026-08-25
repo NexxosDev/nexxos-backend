@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Delete, Body, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { PasswordResetService } from './password-reset.service';
@@ -20,12 +21,14 @@ export class AuthController {
   ) {}
 
   @Post('signup')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Register a new user (CLIENTE or VENDEDOR)' })
   signup(@Body() dto: SignupDto) {
     return this.authService.signup(dto);
   }
 
   @Post('auth/login')
+  @Throttle({ default: { limit: 7, ttl: 60000 } })
   @ApiOperation({ summary: 'Login with email and password' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
@@ -40,6 +43,7 @@ export class AuthController {
   }
 
   @Post('auth/forgot-password')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Send 6-digit password reset code to email' })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     const result = await this.passwordResetService.sendResetCode(dto.email);
