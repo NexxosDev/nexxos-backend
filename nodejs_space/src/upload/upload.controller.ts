@@ -58,8 +58,8 @@ export class UploadController {
   @Get('files/:id/url')
   @ApiOperation({ summary: 'Get file URL' })
   @ApiQuery({ name: 'mode', required: false, enum: ['view', 'download'] })
-  getFileUrl(@Param('id') id: string, @Query('mode') mode?: string) {
-    return this.uploadService.getFileUrlById(id, mode || 'view');
+  getFileUrl(@CurrentUser('id') userId: string, @Param('id') id: string, @Query('mode') mode?: string) {
+    return this.uploadService.getFileUrlById(id, mode || 'view', userId);
   }
 }
 

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { generatePresignedUploadUrl, getFileUrl, fileExistsInS3, uploadBufferToS3 } from '../lib/s3';
 
@@ -72,9 +72,15 @@ export class UploadService {
     }
   }
 
-  async getFileUrlById(fileId: string, mode: string) {
+  async getFileUrlById(fileId: string, mode: string, userId: string) {
     const file = await this.prisma.file.findUnique({ where: { id: fileId } });
     if (!file) throw new NotFoundException('File not found');
+    // IDOR protection: private files are only accessible by their owner.
+    // Public files are safe to serve to any authenticated user.
+    if (!file.isPublic && file.userId !== userId) {
+      this.logger.warn(`Blocked IDOR attempt: user ${userId} requested private file ${fileId} owned by ${file.userId}`);
+      throw new ForbiddenException('No autorizado para acceder a este archivo');
+    }
     const url = await getFileUrl(file.cloudStoragePath, file.isPublic, this.prisma);
     return { url };
   }
