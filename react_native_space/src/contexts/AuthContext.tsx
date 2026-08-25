@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { loginApi, signupApi, getMeApi } from '../services/auth';
+import { loginApi, signupApi, getMeApi, logoutApi } from '../services/auth';
 import { getToken, setToken, removeToken } from '../services/token';
 import { setOnUnauthorized } from '../services/api';
 import { registerForPushNotifications, unregisterPushToken } from '../services/pushNotifications';
@@ -116,6 +116,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    // Revoke the token server-side (bumps tokenVersion) before clearing locally.
+    // Best-effort: never block local logout on a network/API failure.
+    try {
+      await logoutApi();
+    } catch {}
     await clearAuth();
   }, [clearAuth]);
 

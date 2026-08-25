@@ -17,13 +17,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; email: string }) {
+  async validate(payload: { sub: string; email: string; tokenVersion?: number }) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       include: { userRoles: { include: { role: true } } },
     });
     if (!user || !user.isActive) {
       throw new UnauthorizedException();
+    }
+    // Session revocation: reject tokens whose version is stale (logout /
+    // password reset / account deletion bump user.tokenVersion).
+    if ((payload.tokenVersion ?? 0) !== (user.tokenVersion ?? 0)) {
+      throw new UnauthorizedException('Session expired');
     }
     return {
       id: user.id,

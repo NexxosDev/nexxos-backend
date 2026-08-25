@@ -42,6 +42,14 @@ export class AuthController {
     return this.authService.getMe(userId);
   }
 
+  @Post('auth/logout')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Logout — revokes all tokens issued for this user' })
+  logout(@CurrentUser('id') userId: string) {
+    return this.authService.logout(userId);
+  }
+
   @Post('auth/forgot-password')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Send 6-digit password reset code to email' })

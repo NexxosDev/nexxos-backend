@@ -125,7 +125,7 @@ export class AuthService {
     // Email was already pre-verified via registration code, no need to send post-signup verification
     this.logger.log(`Email pre-verified for ${user.email}, skipping post-signup verification`);
 
-    const token = this.generateToken(user.id, user.email);
+    const token = this.generateToken(user.id, user.email, (user as any).tokenVersion ?? 0);
     this.logger.log(`User registered: ${user.email}`);
 
     return {
@@ -207,7 +207,7 @@ export class AuthService {
       }
     }
 
-    const token = this.generateToken(user.id, user.email);
+    const token = this.generateToken(user.id, user.email, (user as any).tokenVersion ?? 0);
     this.logger.log(`User logged in: ${user.email}`);
 
     return {
@@ -427,6 +427,7 @@ export class AuthService {
         isActive: false,
         emailVerified: false,
         deletedAt: new Date(),
+        tokenVersion: { increment: 1 },
       },
     });
 
@@ -495,7 +496,17 @@ export class AuthService {
     }
   }
 
-  private generateToken(userId: string, email: string): string {
-    return this.jwtService.sign({ sub: userId, email });
+  private generateToken(userId: string, email: string, tokenVersion: number = 0): string {
+    return this.jwtService.sign({ sub: userId, email, tokenVersion });
+  }
+
+  /** Invalidates all currently-issued JWTs for a user by bumping tokenVersion. */
+  async logout(userId: string): Promise<{ success: boolean }> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { tokenVersion: { increment: 1 } },
+    });
+    this.logger.log(`User logged out (tokens revoked): ${userId}`);
+    return { success: true };
   }
 }

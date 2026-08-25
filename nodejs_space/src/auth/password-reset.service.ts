@@ -169,7 +169,8 @@ export class PasswordResetService {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { password: hashedPassword },
+      // Bump tokenVersion so any JWT issued before the password reset is revoked.
+      data: { password: hashedPassword, tokenVersion: { increment: 1 } },
     });
 
     // Clean up codes

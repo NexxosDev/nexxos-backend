@@ -117,3 +117,8 @@ export async function deleteAccountApi(): Promise<{ success: boolean; message: s
   const res = await api.delete('/auth/account');
   return res?.data;
 }
+
+export async function logoutApi(): Promise<{ success: boolean }> {
+  const res = await api.post('/auth/logout');
+  return res?.data;
+}
