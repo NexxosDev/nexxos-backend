@@ -88,6 +88,49 @@ export class LegalHtmlController {
     }
   }
 
+  @Get('eliminar-cuenta')
+  @ApiExcludeEndpoint()
+  async getEliminarCuenta(@Res() res: Response) {
+    const content = `
+      <div class="date">Última actualización: agosto 2026</div>
+      <p>Esta página explica cómo los usuarios de la aplicación <strong>Nexxos</strong>, desarrollada por
+      <strong>Nexxos App ve, C.A.</strong> (RIF J-50853192-2), pueden solicitar la eliminación de su cuenta
+      y de los datos asociados.</p>
+
+      <h2>Opción 1: Eliminar tu cuenta desde la app</h2>
+      <ol>
+        <li>Abre la aplicación <strong>Nexxos</strong> e inicia sesión.</li>
+        <li>Ve a la pestaña <strong>Perfil</strong>.</li>
+        <li>Selecciona <strong>Eliminar cuenta</strong>.</li>
+        <li>Confirma la acción. Tu cuenta y tus datos se eliminarán de forma permanente.</li>
+      </ol>
+
+      <h2>Opción 2: Solicitarlo por correo</h2>
+      <p>Si no puedes acceder a la app, escríbenos a
+      <a href="mailto:soporte@nexxos.app">soporte@nexxos.app</a> desde el correo con el que te registraste,
+      indicando en el asunto <strong>"Eliminar cuenta"</strong>. Procesaremos tu solicitud en un plazo
+      máximo de 30 días.</p>
+
+      <h2>Datos que se eliminan</h2>
+      <p>Al eliminar tu cuenta, borramos de forma permanente:</p>
+      <ul>
+        <li>Tu información de perfil: nombre, correo electrónico, teléfono y documento de identidad.</li>
+        <li>Tus solicitudes de repuestos, mensajes de chat, fotos y notas de voz.</li>
+        <li>Tu ubicación y tus direcciones guardadas.</li>
+        <li>Tus tokens de notificaciones y datos de sesión.</li>
+      </ul>
+
+      <h2>Datos que podemos conservar</h2>
+      <p>Por obligaciones legales, contables o de prevención de fraude, podemos conservar durante un período
+      limitado (hasta <strong>5 años</strong>) ciertos registros de transacciones o facturación exigidos por
+      la ley venezolana. Estos datos se mantienen de forma segura y se eliminan una vez cumplido el plazo legal.</p>
+
+      <p>Para cualquier duda sobre el tratamiento de tus datos, consulta nuestra
+      <a href="/privacidad">Política de Privacidad</a>.</p>
+    `;
+    res.type('html').send(this.wrapHtml('Eliminar Cuenta', content));
+  }
+
   private wrapHtml(title: string, content: string): string {
     return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title} — NEXXOS</title>${PAGE_STYLE}</head><body><div class="container">
