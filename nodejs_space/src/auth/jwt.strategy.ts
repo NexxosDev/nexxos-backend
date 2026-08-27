@@ -22,7 +22,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       where: { id: payload.sub },
       include: { userRoles: { include: { role: true } } },
     });
-    if (!user || !user.isActive) {
+    if (!user || !user.isActive || user.deletedAt) {
       throw new UnauthorizedException();
     }
     // Session revocation: reject tokens whose version is stale (logout /

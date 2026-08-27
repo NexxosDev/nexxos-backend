@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { timingSafeEqual } from 'crypto';
 
 /**
  * Protege endpoints que son invocados por un cron externo.
@@ -25,9 +26,19 @@ export class CronGuard implements CanActivate {
     const header: string = req.headers?.authorization ?? '';
     const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
 
-    if (!token || token !== secret) {
+    if (!token || !this.safeEqual(token, secret)) {
       throw new UnauthorizedException('Secreto de cron inválido');
     }
     return true;
+  }
+
+  /** Comparación en tiempo constante para evitar ataques de temporización. */
+  private safeEqual(a: string, b: string): boolean {
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+    if (bufA.length !== bufB.length) {
+      return false;
+    }
+    return timingSafeEqual(bufA, bufB);
   }
 }
